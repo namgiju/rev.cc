@@ -2,7 +2,7 @@ server:
   port: 8080
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/revcc
+    url: jdbc:postgresql://localhost:5433/revcc
     username: revcc
     password: revcc
   jpa:
