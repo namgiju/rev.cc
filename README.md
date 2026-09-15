@@ -1,11 +1,21 @@
 # REV.CC starter
 
+## Docker 과제 (`docker-assignment`)
+
+6개 컨테이너 실행, Redis 공유 로그인, API 및 테스트 설명: [ASSIGNMENT.md](ASSIGNMENT.md)
+
+```sh
+docker compose up -d --build --wait
+# http://localhost:8090
+```
+
+
 자동차 오너 커뮤니티 MVP 초안입니다.
 
 ## 포함된 것
 - `prototype/index.html`: 브라우저에서 바로 열어볼 수 있는 정적 UI 시안
 - `frontend/`: Next.js 기반 프론트엔드 스타터
-- `backend/`: Java 25 + Spring Boot REST API 스타터
+- `backend/`: Java 23 + Spring Boot REST API 스타터
 - `docker-compose.yml`: PostgreSQL 개발 DB
 
 ## 핵심 서비스 방향
@@ -20,7 +30,7 @@
 ## 풀스택 실행
 ### DB
 ```bash
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis
 ```
 
 ### Spring Boot

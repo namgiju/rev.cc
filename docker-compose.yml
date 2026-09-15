@@ -1,13 +1,100 @@
+# 단일 진입점: 호스트에는 proxy만 노출한다. DB 볼륨 이름은 기존 설정을 유지한다.
 services:
+  proxy:
+    build: ./nginx
+    image: revcc-proxy:assignment
+    container_name: revcc-proxy
+    ports:
+      - "${REVCC_PORT:-8090}:80"
+    depends_on:
+      frontend:
+        condition: service_healthy
+      core:
+        condition: service_healthy
+      board:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  frontend:
+    build: ./assignment-frontend
+    image: revcc-frontend:assignment
+    container_name: revcc-frontend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  core:
+    build: ./backend
+    image: revcc-core:assignment
+    container_name: revcc-core
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/revcc
+      POSTGRES_USER: revcc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-revcc}
+      REDIS_HOST: redis
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/vehicles"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+  board:
+    build: ./board-service
+    image: revcc-board:assignment
+    container_name: revcc-board
+    environment:
+      PGHOST: postgres
+      PGDATABASE: revcc
+      PGUSER: revcc
+      PGPASSWORD: ${POSTGRES_PASSWORD:-revcc}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    container_name: revcc-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   postgres:
     image: postgres:16
+    container_name: revcc-postgres
     environment:
       POSTGRES_DB: revcc
       POSTGRES_USER: revcc
-      POSTGRES_PASSWORD: revcc
-    ports:
-      - "5433:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-revcc}
     volumes:
       - revcc_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revcc -d revcc"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 volumes:
+  # 기존 revcc-site_revcc_pg를 재사용한다. down -v는 데이터를 삭제하므로 금지.
   revcc_pg:
+
+# 기본 네트워크를 명시적인 사용자 정의 bridge로 만들어 inspect 시연이 가능하다.
+# 모든 서비스가 이 네트워크에 자동 연결되며 호스트 공개 포트는 proxy에만 있다.
+networks:
+  default:
+    name: revcc-network
+    driver: bridge

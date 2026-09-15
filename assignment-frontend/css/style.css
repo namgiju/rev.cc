@@ -1,0 +1,168 @@
+/* 프레임워크 없는 반응형 레이아웃. 모바일에서는 카드를 한 열로 배치한다. */
+:root {
+  color-scheme:dark;
+  font-family:Arial,'Apple SD Gothic Neo',sans-serif;
+  background:#101312;
+  color:#edf1ea;
+  line-height:1.6;
+}
+
+
+* {
+  box-sizing:border-box;
+}
+
+body {
+  margin:0;
+}
+
+header,main,footer {
+  max-width:1120px;
+  margin:auto;
+  padding:24px;
+}
+
+header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid #343a34;
+}
+
+header>span,.eyebrow {
+  font-size:12px;
+  letter-spacing:2px;
+  color:#b0baac;
+}
+
+.logo {
+  font-weight:900;
+  font-size:30px;
+  color:inherit;
+  text-decoration:none;
+}
+
+.logo span {
+  color:#c4f46a;
+}
+
+.hero {
+  padding:55px 0 35px;
+}
+
+h1 {
+  font-size:clamp(28px,5vw,52px);
+  line-height:1.2;
+  margin:15px 0;
+}
+
+h2 {
+  font-size:18px;
+  margin-top:0;
+}
+
+.grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px;
+}
+
+.card {
+  background:#1b201c;
+  border:1px solid #343d33;
+  border-radius:14px;
+  padding:26px;
+}
+
+.community {
+  margin-top:24px;
+}
+
+label {
+  display:block;
+  margin:12px 0;
+  font-size:14px;
+}
+
+input,textarea,select {
+  display:block;
+  width:100%;
+  background:#101611;
+  color:inherit;
+  border:1px solid #4e5c47;
+  border-radius:6px;
+  padding:12px;
+  margin-top:5px;
+  font:inherit;
+}
+
+button {
+  background:#c4f46a;
+  color:#17210b;
+  border:0;
+  padding:12px 22px;
+  border-radius:6px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.secondary {
+  background:#333e30;
+  color:#edf1ea;
+}
+
+.actions {
+  display:flex;
+  gap:12px;
+}
+
+.session,small,footer {
+  font-size:13px;
+  color:#b0baac;
+}
+
+.vehicle,article {
+  padding:16px 0;
+  border-top:1px solid #343d33;
+}
+
+article p {
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+
+article h3 {
+  overflow-wrap:anywhere;
+}
+
+#notice {
+  color:#c4f46a;
+  min-height:26px;
+}
+
+button:disabled {
+  opacity:.5;
+  cursor:wait;
+}
+
+:focus-visible {
+  outline:2px solid #c4f46a;
+  outline-offset:3px;
+}
+
+@media(max-width:700px) {
+  .grid {
+  grid-template-columns:1fr;
+}
+
+header>span {
+  display:none;
+}
+
+.card {
+  padding:20px;
+}
+
+}
+
+

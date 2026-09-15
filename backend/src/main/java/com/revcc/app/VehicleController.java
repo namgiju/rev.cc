@@ -5,9 +5,14 @@ import java.util.List;
 @RequestMapping("/api/vehicles")
 @CrossOrigin(origins = "http://localhost:3000")
 public class VehicleController {
+  private final VehicleRepository repository;
+
+  // 저장소를 주입하여 응답 JSON은 유지하면서 영구 데이터로 조회한다.
+  public VehicleController(VehicleRepository repository) { this.repository = repository; }
+
   @GetMapping
   public List<VehicleResponse> vehicles(){
-    return List.of(new VehicleResponse(1L,"Hyundai","Avante N",2024,280),new VehicleResponse(2L,"BMW","320i",2018,184));
+    return repository.findAll();
   }
   public record VehicleResponse(Long id,String brand,String model,int year,int power){}
 }

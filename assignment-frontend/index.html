@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REV.CC | Garage & Community</title>
+  <link rel="stylesheet" href="/css/style.css"><script src="/js/app.js" defer></script>
+</head>
+<body>
+  <!-- 개인 Next.js 프로젝트와 독립적인 과제 전용 화면이다. -->
+  <header><a href="/" class="logo">REV<span>.CC</span></a><span>GARAGE & COMMUNITY</span></header>
+  <main>
+    <section class="hero"><p class="eyebrow">FOR THE LOVE OF DRIVING</p><h1>당신의 차, 우리의 이야기.</h1><p>차량을 살펴보고, 부품을 찾아보고, 오너들과 이야기를 나누세요.</p></section>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <div class="grid">
+      <section class="card"><h2>01 / 오너 로그인</h2>
+        <form id="auth-form"><label>아이디<input name="username" required maxlength="100" autocomplete="username"></label>
+          <label>비밀번호<input name="password" type="password" required maxlength="72" autocomplete="current-password"></label>
+          <div class="actions"><button type="submit">로그인</button><button type="button" id="signup" class="secondary">회원가입</button></div></form>
+        <button id="logout" class="secondary" hidden>로그아웃</button>
+        <div class="session"><p>Spring Boot: <strong id="core-user">확인 중</strong></p><p>Express: <strong id="board-user">확인 중</strong></p></div>
+      </section>
+      <section class="card"><h2>02 / Garage</h2><div id="vehicles"></div>
+        <label>부품 호환 차량<select id="vehicle-select"><option value="">차량을 선택하세요</option></select></label>
+        <ul id="parts"></ul><small>과제 시연용 예시입니다. 실제 장착 전 제조사 규격을 확인하세요.</small>
+      </section>
+    </div>
+    <section class="card community"><h2>03 / 자동차 부품 게시판</h2>
+      <form id="post-form"><label>제목<input name="title" required maxlength="150" placeholder="부품명과 호환 차량을 제목에 적어주세요"></label>
+        <label>내용<textarea name="content" required maxlength="5000" rows="4"></textarea></label><button type="submit">게시글 등록</button></form>
+      <div id="posts"></div>
+    </section>
+  </main><footer>REV.CC — Built for car people.</footer>
+</body>
+</html>

@@ -2,10 +2,19 @@ server:
   port: 8080
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/revcc
-    username: revcc
-    password: revcc
+    # 로컬 개발 기본값. Compose에서는 컨테이너 DNS 이름으로 덮어쓴다.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/revcc}
+    username: ${POSTGRES_USER:revcc}
+    password: ${POSTGRES_PASSWORD:revcc}
   jpa:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+# Spring Session의 Java 직렬화 대신 Express도 읽을 수 있는 JSON 계약을 사용한다.
+app:
+  session:
+    secure: ${SESSION_COOKIE_SECURE:false}
