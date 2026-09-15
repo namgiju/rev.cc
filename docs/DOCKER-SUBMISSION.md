@@ -123,26 +123,32 @@ Compose 실행에서는 `python3 scripts/assignment-system.py`가 실제 세션 
 
 ## 6. Docker Hub 제출
 
-Docker Hub 계정명과 공개 저장소가 필요하다. 아래의 YOUR_DOCKERHUB_ID를 실제 계정명으로
-바꾼다. 현재 로컬 이미지는 완성되어 있지만 원격 push는 아직 실행하지 않았다.
+Docker Hub 계정 `giju1`에 4개 이미지를 모두 push 완료했다 (Apple Silicon에서 빌드한
+linux/arm64 단일 플랫폼 이미지).
 
 ```sh
 docker login
-export REVCC_HUB=YOUR_DOCKERHUB_ID
+export REVCC_HUB=giju1
 for component in proxy frontend core board; do
-  docker tag "revcc-$component:assignment" "$REVCC_HUB/revcc-$component:assignment"
-  docker push "$REVCC_HUB/revcc-$component:assignment"
+  docker tag "revcc-${component}:assignment" "$REVCC_HUB/revcc-${component}:assignment"
+  docker push "$REVCC_HUB/revcc-${component}:assignment"
 done
 ```
 
-제출 링크는 `https://hub.docker.com/r/<계정명>/revcc-core` 등의 4개 저장소다.
+제출 링크:
+
+- https://hub.docker.com/r/giju1/revcc-proxy
+- https://hub.docker.com/r/giju1/revcc-frontend
+- https://hub.docker.com/r/giju1/revcc-core
+- https://hub.docker.com/r/giju1/revcc-board
+
 PostgreSQL과 Redis는 공식 `postgres:16`, `redis:7-alpine` 이미지를 사용한다.
 다른 ARM 컴퓨터에서는 pull 후 로컬 태그를 맞추면 동일한 run 스크립트를 사용할 수 있다:
 
 ```sh
 for component in proxy frontend core board; do
-  docker pull "$REVCC_HUB/revcc-$component:assignment"
-  docker tag "$REVCC_HUB/revcc-$component:assignment" "revcc-$component:assignment"
+  docker pull "$REVCC_HUB/revcc-${component}:assignment"
+  docker tag "$REVCC_HUB/revcc-${component}:assignment" "revcc-${component}:assignment"
 done
 ```
 
@@ -156,7 +162,9 @@ docker buildx build --platform linux/amd64,linux/arm64 -t "$REVCC_HUB/revcc-fron
 docker buildx build --platform linux/amd64,linux/arm64 -t "$REVCC_HUB/revcc-proxy:assignment" --push ./nginx
 ```
 
-멀티 플랫폼 원격 게시 및 x86 실행은 아직 검증하지 않았다. 이 환경에서의 검증은 Apple Silicon ARM 실행이다.
+멀티 플랫폼 원격 게시 및 x86 실행은 아직 검증하지 않았다. 이 환경에서의 검증은 Apple Silicon ARM 실행이며,
+Docker Hub에 올라간 이미지도 현재는 linux/arm64 단일 플랫폼이다. 교수님 PC가 x86이라면 위
+buildx 멀티 플랫폼 빌드로 다시 게시해야 한다.
 
 참고: [Docker 사용자 정의 bridge](https://docs.docker.com/engine/network/drivers/bridge/),
 [공식 멀티 플랫폼 빌드 안내](https://docs.docker.com/build/building/multi-platform/).
