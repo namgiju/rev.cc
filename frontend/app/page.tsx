@@ -70,7 +70,7 @@ export default function Home() {
 		</header>
 		{view === 'login' || view === 'signup' ? <AuthView mode={view} onSubmit={handleAuth} onChangeMode={setView} /> : <>
 			<section className="hero"><div><small>자동차 오너 커뮤니티</small><h1>차를 좋아하는 사람들의<br/>진짜 공간.</h1><p>내 차를 프로필로 만들고, 같은 차를 타는 사람들과 정보를 나누고 부품을 거래하세요.</p></div>{loggedIn ? <GarageCard photo={garagePhoto} nicePhoto={nicePhoto} onPhotoChange={setGaragePhoto} onToggleNicePhoto={() => setNicePhoto(current => !current)} /> : <GuestGarageCard onSignup={() => setView('signup')} />}</section>
-			{view === 'community' && <CommunityView posts={posts} loggedIn={loggedIn} isAdmin={isAdmin} onCreatePost={handleCreatePost} onAddComment={handleAddComment} onDeletePost={handleDeletePost} onDeleteComment={handleDeleteComment} />}
+			{view === 'community' && <CommunityView posts={posts} loggedIn={loggedIn} isAdmin={isAdmin} onCreatePost={handleCreatePost} onAddComment={handleAddComment} onDeletePost={handleDeletePost} onDeleteComment={handleDeleteComment} onOpenLogin={() => setView('login')} />}
 			{view === 'garage' && <GarageView photo={garagePhoto} nicePhoto={nicePhoto} onPhotoChange={setGaragePhoto} onToggleNicePhoto={() => setNicePhoto(current => !current)} />}
 			{view === 'parts' && <ContentView title="부품장터" description="내 차에 맞는 부품을 찾아보세요." body="Avante N용 휠, 브레이크 패드, 순정 스포일러를 준비 중입니다." />}
 			{view === 'drive' && <ContentView title="드라이브" description="자동차를 좋아하는 오너들과 함께 달려보세요." body="이번 주 드라이브 모임을 준비 중입니다." />}
@@ -78,12 +78,11 @@ export default function Home() {
 	</main>;
 }
 
-function CommunityView({posts, loggedIn, isAdmin, onCreatePost, onAddComment, onDeletePost, onDeleteComment}: {posts: Post[]; loggedIn: boolean; isAdmin: boolean; onCreatePost: (title: string, body: string, board: Board) => void; onAddComment: (postId: string, body: string, parentId?: string) => void; onDeletePost: (postId: string) => void; onDeleteComment: (postId: string, commentId: string) => void}) {
+function CommunityView({posts, loggedIn, isAdmin, onCreatePost, onAddComment, onDeletePost, onDeleteComment, onOpenLogin}: {posts: Post[]; loggedIn: boolean; isAdmin: boolean; onCreatePost: (title: string, body: string, board: Board) => void; onAddComment: (postId: string, body: string, parentId?: string) => void; onDeletePost: (postId: string) => void; onDeleteComment: (postId: string, commentId: string) => void; onOpenLogin: () => void}) {
 	const [showComposer, setShowComposer] = useState(false);
 	const [title, setTitle] = useState('');
 	const [body, setBody] = useState('');
 	const [selectedBoard, setSelectedBoard] = useState<Board | '전체'>('전체');
-	const [hoveredBoard, setHoveredBoard] = useState<Board | '전체' | null>(null);
 
 	const submitPost = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -97,15 +96,62 @@ function CommunityView({posts, loggedIn, isAdmin, onCreatePost, onAddComment, on
 	const visiblePosts = selectedBoard === '전체' ? posts : posts.filter(post => post.board === selectedBoard);
 	const boardTitle = selectedBoard === '전체' ? '전체 게시판' : `${selectedBoard} 게시판`;
 	const boardDescription = selectedBoard === '현대 N' ? 'N 브랜드의 고성능 모델과 주행 경험을 나누는 공간입니다.' : selectedBoard === 'BMW' ? 'BMW 모델별 정비, 튜닝, 주행 정보를 나누는 공간입니다.' : selectedBoard === '벤츠' ? 'Mercedes-Benz 오너들의 차량 관리와 라이프스타일 이야기입니다.' : '차를 좋아하는 모든 오너가 함께 정보를 나누는 공간입니다.';
-	return <section id="community"><div className="community-board-layout" style={{display: 'grid', gridTemplateColumns: '190px minmax(0, 1fr)', gap: 22, alignItems: 'start'}}><aside className="board-sidebar" style={{background: '#14161b', border: '1px solid #262a33', borderRadius: 16, padding: 14}}><strong style={{display: 'block', marginBottom: 12}}>차종별 게시판</strong><button style={sideBoardStyle(selectedBoard === '전체')} onClick={() => setSelectedBoard('전체')}>전체 게시판</button>{boards.map(board => <button key={board} style={sideBoardStyle(selectedBoard === board)} onClick={() => setSelectedBoard(board)}>{board} 게시판</button>)}</aside><div className="board-main"><div className="section-heading"><div><h2>{boardTitle}</h2><p>{boardDescription}</p></div>{loggedIn && <button className="write-button" onClick={() => setShowComposer(current => !current)}>글쓰기</button>}</div><div className="vehicle-info-strip" style={{display: 'grid', gridTemplateColumns: '1.4fr .6fr 1fr', gap: 12, margin: '20px 0', padding: 18, background: '#101217', border: '1px solid #303641', borderRadius: 14}}><div><small>선택한 차종</small><strong style={{display: 'block', fontSize: 22, marginTop: 6}}>{selectedBoard === '전체' ? 'REV.CC 전체 오너' : selectedBoard}</strong></div><div><small>게시글</small><b style={{display: 'block', marginTop: 8}}>{visiblePosts.length}개</b></div><div><small>차량 문화</small><b style={{display: 'block', marginTop: 8}}>정보 · 정비 · 튜닝</b></div></div>{showComposer && <form className="post-composer" onSubmit={submitPost}><select value={selectedBoard === '전체' ? '현대 N' : selectedBoard} onChange={event => setSelectedBoard(event.target.value as Board)}><option value="현대 N">현대 N 게시판</option><option value="BMW">BMW 게시판</option><option value="벤츠">벤츠 게시판</option></select><input value={title} onChange={event => setTitle(event.target.value)} placeholder="게시글 제목" required /><textarea value={body} onChange={event => setBody(event.target.value)} placeholder="차량 경험과 이야기를 적어주세요" rows={4} required /><button className="submit-button" type="submit">게시글 등록</button></form>}{visiblePosts.length ? visiblePosts.map(post => <PostItem key={post.id} post={post} isAdmin={isAdmin} onAddComment={onAddComment} onDeletePost={onDeletePost} onDeleteComment={onDeleteComment} />) : <div className="empty-board" style={{padding: '48px 20px', textAlign: 'center', color: '#9da4b2', background: '#14161b', border: '1px solid #262a33', borderRadius: 20}}>아직 이 게시판에 등록된 글이 없습니다.</div>}</div></div></section>;
-}
+	// 랭킹 위젯은 특정 게시판 필터와 무관하게 전체 글 기준으로 집계한다.
+	const rankedPosts = [...posts].sort((a, b) => countComments(b.comments) - countComments(a.comments)).slice(0, 3);
+	const ownerCount = new Set(posts.map(post => post.owner)).size;
 
-function sideBoardStyle(selected: boolean): React.CSSProperties {
-	return {display: 'block', width: '100%', border: 0, borderRadius: 9, background: selected ? '#fff' : 'transparent', color: selected ? '#0b0c0f' : '#aab2c0', textAlign: 'left', padding: '11px 12px', marginBottom: 5, cursor: 'pointer', fontWeight: 700};
-}
-
-function boardTabStyle(selected: boolean): React.CSSProperties {
-	return {border: 0, borderBottom: selected ? '2px solid #fff' : '2px solid transparent', background: 'none', color: selected ? '#fff' : '#929bab', padding: '10px 15px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap'};
+	return <section id="community">
+		<div className="community-tabbar">
+			<button className={selectedBoard === '전체' ? 'community-tab active' : 'community-tab'} onClick={() => setSelectedBoard('전체')}>전체 게시판</button>
+			{boards.map(board => <button key={board} className={selectedBoard === board ? 'community-tab active' : 'community-tab'} onClick={() => setSelectedBoard(board)}>{board} 게시판</button>)}
+		</div>
+		<div className="community-layout">
+			<aside className="community-quicknav">
+				<strong>차종별 바로가기</strong>
+				<button className={selectedBoard === '전체' ? 'quicknav-item active' : 'quicknav-item'} onClick={() => setSelectedBoard('전체')}>전체 게시판</button>
+				{boards.map(board => <button key={board} className={selectedBoard === board ? 'quicknav-item active' : 'quicknav-item'} onClick={() => setSelectedBoard(board)}>{board} 게시판</button>)}
+				{!loggedIn && <div className="quicknav-login-card"><p>로그인하고<br/>커뮤니티에 참여하세요</p><button onClick={onOpenLogin}>로그인</button></div>}
+			</aside>
+			<div className="community-main">
+				<div className="section-heading">
+					<div><h2>{boardTitle}</h2><p>{boardDescription}</p></div>
+					{loggedIn && <button className="write-button" onClick={() => setShowComposer(current => !current)}>글쓰기</button>}
+				</div>
+				<div className="vehicle-info-strip">
+					<div><small>선택한 차종</small><strong>{selectedBoard === '전체' ? 'REV.CC 전체 오너' : selectedBoard}</strong></div>
+					<div><small>게시글</small><b>{visiblePosts.length}개</b></div>
+					<div><small>차량 문화</small><b>정보 · 정비 · 튜닝</b></div>
+				</div>
+				{showComposer && <form className="post-composer" onSubmit={submitPost}>
+					<select value={selectedBoard === '전체' ? '현대 N' : selectedBoard} onChange={event => setSelectedBoard(event.target.value as Board)}>
+						<option value="현대 N">현대 N 게시판</option>
+						<option value="BMW">BMW 게시판</option>
+						<option value="벤츠">벤츠 게시판</option>
+					</select>
+					<input value={title} onChange={event => setTitle(event.target.value)} placeholder="게시글 제목" required />
+					<textarea value={body} onChange={event => setBody(event.target.value)} placeholder="차량 경험과 이야기를 적어주세요" rows={4} required />
+					<button className="submit-button" type="submit">게시글 등록</button>
+				</form>}
+				{visiblePosts.length ? visiblePosts.map(post => <PostItem key={post.id} post={post} isAdmin={isAdmin} onAddComment={onAddComment} onDeletePost={onDeletePost} onDeleteComment={onDeleteComment} />) : <div className="empty-board">아직 이 게시판에 등록된 글이 없습니다.</div>}
+			</div>
+			<aside className="community-widgets">
+				<div className="widget-card">
+					<strong>커뮤니티 현황</strong>
+					<ul className="widget-stats">
+						<li><span>전체 게시글</span><b>{posts.length}개</b></li>
+						<li><span>인증 오너</span><b>{ownerCount}명</b></li>
+						<li><span>운영 게시판</span><b>{boards.length}개</b></li>
+					</ul>
+				</div>
+				<div className="widget-card">
+					<strong>실시간 인기글 TOP {rankedPosts.length}</strong>
+					<ol className="ranking-list">
+						{rankedPosts.map((post, index) => <li key={post.id}><span className="rank-number">{index + 1}</span><span className="rank-title">{post.title}</span><span className="rank-count">💬 {countComments(post.comments)}</span></li>)}
+					</ol>
+				</div>
+			</aside>
+		</div>
+	</section>;
 }
 
 function PostItem({post, isAdmin, onAddComment, onDeletePost, onDeleteComment}: {post: Post; isAdmin: boolean; onAddComment: (postId: string, body: string, parentId?: string) => void; onDeletePost: (postId: string) => void; onDeleteComment: (postId: string, commentId: string) => void}) {

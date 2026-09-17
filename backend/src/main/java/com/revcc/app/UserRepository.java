@@ -20,4 +20,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * 회원가입 시 동일한 username이 이미 존재하는지 검사한다.
      */
     boolean existsByUsername(String username);
+
+    /**
+     * 카카오 로그인 시 같은 카카오 계정으로 이미 가입했는지 조회한다.
+     */
+    Optional<User> findByKakaoId(Long kakaoId);
 }

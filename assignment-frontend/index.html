@@ -13,9 +13,7 @@
     <p id="notice" role="status" aria-live="polite"></p>
     <div class="grid">
       <section class="card"><h2>01 / 오너 로그인</h2>
-        <form id="auth-form"><label>아이디<input name="username" required maxlength="100" autocomplete="username"></label>
-          <label>비밀번호<input name="password" type="password" required maxlength="72" autocomplete="current-password"></label>
-          <div class="actions"><button type="submit">로그인</button><button type="button" id="signup" class="secondary">회원가입</button></div></form>
+        <a id="kakao-login" class="kakao" href="/api/auth/kakao/login">카카오로 로그인</a>
         <button id="logout" class="secondary" hidden>로그아웃</button>
         <div class="session"><p>Spring Boot: <strong id="core-user">확인 중</strong></p><p>Express: <strong id="board-user">확인 중</strong></p></div>
       </section>

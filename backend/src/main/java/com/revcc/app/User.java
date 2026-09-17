@@ -23,6 +23,11 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    // 카카오로 가입한 회원의 카카오 고유 ID. 일반 회원가입 계정은 null이다.
+    // 닉네임은 바뀔 수 있어 재로그인 시 이 값으로 같은 계정을 찾는다.
+    @Column(unique = true)
+    private Long kakaoId;
+
     // JPA에서 객체를 생성할 때 사용하는 기본 생성자.
     protected User() {
     }
@@ -31,6 +36,13 @@ public class User {
     public User(String username, String password) {
         this.username = username;
         this.password = password;
+    }
+
+    // 카카오 로그인으로 신규 가입할 때 사용하는 생성자.
+    public User(String username, String password, Long kakaoId) {
+        this.username = username;
+        this.password = password;
+        this.kakaoId = kakaoId;
     }
 
     public Long getId() {
@@ -47,5 +59,9 @@ public class User {
 
     public String getPassword() {
         return password;
+    }
+
+    public Long getKakaoId() {
+        return kakaoId;
     }
 }

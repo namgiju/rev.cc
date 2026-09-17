@@ -29,19 +29,6 @@ async function refreshPosts() {
     $('#posts').append(article);
   });
 }
-async function authenticate(signup) {
-  const form = $('#auth-form');
-  if (!form.reportValidity()) return;
-  const body = Object.fromEntries(new FormData(form));
-  try {
-    await api(`/api/auth/${signup ? 'signup' : 'login'}`, body);
-    form.elements.password.value = '';
-    notify(signup ? '가입 완료. 로그인해 주세요.' : '로그인되었습니다. 두 서비스의 사용자 정보를 확인하세요.');
-    await refreshSession();
-  } catch (err) { notify(err.message); }
-}
-$('#auth-form').addEventListener('submit', event => { event.preventDefault(); authenticate(false); });
-$('#signup').addEventListener('click', () => authenticate(true));
 $('#logout').addEventListener('click', async () => {
   try { await api('/api/auth/logout', {}); await refreshSession(); notify('로그아웃되었습니다.'); }
   catch (err) { notify(err.message); }

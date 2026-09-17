@@ -10,7 +10,8 @@ import static org.mockito.Mockito.*;
 class AuthControllerTest {
     private final UserRepository users = mock(UserRepository.class);
     private final SharedSessionService sessions = mock(SharedSessionService.class);
-    private final AuthController controller = new AuthController(users, sessions);
+    private final KakaoOAuthService kakao = mock(KakaoOAuthService.class);
+    private final AuthController controller = new AuthController(users, sessions, kakao);
 
     @Test void signupStoresHash() {
         when(users.saveAndFlush(any())).thenAnswer(call -> {

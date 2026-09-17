@@ -111,6 +111,18 @@ button {
   color:#edf1ea;
 }
 
+.kakao {
+  display:block;
+  margin-top:12px;
+  padding:12px 22px;
+  border-radius:6px;
+  background:#fee500;
+  color:#191600;
+  font-weight:bold;
+  text-align:center;
+  text-decoration:none;
+}
+
 .actions {
   display:flex;
   gap:12px;

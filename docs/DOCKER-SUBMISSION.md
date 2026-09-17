@@ -68,8 +68,14 @@ docker image inspect revcc-core:assignment --format '{{.Os}}/{{.Architecture}}'
 
 ## 4. 로그인과 Redis 공유 세션 시연
 
-브라우저에서 회원가입 후 로그인하면 Spring Boot와 Express 사용자 이름이 함께 표시된다.
-터미널에서도 아래처럼 같은 쿠키 파일을 사용한다. 가입 아이디는 매 시연마다 바꾼다.
+브라우저에서는 아이디/비밀번호 폼 대신 "카카오로 로그인" 버튼만 제공한다.
+버튼을 누르면 카카오 인증 후 Spring Boot가 세션을 만들고, Spring Boot와 Express
+사용자 이름이 함께 표시된다. 카카오 로그인은 `docs/DOCKER-SUBMISSION.md`의
+카카오 디벨로퍼스 설정(Redirect URI: `http://localhost:8090/api/auth/kakao/callback`)이
+끝나 있어야 동작한다.
+
+아이디/비밀번호 기반 회원가입·로그인 API 자체는 그대로 남아 있어 터미널에서는
+아래처럼 같은 쿠키 파일로 시연할 수 있다. 가입 아이디는 매 시연마다 바꾼다.
 
 ```sh
 curl -i http://localhost:8090/api/auth/signup -H 'Content-Type: application/json' \

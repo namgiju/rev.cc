@@ -12,5 +12,8 @@ out/
 .DS_Store
 *.log
 
+# 카카오 REST API 키 등 민감한 값 (docker compose가 자동으로 읽는다)
+.env
+
 # Python integration test bytecode
 __pycache__/

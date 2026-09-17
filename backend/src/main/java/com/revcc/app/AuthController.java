@@ -7,9 +7,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
+import java.util.UUID;
 
 /** 회원 저장은 PostgreSQL, 로그인 상태는 언어 중립 Redis 세션이 담당한다. */
 @RestController
@@ -17,11 +19,13 @@ import java.util.Map;
 public class AuthController {
     private final UserRepository users;
     private final SharedSessionService sessions;
+    private final KakaoOAuthService kakao;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder();
 
-    public AuthController(UserRepository users, SharedSessionService sessions) {
+    public AuthController(UserRepository users, SharedSessionService sessions, KakaoOAuthService kakao) {
         this.users = users;
         this.sessions = sessions;
+        this.kakao = kakao;
     }
 
     @PostMapping("/signup")
@@ -68,6 +72,33 @@ public class AuthController {
         sessions.revoke(token); // Redis 삭제 즉시 Express에서도 인증이 해제된다.
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessions.cookie("", true))
             .body(Map.of("message", "로그아웃되었습니다."));
+    }
+
+    @GetMapping("/kakao/login")
+    public ResponseEntity<?> kakaoLogin() {
+        return ResponseEntity.status(302).location(URI.create(kakao.authorizeUrl())).build();
+    }
+
+    @GetMapping("/kakao/callback")
+    public ResponseEntity<?> kakaoCallback(@RequestParam String code) {
+        try {
+            KakaoOAuthService.KakaoUser info = kakao.exchange(code);
+            // 닉네임은 바뀔 수 있으므로 카카오 ID로 같은 계정을 찾고, 처음이면 새로 만든다.
+            User user = users.findByKakaoId(info.id()).orElseGet(() -> createKakaoUser(info));
+            String token = sessions.create(user);
+            return ResponseEntity.status(302).location(URI.create("/"))
+                .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false)).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(502).body(Map.of("message", "카카오 로그인에 실패했습니다."));
+        }
+    }
+
+    private User createKakaoUser(KakaoOAuthService.KakaoUser info) {
+        String username = info.nickname();
+        // 닉네임이 이미 다른 계정에서 쓰이는 중이면 카카오 ID 뒷자리를 붙여 구분한다.
+        if (users.existsByUsername(username)) username = username + "_" + (info.id() % 10000);
+        // 카카오 로그인 전용 계정은 비밀번호로 직접 로그인하지 않으므로 무작위 해시만 채워둔다.
+        return users.saveAndFlush(new User(username, passwords.encode(UUID.randomUUID().toString()), info.id()));
     }
 
     private boolean isHash(String value) { return value.matches("^\\$2[aby]\\$.*"); }
