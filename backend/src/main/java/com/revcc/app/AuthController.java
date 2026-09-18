@@ -17,6 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthController.class);
     private final UserRepository users;
     private final SharedSessionService sessions;
     private final KakaoOAuthService kakao;
@@ -89,6 +90,8 @@ public class AuthController {
             return ResponseEntity.status(302).location(URI.create("/"))
                 .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false)).build();
         } catch (Exception e) {
+            log.warn("Kakao login failed: {}", e instanceof KakaoOAuthService.OAuthFailure
+                ? e.getMessage() : e.getClass().getSimpleName());
             return ResponseEntity.status(502).body(Map.of("message", "카카오 로그인에 실패했습니다."));
         }
     }

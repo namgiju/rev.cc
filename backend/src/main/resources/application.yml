@@ -20,4 +20,5 @@ app:
     secure: ${SESSION_COOKIE_SECURE:false}
   kakao:
     client-id: ${KAKAO_CLIENT_ID:}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
     redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8090/api/auth/kakao/callback}

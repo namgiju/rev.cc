@@ -1,4 +1,5 @@
 import express from 'express';
+import morgan from 'morgan';
 
 // Spring과 동일한 쿠키 이름·토큰 형식·Redis 키를 사용한다. TTL은 로그인부터 30분이다.
 export async function sessionUser(redis, cookie = '') {
@@ -21,6 +22,7 @@ const parts = [
 export function createApp({ db, redis }) {
   const app = express();
   app.disable('x-powered-by');
+  app.use(morgan('dev'));
   app.use(express.json({ limit: '32kb' }));
   app.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   app.get('/health', async (req, res) => {
