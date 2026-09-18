@@ -9,6 +9,11 @@ docker compose up -d --build --wait
 # http://localhost:8090
 ```
 
+로컬에서는 `docker-compose.override.yml`이 자동 적용되어 `assignment-frontend/`의
+HTML/CSS/JS를 직접 제공합니다. 파일 저장 후 브라우저를 새로고침하면 변경 사항이
+반영되며, 다시 빌드할 필요가 없습니다. 이미지에 포함된 화면을 확인하려면
+`docker compose -f docker-compose.yml up -d`로 실행합니다.
+
 
 자동차 오너 커뮤니티 MVP 초안입니다.
 
