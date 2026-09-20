@@ -1,6 +1,8 @@
 package com.revcc.app;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * REV.CC 회원 정보를 PostgreSQL에 저장하기 위한 Entity 클래스.
@@ -27,6 +29,10 @@ public class User {
     // 닉네임은 바뀔 수 있어 재로그인 시 이 값으로 같은 계정을 찾는다.
     @Column(unique = true)
     private Long kakaoId;
+
+    // 한 회원이 여러 소유 차량을 가질 수 있다. 차량 API는 별도의 DTO로 응답한다.
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<Vehicle> vehicles = new ArrayList<>();
 
     // JPA에서 객체를 생성할 때 사용하는 기본 생성자.
     protected User() {

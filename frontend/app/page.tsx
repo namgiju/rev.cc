@@ -1,6 +1,7 @@
 'use client';
 
 import {ChangeEvent, FormEvent, useState} from 'react';
+import Link from 'next/link';
 
 type Comment = {id: string; author: string; body: string; replies: Comment[]};
 type Board = '현대 N' | 'BMW' | '벤츠';
@@ -63,7 +64,7 @@ export default function Home() {
 	return <main>
 		<header>
 			<button className="brand" onClick={() => setView('community')}>REV.CC</button>
-			<nav>{menu.map(item => <button key={item.view} onClick={() => openView(item.view)}>{item.label}</button>)}</nav>
+			<nav>{menu.map(item => item.view === 'garage' ? <Link key={item.view} href="/garage" style={{color:'inherit', textDecoration:'none', padding:'8px 0'}}>차고</Link> : <button key={item.view} onClick={() => openView(item.view)}>{item.label}</button>)}</nav>
 			<div className="auth-nav">
 				{loggedIn ? <><span className="user-badge">{isAdmin ? '관리자' : '회원'}</span><button onClick={() => {setLoggedIn(false); setIsAdmin(false); setView('community');}}>로그아웃</button></> : <><button onClick={() => setView('login')}>로그인</button><button className="signup-link" onClick={() => setView('signup')}>회원가입</button></>}
 			</div>
