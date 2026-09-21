@@ -37,7 +37,7 @@ accounts = []
 vehicle_ids = []
 catalog = request(anonymous, 'GET', '/api/vehicles')
 body = dict(manufacturer='Hyundai', model='Avante N', modelYear=2024, trim='N',
-    transmission='DCT', color='Performance Blue', nickname='기주의 아반떼 N', description='My Garage HTTP check')
+    transmission='DCT', color='Performance Blue', nickname='기주의 아반떼 N', description='My Garage HTTP check', licensePlate='테스트-HTTP')
 try:
     for index, agent in enumerate([owner, other]):
         credentials = dict(username=f'garage_check_{run_id}_{index}', password=uuid.uuid4().hex)
@@ -48,6 +48,7 @@ try:
         request(agent, 'POST', '/api/auth/login', credentials)
         assert request(agent, 'GET', '/api/auth/me')['id'] == user['id']
         assert request(agent, 'GET', '/api/board/me')['id'] == user['id']
+        assert request(anonymous, 'GET', f"/api/board/members/{user['id']}")['joinedAt'] is not None
     request(anonymous, 'POST', '/api/garage/vehicles', body, 401)
     request(anonymous, 'GET', '/api/garage/vehicles', expected=401)
     request(owner, 'POST', '/api/garage/vehicles', dict(body, modelYear=1800), 400)

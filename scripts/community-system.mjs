@@ -82,6 +82,26 @@ try {
     tokenA,
     201,
   );
+  const emptyMember = await req("/members/2");
+  assert.equal(emptyMember.joinedAt, null);
+  assert.equal(emptyMember.avatarUrl, null);
+  assert.deepEqual(emptyMember.badges, []);
+  assert.deepEqual(emptyMember.vehicles, []);
+  assert.equal(emptyMember.representativeVehicle, null);
+  assert.equal(emptyMember.verified, false);
+  const unverifiedMember = await req("/members/1");
+  assert.equal(unverifiedMember.representativeVehicle.id, car.id);
+  assert.deepEqual(unverifiedMember.badges, []);
+  await db.query("UPDATE owner_vehicles SET verified=true,license_plate='PRIVATE-PLATE',verification_status='APPROVED' WHERE id=$1", [car.id]);
+  await db.query("UPDATE users SET created_at='2026-01-01T00:00:00Z' WHERE id=1");
+  const verifiedMember = await req("/members/1", "GET", undefined, "");
+  assert.equal(verifiedMember.verified, true);
+  assert.equal(verifiedMember.badges[0].code, "verified-owner");
+  assert.equal(verifiedMember.vehicles[0].imageId, image.id);
+  assert.equal(verifiedMember.joinedAt, "2026-01-01T00:00:00.000Z");
+  assert.ok(!JSON.stringify(verifiedMember).includes("PRIVATE-PLATE"));
+  assert.ok(!JSON.stringify(verifiedMember).includes("verification_status"));
+  await req("/members/99999", "GET", undefined, "", 404);
   const draft = {
     title: "타이어 교체 경험",
     content: "안전한 사진과 내용 <script>alert(1)</script>",
@@ -172,6 +192,15 @@ try {
     tokenA,
     404,
   );
+  const authorProfile = await req("/members/1");
+  assert.equal(authorProfile.postCount, 1);
+  assert.equal(authorProfile.commentCount, 1);
+  assert.equal(authorProfile.receivedLikes, 1);
+  assert.equal(authorProfile.posts.length, 1);
+  const relatedPosts = await req("/posts?vehicle=아반떼%20N&sort=popular&limit=6");
+  assert.deepEqual(relatedPosts.map(p => p.id), [post.id]);
+  const categoryPosts = await req("/posts?category=maintenance&sort=latest&limit=6");
+  assert.deepEqual(categoryPosts.map(p => p.id), [post.id]);
   assert.equal((await req("/notifications")).length, 1);
   assert.equal(
     (await req("/notifications", "GET", undefined, tokenB)).length,
@@ -271,7 +300,7 @@ try {
   await req(`/garage/${car.id}`, "DELETE", {});
   await req(`/garage/${car.id}`, "GET", undefined, tokenA, 404);
   console.log(
-    "PASS: migration idempotency, image validation, posts, search/categories, ownership, likes/bookmarks, comments/replies, notifications, reports, garage/records, cascade deletion.",
+    "PASS: author profile/statistics, derived verification badge, private field exclusion, related filters, migration idempotency, image validation, posts, search/categories, ownership, likes/bookmarks, comments/replies, notifications, reports, garage/records, cascade deletion.",
   );
 } finally {
   if (server) {

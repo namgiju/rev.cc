@@ -3,6 +3,7 @@ package com.revcc.app;
 import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.Instant;
 
 /**
  * REV.CC 회원 정보를 PostgreSQL에 저장하기 위한 Entity 클래스.
@@ -33,6 +34,15 @@ public class User {
     // 권한: USER 또는 ADMIN. 기존 계정은 마이그레이션으로 전부 USER가 채워진다.
     @Column(nullable = false)
     private String role = "USER";
+
+    // 기존 회원의 알 수 없는 가입일은 NULL로 유지한다.
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @PrePersist
+    void recordJoinedAt() { createdAt = Instant.now(); }
+
+    public Instant getCreatedAt() { return createdAt; }
 
     // 한 회원이 여러 소유 차량을 가질 수 있다. 차량 API는 별도의 DTO로 응답한다.
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)

@@ -350,7 +350,11 @@ export function communityRouter({ db, auth }) {
   });
   router.get("/members/:id", async (req, res) => {
     const { rows } = await db.query(
-      "SELECT id,username FROM users WHERE id=$1",
+      `SELECT u.id,u.username,u.created_at AS "joinedAt",
+       (SELECT COUNT(*)::int FROM board_posts p WHERE p.author_id=u.id) AS "postCount",
+       (SELECT COUNT(*)::int FROM board_comments c WHERE c.author_id=u.id AND NOT c.deleted) AS "commentCount",
+       (SELECT COUNT(*)::int FROM board_likes l JOIN board_posts p ON p.id=l.post_id WHERE p.author_id=u.id) AS "receivedLikes"
+       FROM users u WHERE u.id=$1`,
       [req.params.id],
     );
     if (!rows.length) fail(404, "회원을 찾을 수 없어요.");
@@ -358,9 +362,23 @@ export function communityRouter({ db, auth }) {
       postSelect + " WHERE p.author_id=$2 ORDER BY p.id DESC LIMIT 30",
       [req.user?.id ?? null, req.params.id],
     );
+    // 공개 프로필에는 등록증·차량번호·심사 정보를 포함하지 않는다.
+    const vehicles = await db.query(
+      `SELECT id,manufacturer,model,year,trim,nickname,image_id AS "imageId",verified
+       FROM owner_vehicles WHERE owner_id=$1 ORDER BY verified DESC,id ASC`,
+      [req.params.id],
+    );
+    const verified = vehicles.rows.some((v) => v.verified);
     res.json({
       ...rows[0],
       id: Number(rows[0].id),
+      avatarUrl: null, // 현재 프로필 사진은 저장하지 않는다.
+      vehicles: vehicles.rows,
+      representativeVehicle: vehicles.rows[0] ?? null,
+      verified,
+      // 실제 인증 상태에서 계산하는 표시용 인장. 획득 이력은 생성하지 않는다.
+      badges: verified ? [{ code: "verified-owner", name: "인증 오너",
+        description: "자동차등록증 검토를 통해 보유 차량 인증 완료", imageUrl: null }] : [],
       posts: posts.rows.map(asPost),
     });
   });

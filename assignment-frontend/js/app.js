@@ -468,6 +468,8 @@ async function showPostDetailPage(id) {
   $("#community")?.setAttribute("hidden", "");
   $("#write-post")?.setAttribute("hidden", "");
   wrap.hidden = false;
+  $("#main").classList.add("post-detail-wide");
+  const contextRequest = resetPostContext();
   root.replaceChildren(el("p", "이야기를 불러오고 있어요.", "empty"));
   let post, comments;
   try {
@@ -476,6 +478,9 @@ async function showPostDetailPage(id) {
       api(`/api/board/posts/${id}/comments`),
     ]);
   } catch (e) {
+    if (contextRequest !== postContextRequest) return;
+    $("#post-author").replaceChildren();
+    $("#post-related").replaceChildren();
     root.replaceChildren(
       el(
         "p",
@@ -485,6 +490,7 @@ async function showPostDetailPage(id) {
     );
     return;
   }
+  if (contextRequest !== postContextRequest) return;
   // URL의 category 세그먼트가 실제 글의 category와 다르면(오래된 링크, 카테고리 변경 등)
   // 에러 대신 정확한 canonical 주소로 조용히 교정한다.
   const canonical = getPostUrl(post);
@@ -496,7 +502,9 @@ async function showPostDetailPage(id) {
       viewed.add(id);
     } catch {}
   }
+  if (contextRequest !== postContextRequest) return;
   renderPostDetail(root, post, comments, id);
+  void renderPostContext(post, contextRequest);
 }
 function renderPostDetail(root, post, comments, id) {
   root.replaceChildren(
@@ -563,6 +571,11 @@ function renderPostDetail(root, post, comments, id) {
     );
   } else actions.append(button("신고", () => openReport(id), ""));
   root.append(actions);
+  const badges = el("section", "", "author-badges");
+  badges.id = "post-author-badges";
+  badges.setAttribute("aria-label", "작성자의 인장");
+  badges.append(el("h3", "작성자의 인장"), el("p", "인장을 불러오고 있어요.", "context-muted"));
+  root.append(badges);
   root.append(el("h3", `댓글 ${comments.filter((c) => !c.deleted).length}`));
   const list = el("div");
   const form = el("form", "", "comment-form"),

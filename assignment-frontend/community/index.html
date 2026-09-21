@@ -4,7 +4,7 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="REV.CC 커뮤니티. 오너들의 이야기를 자유롭게 나눠보세요.">
   <title>REV.CC | 커뮤니티</title>
-  <link rel="stylesheet" href="/css/style.css"><script src="/js/post-url.js" defer></script><script src="/js/app.js" defer></script>
+  <link rel="stylesheet" href="/css/style.css"><script src="/js/post-url.js" defer></script><script src="/js/post-context.js" defer></script><script src="/js/app.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -17,7 +17,11 @@
     <p id="notice" role="status" aria-live="polite"></p>
     <section id="post-detail" class="post-detail-page" hidden>
       <a href="/community" class="text-link">← 커뮤니티 목록으로</a>
-      <div id="post-detail-content"></div>
+      <div class="post-detail-layout">
+        <aside id="post-author" class="post-sidebar" aria-label="게시글 작성자"></aside>
+        <article id="post-detail-content"></article>
+        <aside id="post-related" class="post-sidebar" aria-label="관련 콘텐츠"></aside>
+      </div>
     </section>
     <section id="community" class="community" aria-labelledby="community-title"><div class="section-heading"><div><p class="eyebrow">COMMUNITY</p><h2 id="community-title">지금, 오너들의 이야기</h2></div><a href="#write-post" class="text-link">글쓰기 <span aria-hidden="true">↗</span></a></div>
       <div class="tabs" aria-label="게시판 분류"><button class="active" data-category="">전체</button><button data-category="free">자유 이야기</button><button data-category="maintenance">정비·관리</button><button data-category="parts">부품 이야기</button><button data-category="drive">드라이브</button></div>

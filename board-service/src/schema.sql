@@ -1,4 +1,6 @@
 BEGIN;
+-- 이전 가입일을 추정하지 않는다. 신규 가입일은 Spring User가 기록한다.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS board_posts (
  id SERIAL PRIMARY KEY, title VARCHAR(150) NOT NULL, content TEXT NOT NULL,
  author_id BIGINT NOT NULL REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
