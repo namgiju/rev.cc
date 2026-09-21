@@ -1058,3 +1058,26 @@ footer {
 #notice:not(:empty){position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:30;box-shadow:0 5px 25px #0002;max-width:calc(100% - 40px);margin:0;border:1px solid #dbe6de}
 .dialog-notice{color:#a43e3e;background:#fff3f1;border-radius:8px;padding:10px 14px;font-size:13px;margin:12px 0}
 .confirm-dialog{border:0;border-radius:14px;padding:25px;max-width:400px}.confirm-dialog h2{font-size:20px}.confirm-dialog p{font-size:14px;color:#7d8790}
+
+/* 홈 2x2 커뮤니티 포털: 인벤류 밀도 대신 기존 rev.cc 톤(얇은 border, 넉넉한 여백, 텍스트 중심)을 유지한다. */
+.portal{margin:34px 0}
+.portal-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.portal-panel{border:1px solid var(--line);border-radius:14px;padding:22px}
+.portal-panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.portal-panel-head h3{font-size:16px;margin:0}
+.portal-panel-head .text-link{font-size:12px;white-space:nowrap}
+.portal-rows{display:flex;flex-direction:column}
+.home-row{display:flex;align-items:baseline;gap:10px;padding:11px 4px;border-radius:8px;color:inherit}
+.home-row:hover{background:#f7f8fa}
+.home-row-category{flex:none;font-size:11px;color:#7b8581;background:#f3f6f4;padding:3px 7px;border-radius:4px;white-space:nowrap}
+.home-row-title{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-row-meta{flex:none;font-size:12px;color:var(--muted);white-space:nowrap}
+.home-row-stats{flex:none;font-size:12px;color:var(--muted);white-space:nowrap;display:flex;gap:8px}
+@media(max-width:900px){.portal-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.portal{margin:26px 0}.portal-panel{padding:18px}.home-row{flex-wrap:wrap}.home-row-title{flex-basis:100%}}
+
+/* 게시글 상세 페이지: 예전 #detail-dialog와 같은 내용을 모달이 아니라 이 페이지에 그대로 그린다. */
+.post-detail-page{margin:28px 0}
+.post-detail-page>.text-link{display:inline-block;margin-bottom:18px;font-size:13px}
+.post-detail-page #post-detail-content{border:1px solid var(--line);border-radius:14px;padding:28px}
+@media(max-width:650px){.post-detail-page #post-detail-content{padding:20px}}

@@ -60,7 +60,7 @@ public class AuthController {
         sessions.revoke(previous); // 재로그인 시 토큰을 회전해 세션 고정을 방지한다.
         String token = sessions.create(user);
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false))
-            .body(new SharedSessionService.SessionUser(user.getId(), user.getUsername()));
+            .body(new SharedSessionService.SessionUser(user.getId(), user.getUsername(), user.getRole()));
     }
 
     @GetMapping("/me")
@@ -85,15 +85,28 @@ public class AuthController {
         try {
             KakaoOAuthService.KakaoUser info = kakao.exchange(code);
             // 닉네임은 바뀔 수 있으므로 카카오 ID로 같은 계정을 찾고, 처음이면 새로 만든다.
-            User user = users.findByKakaoId(info.id()).orElseGet(() -> createKakaoUser(info));
+            User user = users.findByKakaoId(info.id())
+                .map(existing -> refreshKakaoNickname(existing, info))
+                .orElseGet(() -> createKakaoUser(info));
             String token = sessions.create(user);
-            return ResponseEntity.status(302).location(URI.create("/"))
+            return ResponseEntity.status(302).location(URI.create("/home"))
                 .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false)).build();
         } catch (Exception e) {
             log.warn("Kakao login failed: {}", e instanceof KakaoOAuthService.OAuthFailure
                 ? e.getMessage() : e.getClass().getSimpleName());
             return ResponseEntity.status(502).body(Map.of("message", "카카오 로그인에 실패했습니다."));
         }
+    }
+
+    private User refreshKakaoNickname(User user, KakaoOAuthService.KakaoUser info) {
+        String nickname = info.nickname();
+        // 카카오 동의항목이 나중에 켜져 실제 닉네임을 받게 되면 다음 로그인 때 자동으로 반영한다.
+        // 다른 계정이 이미 그 이름을 쓰고 있으면 충돌을 피해 그대로 둔다.
+        if (!nickname.equals(user.getUsername()) && !users.existsByUsername(nickname)) {
+            user.updateUsername(nickname);
+            users.saveAndFlush(user);
+        }
+        return user;
     }
 
     private User createKakaoUser(KakaoOAuthService.KakaoUser info) {

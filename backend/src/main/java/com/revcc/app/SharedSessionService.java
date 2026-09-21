@@ -1,5 +1,6 @@
 package com.revcc.app;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,7 +36,7 @@ public class SharedSessionService {
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         try {
             redis.opsForValue().set("revcc:session:" + token,
-                mapper.writeValueAsString(new SessionUser(user.getId(), user.getUsername())), Duration.ofMinutes(30));
+                mapper.writeValueAsString(new SessionUser(user.getId(), user.getUsername(), user.getRole())), Duration.ofMinutes(30));
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("세션 직렬화 실패", e);
         }
@@ -64,5 +65,8 @@ public class SharedSessionService {
             .sameSite("Lax").secure(secure).maxAge(clear ? Duration.ZERO : Duration.ofMinutes(30)).build().toString();
     }
 
-    public record SessionUser(Long id, String username) {}
+    // role이 없는 예전 Redis 세션(마이그레이션 이전)은 null로 역직렬화되며, Express 쪽 JSON에도
+    // 키 자체가 빠지도록 NON_NULL로 직렬화해 두 서비스의 응답 모양이 계속 일치하게 한다.
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record SessionUser(Long id, String username, String role) {}
 }

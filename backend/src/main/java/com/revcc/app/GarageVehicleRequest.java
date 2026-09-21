@@ -11,5 +11,6 @@ public record GarageVehicleRequest(
     @Size(max = 50) String transmission,
     @Size(max = 100) String color,
     @Size(max = 100) String nickname,
-    @Size(max = 1000) String description
+    @Size(max = 1000) String description,
+    @NotBlank @Size(max = 20) String licensePlate
 ) {}

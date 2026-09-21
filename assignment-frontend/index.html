@@ -4,13 +4,13 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="차를 좋아하는 사람들의 커뮤니티. 오너들의 이야기와 내 차에 맞는 부품을 REV.CC에서 만나보세요.">
   <title>REV.CC | 당신의 차, 가까워지는 이야기</title>
-  <link rel="stylesheet" href="/css/style.css"><script src="/js/app.js" defer></script>
+  <link rel="stylesheet" href="/css/style.css"><script src="/js/post-url.js" defer></script><script src="/js/app.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 바로가기</a>
   <header class="header"><div class="header-inner">
-    <a href="/" class="logo" aria-label="REV.CC 홈">rev<span>.cc</span><i></i></a>
-    <nav aria-label="주 메뉴"><a href="#community">커뮤니티</a><a href="#garage">내 차고</a><a href="#compatibility">부품 찾기</a></nav>
+    <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
+    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/garage">내 차고</a><a href="/parts">부품 찾기</a></nav>
     <div class="header-actions"><button id="activity-button" hidden>내 활동</button><button id="notifications-button" hidden>알림 <span id="notification-count"></span></button><span id="core-user"></span><a id="kakao-login" class="login" href="/api/auth/kakao/login">로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
   </div></header>
   <main id="main" class="container">
@@ -22,22 +22,34 @@
       <div class="trending"><span>추천 검색어</span><button data-query="아반떼">아반떼</button><button data-query="정비">정비 이야기</button><button data-query="타이어">타이어</button><button data-query="드라이브">드라이브</button></div>
     </section>
     <section class="services" aria-labelledby="services-title"><h2 id="services-title">REV.CC 둘러보기</h2><div class="service-grid">
-      <a href="#community"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="10" y="12" width="44" height="33" rx="11" fill="#e6edf8"/><path d="m19 43-2 11 15-10" fill="#e6edf8"/><circle cx="22" cy="29" r="3" fill="#6485bd"/><circle cx="32" cy="29" r="3" fill="#6485bd"/><circle cx="42" cy="29" r="3" fill="#6485bd"/></svg></span><strong>오너 이야기</strong><small>함께 나누는 자동차 생활</small></a>
-      <a href="#garage"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m9 26 9-15h28l9 15" fill="#dce9e3"/><rect x="7" y="25" width="50" height="22" rx="7" fill="#709a86"/><rect x="14" y="43" width="8" height="10" rx="3" fill="#354a41"/><rect x="42" y="43" width="8" height="10" rx="3" fill="#354a41"/><path d="m19 24 5-9h16l5 9" fill="#fff"/><path d="M14 33h9m18 0h9" stroke="#f8e9b5" stroke-width="5"/></svg></span><strong>내 차고</strong><small>오너들의 차량 둘러보기</small></a>
-      <a href="#compatibility"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m33 11 20 11v24L33 57 11 45V22Z" fill="#eee2d3"/><path d="m11 22 22 12 20-12M33 34v23" fill="none" stroke="#bda58b" stroke-width="2"/><path d="m22 16 21 12v12l-9 5V33L14 22" fill="#cdb497"/></svg></span><strong>부품 찾기</strong><small>내 차에 맞는 부품 확인</small></a>
+      <a href="/community"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="10" y="12" width="44" height="33" rx="11" fill="#e6edf8"/><path d="m19 43-2 11 15-10" fill="#e6edf8"/><circle cx="22" cy="29" r="3" fill="#6485bd"/><circle cx="32" cy="29" r="3" fill="#6485bd"/><circle cx="42" cy="29" r="3" fill="#6485bd"/></svg></span><strong>오너 이야기</strong><small>함께 나누는 자동차 생활</small></a>
+      <a href="/garage"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m9 26 9-15h28l9 15" fill="#dce9e3"/><rect x="7" y="25" width="50" height="22" rx="7" fill="#709a86"/><rect x="14" y="43" width="8" height="10" rx="3" fill="#354a41"/><rect x="42" y="43" width="8" height="10" rx="3" fill="#354a41"/><path d="m19 24 5-9h16l5 9" fill="#fff"/><path d="M14 33h9m18 0h9" stroke="#f8e9b5" stroke-width="5"/></svg></span><strong>내 차고</strong><small>오너들의 차량 둘러보기</small></a>
+      <a href="/parts"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m33 11 20 11v24L33 57 11 45V22Z" fill="#eee2d3"/><path d="m11 22 22 12 20-12M33 34v23" fill="none" stroke="#bda58b" stroke-width="2"/><path d="m22 16 21 12v12l-9 5V33L14 22" fill="#cdb497"/></svg></span><strong>부품 찾기</strong><small>내 차에 맞는 부품 확인</small></a>
       <a href="#write-post"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="14" y="9" width="35" height="47" rx="6" fill="#ebe4f2"/><path d="M23 22h17M23 30h12M23 38h9" stroke="#b19ac9" stroke-width="3" stroke-linecap="round"/><path d="m35 43 15-20 7 5-15 20-10 6Z" fill="#8d75ad"/></svg></span><strong>이야기 쓰기</strong><small>작은 경험도 반가워요</small></a>
     </div></section>
-    <section class="welcome-banner"><div><p>같은 취향, 더 가까운 우리</p><h2>차 이야기라면, 여기서 마음껏.</h2><span>첫 차의 설렘도, 오래 탄 차의 추억도 함께 나눠요.</span></div><a href="#community">이야기 둘러보기 <span aria-hidden="true">↗</span></a><div class="banner-road" aria-hidden="true"><div class="road-line"></div><div class="little-car">R</div></div></section>
+    <section class="welcome-banner"><div><p>같은 취향, 더 가까운 우리</p><h2>차 이야기라면, 여기서 마음껏.</h2><span>첫 차의 설렘도, 오래 탄 차의 추억도 함께 나눠요.</span></div><a href="/community">이야기 둘러보기 <span aria-hidden="true">↗</span></a><div class="banner-road" aria-hidden="true"><div class="road-line"></div><div class="little-car">R</div></div></section>
     <p id="notice" role="status" aria-live="polite"></p>
-    <div class="content-grid">
-      <section id="community" class="community" aria-labelledby="community-title"><div class="section-heading"><div><p class="eyebrow">COMMUNITY</p><h2 id="community-title">지금, 오너들의 이야기</h2></div><a href="#write-post" class="text-link">글쓰기 <span aria-hidden="true">↗</span></a></div>
-        <div class="tabs" aria-label="게시판 분류"><button class="active" data-category="">전체</button><button data-category="free">자유 이야기</button><button data-category="maintenance">정비·관리</button><button data-category="parts">부품 이야기</button><button data-category="drive">드라이브</button></div>
-        <div class="feed-controls"><label>정렬<select id="post-sort"><option value="latest">최신순</option><option value="popular">인기순</option></select></label><label>차종<input id="vehicle-filter" placeholder="예: 아반떼 N" maxlength="100"></label><button id="apply-filter" class="secondary">적용</button><button id="reset-filter" class="text-link">초기화</button></div>
-        <div id="activity-scope" hidden><strong id="scope-label"></strong><button id="clear-scope" class="text-link">전체 글 보기</button></div>
-        <div id="search-summary" aria-live="polite"></div><div id="posts"><p class="empty">이야기를 불러오고 있어요.</p></div><button id="load-more" class="secondary" hidden>이야기 더 보기</button>
-      </section>
-      <aside id="garage" class="garage" aria-labelledby="garage-title"><div class="section-heading"><div><p class="eyebrow">GARAGE</p><h2 id="garage-title">오너들의 차고</h2></div><button id="add-vehicle" class="secondary">내 차 등록</button></div><div id="vehicles"></div><div id="compatibility" class="compatibility"><h3>내 차에 맞는 부품 찾기</h3><p>차량을 선택하고 호환 부품을 확인하세요.</p><label class="sr-only" for="vehicle-select">부품 호환 차량</label><select id="vehicle-select"><option value="">차량을 선택해주세요</option></select><ul id="parts"></ul><small>예시 부품 정보입니다. 실제 장착 전 제조사 규격을 확인하세요.</small></div></aside>
-    </div>
+    <section class="portal" aria-labelledby="portal-title">
+      <h2 id="portal-title" class="sr-only">커뮤니티 둘러보기</h2>
+      <div class="portal-grid">
+        <div class="portal-panel">
+          <div class="portal-panel-head"><h3>오늘 추천 많이 받은 글</h3><a href="/community" class="text-link">전체 보기 →</a></div>
+          <div id="home-popular-today" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
+        </div>
+        <div class="portal-panel">
+          <div class="portal-panel-head"><h3>지금 올라오는 이야기</h3><a href="/community" class="text-link">전체 보기 →</a></div>
+          <div id="home-latest" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
+        </div>
+        <div class="portal-panel">
+          <div class="portal-panel-head"><h3>부품 이야기</h3><a href="/community?category=parts" class="text-link">전체 보기 →</a></div>
+          <div id="home-parts" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
+        </div>
+        <div class="portal-panel">
+          <div class="portal-panel-head"><h3>차종별 게시판</h3></div>
+          <div id="home-vehicles" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
+        </div>
+      </div>
+    </section>
     <section id="write-post" class="write-section"><div class="write-intro"><p class="eyebrow">SHARE YOUR STORY</p><h2>당신의 이야기도<br>들려주세요.</h2><p>궁금한 점, 유용한 팁, 오늘의 드라이브.<br>어떤 자동차 이야기든 좋아요.</p><span id="board-user" class="session-status">로그인 상태 확인 중</span></div><form id="post-form">
         <div id="edit-status" hidden>게시글 수정 중 <button type="button" id="cancel-edit" class="text-link">수정 취소</button></div>
         <div class="form-row"><label>게시판<select name="category" required><option value="free">자유 이야기</option><option value="maintenance">정비·관리</option><option value="parts">부품 이야기</option><option value="drive">드라이브</option></select></label><label>관련 차종<input name="vehicle" maxlength="100" placeholder="예: 아반떼 N (선택)"></label></div>
@@ -53,6 +65,6 @@
     <form id="vehicle-form"><label>차종<input name="model" required maxlength="100" placeholder="예: 현대 아반떼 N"></label><div class="form-row"><label>연식<input name="year" type="number" min="1900" max="2100" required></label><label>트림<input name="trim" maxlength="100" placeholder="예: DCT"></label></div><label>차 소개<textarea name="bio" maxlength="1000" rows="3" placeholder="내 차와 함께한 이야기를 소개해주세요."></textarea></label><label>차량 사진<input id="vehicle-image" type="file" accept="image/jpeg,image/png,image/webp"></label><small>JPG · PNG · WebP / 최대 3MB</small><div id="vehicle-preview" class="image-previews"></div><button class="primary" type="submit">차량 저장</button></form>
   </dialog>
   <dialog id="confirm-dialog" class="confirm-dialog"><h2>삭제할까요?</h2><p id="confirm-message"></p><div class="form-bottom"><button class="secondary" id="confirm-cancel">취소</button><button class="danger" id="confirm-delete">삭제</button></div></dialog>
-  <footer><div class="footer-top container"><div><a href="/" class="logo">rev<span>.cc</span></a><p>차를 좋아하는 사람들의 연결.</p></div><div class="footer-links"><a href="#community">커뮤니티</a><a href="#garage">오너들의 차고</a><a href="#compatibility">부품 찾기</a></div></div><div class="footer-bottom container"><span>© 2026 REV.CC</span><span>Built for car people.</span><a href="#main">맨 위로 ↑</a></div></footer>
+  <footer><div class="footer-top container"><div><a href="/" class="logo"><img src="/img/logo.png" alt="REV.CC" height="24"></a><p>차를 좋아하는 사람들의 연결.</p></div><div class="footer-links"><a href="/community">커뮤니티</a><a href="/garage">오너들의 차고</a><a href="/parts">부품 찾기</a></div></div><div class="footer-bottom container"><span>© 2026 REV.CC</span><span>Built for car people.</span><a href="#main">맨 위로 ↑</a></div></footer>
 </body>
 </html>

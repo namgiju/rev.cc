@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="REV.CC 커뮤니티. 오너들의 이야기를 자유롭게 나눠보세요.">
+  <title>REV.CC | 커뮤니티</title>
+  <link rel="stylesheet" href="/css/style.css"><script src="/js/post-url.js" defer></script><script src="/js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
+  <header class="header"><div class="header-inner">
+    <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
+    <nav aria-label="주 메뉴"><a href="/community" aria-current="page">커뮤니티</a><a href="/garage">내 차고</a><a href="/parts">부품 찾기</a></nav>
+    <div class="header-actions"><button id="activity-button" hidden>내 활동</button><button id="notifications-button" hidden>알림 <span id="notification-count"></span></button><span id="core-user"></span><a id="kakao-login" class="login" href="/api/auth/kakao/login">로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
+  </div></header>
+  <main id="main" class="container">
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section id="post-detail" class="post-detail-page" hidden>
+      <a href="/community" class="text-link">← 커뮤니티 목록으로</a>
+      <div id="post-detail-content"></div>
+    </section>
+    <section id="community" class="community" aria-labelledby="community-title"><div class="section-heading"><div><p class="eyebrow">COMMUNITY</p><h2 id="community-title">지금, 오너들의 이야기</h2></div><a href="#write-post" class="text-link">글쓰기 <span aria-hidden="true">↗</span></a></div>
+      <div class="tabs" aria-label="게시판 분류"><button class="active" data-category="">전체</button><button data-category="free">자유 이야기</button><button data-category="maintenance">정비·관리</button><button data-category="parts">부품 이야기</button><button data-category="drive">드라이브</button></div>
+      <div class="feed-controls"><label>정렬<select id="post-sort"><option value="latest">최신순</option><option value="popular">인기순</option></select></label><label>차종<input id="vehicle-filter" placeholder="예: 아반떼 N" maxlength="100"></label><button id="apply-filter" class="secondary">적용</button><button id="reset-filter" class="text-link">초기화</button></div>
+      <div id="activity-scope" hidden><strong id="scope-label"></strong><button id="clear-scope" class="text-link">전체 글 보기</button></div>
+      <div id="search-summary" aria-live="polite"></div><div id="posts"><p class="empty">이야기를 불러오고 있어요.</p></div><button id="load-more" class="secondary" hidden>이야기 더 보기</button>
+    </section>
+    <section id="write-post" class="write-section"><div class="write-intro"><p class="eyebrow">SHARE YOUR STORY</p><h2>당신의 이야기도<br>들려주세요.</h2><p>궁금한 점, 유용한 팁, 오늘의 드라이브.<br>어떤 자동차 이야기든 좋아요.</p><span id="board-user" class="session-status">로그인 상태 확인 중</span></div><form id="post-form">
+        <div id="edit-status" hidden>게시글 수정 중 <button type="button" id="cancel-edit" class="text-link">수정 취소</button></div>
+        <div class="form-row"><label>게시판<select name="category" required><option value="free">자유 이야기</option><option value="maintenance">정비·관리</option><option value="parts">부품 이야기</option><option value="drive">드라이브</option></select></label><label>관련 차종<input name="vehicle" maxlength="100" placeholder="예: 아반떼 N (선택)"></label></div>
+        <label for="post-title">제목</label><input id="post-title" name="title" required maxlength="150" placeholder="어떤 이야기를 나누고 싶으세요?">
+        <label for="post-content">내용</label><textarea id="post-content" name="content" required maxlength="5000" rows="5" placeholder="차종이나 부품 정보를 함께 적으면 더 도움이 돼요."></textarea>
+        <label class="upload-label" for="post-images">사진 첨부 <span>JPG · PNG · WebP / 장당 3MB, 최대 3장</span></label><input id="post-images" type="file" accept="image/jpeg,image/png,image/webp" multiple><div id="image-previews" class="image-previews"></div>
+        <div class="form-bottom"><span>서로를 배려하는 따뜻한 대화를 나눠요.</span><button id="submit-post" type="submit">이야기 등록 ↗</button></div>
+      </form></section>
+  </main>
+  <dialog id="detail-dialog" class="community-dialog"><div class="dialog-bar"><span>REV.CC COMMUNITY</span><button data-close aria-label="상세 화면 닫기">✕</button></div><div id="detail-content"></div></dialog>
+  <dialog id="panel-dialog" class="community-dialog"><div class="dialog-bar"><h2 id="panel-title"></h2><button data-close aria-label="창 닫기">✕</button></div><div id="panel-content"></div></dialog>
+  <dialog id="confirm-dialog" class="confirm-dialog"><h2>삭제할까요?</h2><p id="confirm-message"></p><div class="form-bottom"><button class="secondary" id="confirm-cancel">취소</button><button class="danger" id="confirm-delete">삭제</button></div></dialog>
+</body>
+</html>

@@ -36,6 +36,11 @@ ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS transmission VARCHAR(50) NOT
 ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS color VARCHAR(100) NOT NULL DEFAULT '';
 ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS nickname VARCHAR(100) NOT NULL DEFAULT '';
 ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+-- 오너 인증(자동차등록증 검토) 상태. verification_status는 신청 전이면 NULL이다.
+ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS license_plate VARCHAR(20) NOT NULL DEFAULT '';
+ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20);
+ALTER TABLE owner_vehicles ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
 DO $$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='owner_vehicles'::regclass AND conname='owner_vehicles_image_id_fkey') THEN
   ALTER TABLE owner_vehicles ADD CONSTRAINT owner_vehicles_image_id_fkey FOREIGN KEY(image_id) REFERENCES community_images(id);
@@ -64,4 +69,15 @@ CREATE INDEX IF NOT EXISTS board_posts_author_id ON board_posts(author_id,id DES
 CREATE INDEX IF NOT EXISTS board_comments_post ON board_comments(post_id,id);
 CREATE INDEX IF NOT EXISTS community_notifications_user ON community_notifications(user_id,id DESC);
 CREATE INDEX IF NOT EXISTS owner_vehicles_owner ON owner_vehicles(owner_id,id);
+-- 자동차등록증 원본. community_images(공개 게시글 사진)와 완전히 분리된 테이블로,
+-- 소유자 본인과 관리자만 조회할 수 있도록 Spring 쪽에서 접근을 제한한다.
+CREATE TABLE IF NOT EXISTS vehicle_verifications (
+ id SERIAL PRIMARY KEY, vehicle_id INTEGER NOT NULL REFERENCES owner_vehicles(id) ON DELETE CASCADE,
+ status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+ document_mime VARCHAR(30) NOT NULL, document_data BYTEA NOT NULL,
+ requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ reviewed_at TIMESTAMPTZ, reviewed_by BIGINT REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS vehicle_verifications_vehicle ON vehicle_verifications(vehicle_id,id DESC);
+CREATE INDEX IF NOT EXISTS vehicle_verifications_status ON vehicle_verifications(status,id DESC);
 COMMIT;

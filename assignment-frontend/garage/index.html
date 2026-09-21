@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="REV.CC 오너들의 차고. 등록된 차량을 둘러보고 내 차도 등록해보세요.">
+  <title>REV.CC | 내 차고</title>
+  <link rel="stylesheet" href="/css/style.css"><script src="/js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
+  <header class="header"><div class="header-inner">
+    <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
+    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/garage" aria-current="page">내 차고</a><a href="/parts">부품 찾기</a></nav>
+    <div class="header-actions"><button id="activity-button" hidden>내 활동</button><button id="notifications-button" hidden>알림 <span id="notification-count"></span></button><span id="core-user"></span><a id="kakao-login" class="login" href="/api/auth/kakao/login">로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
+  </div></header>
+  <main id="main" class="container">
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section id="garage" class="garage" aria-labelledby="garage-title"><div class="section-heading"><div><p class="eyebrow">GARAGE</p><h2 id="garage-title">오너들의 차고</h2></div><button id="add-vehicle" class="secondary">내 차 등록</button></div><div id="vehicles"></div></section>
+  </main>
+  <dialog id="detail-dialog" class="community-dialog"><div class="dialog-bar"><span>REV.CC COMMUNITY</span><button data-close aria-label="상세 화면 닫기">✕</button></div><div id="detail-content"></div></dialog>
+  <dialog id="panel-dialog" class="community-dialog"><div class="dialog-bar"><h2 id="panel-title"></h2><button data-close aria-label="창 닫기">✕</button></div><div id="panel-content"></div></dialog>
+  <dialog id="vehicle-dialog" class="community-dialog"><div class="dialog-bar"><h2 id="vehicle-form-title">내 차 등록</h2><button data-close aria-label="차량 등록 닫기">✕</button></div>
+    <form id="vehicle-form"><label>차종<input name="model" required maxlength="100" placeholder="예: 현대 아반떼 N"></label><div class="form-row"><label>연식<input name="year" type="number" min="1900" max="2100" required></label><label>트림<input name="trim" maxlength="100" placeholder="예: DCT"></label></div><label>차 소개<textarea name="bio" maxlength="1000" rows="3" placeholder="내 차와 함께한 이야기를 소개해주세요."></textarea></label><label>차량 사진<input id="vehicle-image" type="file" accept="image/jpeg,image/png,image/webp"></label><small>JPG · PNG · WebP / 최대 3MB</small><div id="vehicle-preview" class="image-previews"></div><button class="primary" type="submit">차량 저장</button></form>
+  </dialog>
+  <dialog id="confirm-dialog" class="confirm-dialog"><h2>삭제할까요?</h2><p id="confirm-message"></p><div class="form-bottom"><button class="secondary" id="confirm-cancel">취소</button><button class="danger" id="confirm-delete">삭제</button></div></dialog>
+</body>
+</html>

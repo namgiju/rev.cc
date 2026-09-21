@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="REV.CC 내 홈. 커뮤니티 소식과 내 차고, 최근 활동을 한눈에 확인하세요.">
+  <title>REV.CC | 내 홈</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <script src="/js/post-url.js" defer></script>
+  <script src="/js/home.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
+  <header class="header"><div class="header-inner">
+    <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
+    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/garage">내 차고</a><a href="/parts">부품 찾기</a><a id="admin-link" class="admin-link" href="/admin" hidden>관리자</a></nav>
+    <div class="header-actions dash-header-actions"><span id="home-user"></span><button id="logout" class="secondary">로그아웃</button></div>
+  </div></header>
+  <main id="main" class="container">
+    <p id="notice" role="status" aria-live="polite"></p>
+    <div class="content-grid">
+      <section aria-labelledby="feed-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">COMMUNITY</p><h2 id="feed-title">최근 커뮤니티 이야기</h2></div>
+          <a href="/community" class="text-link">커뮤니티 더 보기 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="post-list-head"><span>제목</span><span>작성자</span><span>작성일</span><span class="num">조회</span><span class="num">추천</span></div>
+        <div id="home-posts" class="post-list"><p class="empty">이야기를 불러오고 있어요.</p></div>
+      </section>
+      <aside>
+        <div class="user-card">
+          <div class="user-card-top">
+            <div class="user-identity">
+              <div class="avatar" id="home-avatar">R</div>
+              <div>
+                <h2 id="home-username">회원</h2>
+                <p class="handle" id="home-handle"></p>
+              </div>
+            </div>
+          </div>
+          <p class="bio" id="home-role"></p>
+          <div class="pill-row" id="home-tags"></div>
+          <div class="profile-stats">
+            <div><strong id="stat-posts">0</strong><span>게시글</span></div>
+            <div><strong id="stat-comments">0</strong><span>받은 댓글</span></div>
+            <div><strong id="stat-likes">0</strong><span>추천받은 수</span></div>
+          </div>
+        </div>
+        <div class="sidebar-section" aria-labelledby="garage-title">
+          <div class="section-heading"><h3 id="garage-title">내 차고</h3><a href="/garage" class="text-link">전체 보기</a></div>
+          <div id="home-garage"><p class="empty">차고 정보를 불러오고 있어요.</p></div>
+        </div>
+        <div class="sidebar-section" aria-labelledby="activity-title">
+          <div class="section-heading"><h3 id="activity-title">최근 활동</h3></div>
+          <div id="home-activity"><p class="empty">활동 내역을 불러오고 있어요.</p></div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="insignia-section">
+      <div class="insignia-catalog">
+        <div class="section-heading"><div><p class="eyebrow">INSIGNIA</p><h2>인장(태그) 예시</h2><p>사용자의 차량, 활동, 취향을 한눈에 보여주는 인장입니다.</p></div></div>
+        <div class="insignia-groups">
+          <div class="insignia-group">
+            <h4>차량 관련</h4>
+            <div class="pill-row"><span class="pill pill-blue">🚗 아반떼 N</span><span class="pill pill-blue">🚗 BMW 320i</span><span class="pill pill-blue">🚗 GR86</span></div>
+          </div>
+          <div class="insignia-group">
+            <h4>인증 관련</h4>
+            <div class="pill-row"><span class="pill pill-green">✅ 오너 인증</span><span class="pill pill-green">🔧 정비 인증</span></div>
+          </div>
+          <div class="insignia-group">
+            <h4>활동/경험</h4>
+            <div class="pill-row"><span class="pill pill-neutral">⛰️ 와인딩</span><span class="pill pill-neutral">🚩 서킷</span><span class="pill pill-neutral">💧 세차</span></div>
+          </div>
+          <div class="insignia-group">
+            <h4>성향/라이프스타일</h4>
+            <div class="pill-row"><span class="pill pill-neutral">🛠️ DIY</span><span class="pill pill-neutral">📷 사진</span></div>
+          </div>
+          <div class="insignia-group">
+            <h4>시즌</h4>
+            <div class="pill-row"><span class="pill pill-neutral">🅁 REV '26</span></div>
+          </div>
+        </div>
+        <p class="empty">위 태그는 예시 카탈로그입니다. 실제로 붙는 태그는 오른쪽 프로필 카드처럼 계정 데이터를 기준으로 계산됩니다.</p>
+      </div>
+      <div class="demo-card">
+        <div class="section-heading"><div><p class="eyebrow">PREVIEW</p><h2>게시글에서의 인장 노출 예시</h2></div></div>
+        <div class="demo-post" id="demo-post">
+          <p class="empty">최근 글을 불러오는 중이에요.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+  <dialog id="vehicle-dialog" class="community-dialog">
+    <div class="dialog-bar"><span>MY GARAGE</span><h2 id="vehicle-dialog-title">내 차 등록</h2><button data-close aria-label="닫기">✕</button></div>
+    <div id="vehicle-step-info">
+      <form id="vehicle-info-form" class="dialog-form">
+        <label>제조사<input name="manufacturer" required maxlength="100" placeholder="예: 현대"></label>
+        <label>모델명<input name="model" required maxlength="100" placeholder="예: 아반떼 N"></label>
+        <label>연식<input name="modelYear" type="number" required min="1900" max="2100" placeholder="예: 2024"></label>
+        <label>차량번호<input name="licensePlate" required maxlength="20" placeholder="예: 123가4567"></label>
+        <div class="form-bottom"><span></span><button class="primary" type="submit">다음: 등록증 업로드</button></div>
+      </form>
+    </div>
+    <div id="vehicle-step-document" hidden>
+      <p class="hint">자동차등록증의 <b>주민등록번호와 주소는 반드시 가리고</b> 업로드해주세요.<br>JPG, JPEG, PNG, WEBP 형식만 지원하며, 자동 판독 없이 관리자가 직접 확인한 뒤 오너 인증을 승인합니다.</p>
+      <form id="vehicle-document-form" class="dialog-form">
+        <label>자동차등록증 이미지<input id="vehicle-document-input" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+        <div class="form-bottom"><button type="button" class="secondary" id="vehicle-skip-document">나중에 하기</button><button class="primary" type="submit">인증 요청 제출</button></div>
+      </form>
+    </div>
+  </dialog>
+</body>
+</html>

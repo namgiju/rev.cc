@@ -22,16 +22,17 @@ class GarageVehicleControllerTest {
     private final String json = """
         {"manufacturer":"Hyundai","model":"Avante N","modelYear":2024,
          "trim":"N","transmission":"DCT","color":"Performance Blue","nickname":"my N",
-         "description":"owner car","userId":999}
+         "description":"owner car","licensePlate":"123가4567","userId":999}
         """;
     private final GarageVehicleResponse response = new GarageVehicleResponse(15,7L,"Hyundai","Avante N",2024,
-        "N","DCT","Performance Blue","my N","owner car",Instant.now(),Instant.now(),"owner");
+        "N","DCT","Performance Blue","my N","owner car",Instant.now(),Instant.now(),"owner",
+        "123가4567",false,null,null);
 
     @BeforeEach void setup() {
         mvc = MockMvcBuilders.standaloneSetup(new GarageVehicleController(vehicles, sessions))
             .setControllerAdvice(new GarageExceptionHandler()).build();
         when(sessions.require(null)).thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED,"로그인이 필요합니다."));
-        when(sessions.require("valid-token")).thenReturn(new SharedSessionService.SessionUser(7L,"owner"));
+        when(sessions.require("valid-token")).thenReturn(new SharedSessionService.SessionUser(7L,"owner","USER"));
     }
 
     @Test void anonymousCannotCreateListUpdateOrDelete() throws Exception {

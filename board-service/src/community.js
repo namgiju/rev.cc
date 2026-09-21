@@ -71,6 +71,19 @@ const postSelect = `SELECT p.id,p.title,p.content,p.author_id AS "authorId",u.us
  FROM board_posts p JOIN users u ON u.id=p.author_id`;
 const asPost = (row) => ({ ...row, authorId: Number(row.authorId) });
 
+// Asia/Seoul(KST, UTC+9는 서머타임이 없어 상수로 계산해도 안전하다) 기준 오늘 00:00을
+// 해당 UTC 시각으로 변환한다. period=today 필터에 사용한다.
+function todayStartKst() {
+  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(Date.now() + KST_OFFSET_MS);
+  const kstMidnightAsUtc = Date.UTC(
+    kstNow.getUTCFullYear(),
+    kstNow.getUTCMonth(),
+    kstNow.getUTCDate(),
+  );
+  return new Date(kstMidnightAsUtc - KST_OFFSET_MS);
+}
+
 export function communityRouter({ db, auth }) {
   const router = Router();
   router.param("id", (req, res, next, id) => {
@@ -154,6 +167,7 @@ export function communityRouter({ db, auth }) {
       sort = "latest",
       scope = "",
       vehicle = "",
+      period = "",
     } = req.query;
     const query = text(q, 100, false),
       model = text(vehicle, 100, false);
@@ -164,6 +178,7 @@ export function communityRouter({ db, auth }) {
       !["", "mine", "bookmarks", "commented"].includes(scope)
     )
       fail(400, "올바른 정렬을 선택해주세요.");
+    if (period && period !== "today") fail(400, "지원하지 않는 기간입니다.");
     if (scope && !req.user) fail(401, "로그인이 필요합니다.");
     const page = positive(req.query.page ?? 1);
     const limit =
@@ -175,8 +190,9 @@ export function communityRouter({ db, auth }) {
       `%${query.replace(/[\\%_]/g, "\\$&")}%`,
       category,
       `%${model.replace(/[\\%_]/g, "\\$&")}%`,
+      period === "today" ? todayStartKst() : null,
     ];
-    let where = ` WHERE (p.title ILIKE $2 OR p.content ILIKE $2 OR u.username ILIKE $2) AND ($3='' OR p.category=$3) AND p.vehicle ILIKE $4`;
+    let where = ` WHERE (p.title ILIKE $2 OR p.content ILIKE $2 OR u.username ILIKE $2) AND ($3='' OR p.category=$3) AND p.vehicle ILIKE $4 AND ($5::timestamptz IS NULL OR p.created_at>=$5)`;
     if (scope === "mine") where += " AND p.author_id=$1";
     if (scope === "bookmarks")
       where +=
@@ -189,7 +205,7 @@ export function communityRouter({ db, auth }) {
         ? '"likeCount" DESC,"commentCount" DESC,p.id DESC'
         : "p.id DESC";
     const { rows } = await db.query(
-      postSelect + where + ` ORDER BY ${order} LIMIT $5 OFFSET $6`,
+      postSelect + where + ` ORDER BY ${order} LIMIT $6 OFFSET $7`,
       [...values, limit, (page - 1) * limit],
     );
     res.json(rows.map(asPost));
@@ -310,7 +326,7 @@ export function communityRouter({ db, auth }) {
   });
   router.get("/reports", auth, async (req, res) => {
     const { rows } = await db.query(
-      `SELECT r.id,r.reason,r.status,r.created_at AS "createdAt",p.id AS "postId",p.title
+      `SELECT r.id,r.reason,r.status,r.created_at AS "createdAt",p.id AS "postId",p.title,p.category
       FROM community_reports r JOIN board_posts p ON p.id=r.post_id WHERE r.user_id=$1 ORDER BY r.id DESC LIMIT 100`,
       [req.user.id],
     );
@@ -318,7 +334,7 @@ export function communityRouter({ db, auth }) {
   });
   router.get("/notifications", auth, async (req, res) => {
     const { rows } = await db.query(
-      `SELECT n.id,n.post_id AS "postId",n.is_read AS "isRead",n.created_at AS "createdAt",p.title,u.username,n.kind
+      `SELECT n.id,n.post_id AS "postId",n.is_read AS "isRead",n.created_at AS "createdAt",p.title,p.category,u.username,n.kind
       FROM community_notifications n JOIN board_posts p ON p.id=n.post_id JOIN users u ON u.id=n.actor_id
       WHERE n.user_id=$1 ORDER BY n.id DESC LIMIT 100`,
       [req.user.id],
@@ -347,6 +363,21 @@ export function communityRouter({ db, auth }) {
       id: Number(rows[0].id),
       posts: posts.rows.map(asPost),
     });
+  });
+  // 차종별 게시판 1차 구현: board_posts.vehicle은 자유 텍스트라 owner_vehicles/vehicles와
+  // FK로 묶지 않고 단순 집계만 한다. 정규화는 추후 과제로 남긴다.
+  router.get("/vehicles/popular", async (req, res) => {
+    const limit =
+      req.query.limit === undefined
+        ? 8
+        : integer(Number(req.query.limit), 1, 50);
+    const { rows } = await db.query(
+      `SELECT vehicle, COUNT(*)::int AS "postCount" FROM board_posts
+      WHERE vehicle IS NOT NULL AND vehicle<>'' GROUP BY vehicle
+      ORDER BY "postCount" DESC, vehicle ASC LIMIT $1`,
+      [limit],
+    );
+    res.json(rows);
   });
   router.get("/garage", async (req, res) => {
     const owner =

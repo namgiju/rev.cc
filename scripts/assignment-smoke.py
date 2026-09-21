@@ -39,7 +39,7 @@ request('/api/auth/login', {**credentials, 'password': 'wrong'}, 401)
 request('/api/auth/login', credentials)
 assert any(c.name == 'REVCC_SESSION' and c.has_nonstandard_attr('HttpOnly') for c in jar)
 core = request('/api/auth/me')
-assert core == request('/api/board/me') == {'id': user['id'], 'username': username}
+assert core == request('/api/board/me') == {'id': user['id'], 'username': username, 'role': 'USER'}
 old_cookie = 'REVCC_SESSION=' + next(c.value for c in jar if c.name == 'REVCC_SESSION')
 request('/api/auth/login', credentials)
 request('/api/board/me', expected=401, cookie=old_cookie)

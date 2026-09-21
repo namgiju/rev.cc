@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="REV.CC 부품 찾기. 내 차에 맞는 부품 호환 정보를 확인하세요.">
+  <title>REV.CC | 부품 찾기</title>
+  <link rel="stylesheet" href="/css/style.css"><script src="/js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
+  <header class="header"><div class="header-inner">
+    <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
+    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/garage">내 차고</a><a href="/parts" aria-current="page">부품 찾기</a></nav>
+    <div class="header-actions"><button id="activity-button" hidden>내 활동</button><button id="notifications-button" hidden>알림 <span id="notification-count"></span></button><span id="core-user"></span><a id="kakao-login" class="login" href="/api/auth/kakao/login">로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
+  </div></header>
+  <main id="main" class="container">
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section aria-labelledby="parts-title"><div class="section-heading"><div><p class="eyebrow">PARTS</p><h2 id="parts-title">내 차에 맞는 부품 찾기</h2></div></div>
+      <div id="compatibility" class="compatibility"><p>차량을 선택하고 호환 부품을 확인하세요.</p><label class="sr-only" for="vehicle-select">부품 호환 차량</label><select id="vehicle-select"><option value="">차량을 선택해주세요</option></select><ul id="parts"></ul><small>예시 부품 정보입니다. 실제 장착 전 제조사 규격을 확인하세요.</small></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -30,6 +30,10 @@ public class User {
     @Column(unique = true)
     private Long kakaoId;
 
+    // 권한: USER 또는 ADMIN. 기존 계정은 마이그레이션으로 전부 USER가 채워진다.
+    @Column(nullable = false)
+    private String role = "USER";
+
     // 한 회원이 여러 소유 차량을 가질 수 있다. 차량 API는 별도의 DTO로 응답한다.
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<Vehicle> vehicles = new ArrayList<>();
@@ -63,11 +67,20 @@ public class User {
         this.password = hash;
     }
 
+    // 카카오 닉네임이 이후에 채워지거나 바뀌면 다음 로그인 때 반영한다.
+    public void updateUsername(String username) {
+        this.username = username;
+    }
+
     public String getPassword() {
         return password;
     }
 
     public Long getKakaoId() {
         return kakaoId;
+    }
+
+    public String getRole() {
+        return role;
     }
 }

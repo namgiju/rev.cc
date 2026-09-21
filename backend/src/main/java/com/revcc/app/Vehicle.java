@@ -38,6 +38,16 @@ public class Vehicle {
     @Column(name = "bio", nullable = false, length = 1000, columnDefinition = "varchar(1000) default ''")
     private String description = "";
 
+    @Column(name = "license_plate", nullable = false, length = 20, columnDefinition = "varchar(20) default ''")
+    private String licensePlate = "";
+    // 오너 인증 상태. 신청 전이면 null, 그 후로는 vehicle_verifications의 최신 결과를 반영한다.
+    @Column(nullable = false)
+    private boolean verified = false;
+    @Column(name = "verification_status")
+    private String verificationStatus;
+    @Column(name = "verified_at")
+    private Instant verifiedAt;
+
     // 이미 HTML 차고에서 사용하는 컬럼만 보존한다. 이번 API에는 사진 기능을 추가하지 않는다.
     @Column(name = "image_id")
     private Integer legacyImageId;
@@ -64,6 +74,26 @@ public class Vehicle {
         color = clean(request.color());
         nickname = clean(request.nickname());
         description = clean(request.description());
+        licensePlate = request.licensePlate().trim();
+    }
+
+    // 인증 요청 접수. 반려된 뒤 재신청할 때도 동일하게 PENDING으로 되돌린다.
+    public void markVerificationPending() {
+        verified = false;
+        verificationStatus = "PENDING";
+        verifiedAt = null;
+    }
+
+    public void approveVerification(Instant at) {
+        verified = true;
+        verificationStatus = "APPROVED";
+        verifiedAt = at;
+    }
+
+    public void rejectVerification() {
+        verified = false;
+        verificationStatus = "REJECTED";
+        verifiedAt = null;
     }
 
     private static String clean(String value) { return value == null ? "" : value.trim(); }
@@ -82,6 +112,10 @@ public class Vehicle {
     public String getColor() { return color; }
     public String getNickname() { return nickname; }
     public String getDescription() { return description; }
+    public String getLicensePlate() { return licensePlate; }
+    public boolean isVerified() { return verified; }
+    public String getVerificationStatus() { return verificationStatus; }
+    public Instant getVerifiedAt() { return verifiedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

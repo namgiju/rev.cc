@@ -55,6 +55,9 @@ function el(tag, text = "", className = "") {
   return node;
 }
 function on(node, event, handler) {
+  // /community, /garage, /parts 등 독립 페이지는 index.html의 일부 요소가 없을 수 있어
+  // 없는 요소에 대한 바인딩은 조용히 건너뛴다(전체 스크립트가 죽는 것을 방지).
+  if (!node) return null;
   node.addEventListener(event, async (e) => {
     try {
       await handler(e);
@@ -116,6 +119,13 @@ function openDialog(dialog) {
 function closeDetail() {
   state.detailRequest++;
   $("#detail-dialog").close();
+  // /home 등 다른 화면에서 글로 들어온 경우 닫을 때 그 화면으로 돌아간다.
+  const returnTo = sessionStorage.getItem("revcc-return-to");
+  if (returnTo) {
+    sessionStorage.removeItem("revcc-return-to");
+    location.href = returnTo;
+    return;
+  }
   if (/^#(post|car|member)-\d+$/.test(location.hash)) {
     history.replaceState(
       null,
@@ -174,9 +184,12 @@ async function refreshSession() {
   for (const id of ["logout", "activity-button", "notifications-button"])
     $("#" + id).hidden = !user;
   $("#kakao-login").hidden = !!user;
-  $("#board-user").textContent = user
-    ? `${user.username} 님, 오늘의 이야기를 남겨주세요.`
-    : "이야기를 쓰려면 먼저 로그인해주세요.";
+  // #write-post가 없는 페이지(/garage, /parts)에서는 이 요소가 없다.
+  const boardUser = $("#board-user");
+  if (boardUser)
+    boardUser.textContent = user
+      ? `${user.username} 님, 오늘의 이야기를 남겨주세요.`
+      : "이야기를 쓰려면 먼저 로그인해주세요.";
   if (user) await refreshNotificationCount();
   else $("#notification-count").textContent = "";
 }
@@ -196,7 +209,7 @@ function renderPost(post) {
     el("span", labels[post.category] || "자유 이야기", "post-category"),
   );
   const title = el("h3");
-  title.append(link(post.title, `#post-${post.id}`));
+  title.append(link(post.title, getPostUrl(post)));
   body.append(title, el("p", post.content));
   const meta = el("small");
   meta.append(
@@ -217,13 +230,16 @@ function renderPost(post) {
   body.append(stats);
   article.append(body);
   if (post.imageIds?.length) {
-    const a = link("", `#post-${post.id}`);
+    const a = link("", getPostUrl(post));
     a.append(photo(post.imageIds[0], `${post.title} 첨부 사진`, "post-thumb"));
     article.append(a);
   }
   return article;
 }
 async function refreshPosts(append = false) {
+  // 게시글 상세가 페이지로 분리된 뒤 홈(`/`)에는 이 목록 UI 자체가 없다. "내가 쓴 글" 같은
+  // 활동 버튼은 어느 페이지에서나 누를 수 있어 여기서 조용히 멈춘다(크래시 방지).
+  if (!$("#posts")) return;
   const request = ++state.feedRequest;
   const page = append ? state.page + 1 : 1;
   const query = new URLSearchParams({
@@ -286,6 +302,11 @@ document.querySelectorAll("[data-category]").forEach((b) =>
       x.classList.toggle("active", x === b);
       x.setAttribute("aria-pressed", String(x === b));
     });
+    // 카테고리를 URL에도 반영해 새로고침·공유 시 같은 필터가 유지되게 한다.
+    const url = new URL(location.href);
+    if (b.dataset.category) url.searchParams.set("category", b.dataset.category);
+    else url.searchParams.delete("category");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
     await refreshPosts();
   }),
 );
@@ -418,6 +439,9 @@ on($("#post-form"), "submit", async (e) => {
 function beginEdit(post) {
   if (!requireLogin()) return;
   closeDetail();
+  // 게시글 상세가 이제 페이지라 #write-post를 숨겨뒀을 수 있어 다시 보이게 한다.
+  const writePost = $("#write-post");
+  if (writePost) writePost.hidden = false;
   state.editing = post.id;
   state.images = [...post.imageIds];
   const f = $("#post-form");
@@ -430,24 +454,51 @@ function beginEdit(post) {
   f.elements.title.focus();
 }
 const viewed = new Set();
-async function openPost(id) {
-  const request = ++state.detailRequest,
-    root = $("#detail-content");
+// 게시글 상세는 더 이상 #detail-dialog 모달이 아니라 /community/{category}/{id} 페이지에
+// 그대로 렌더링한다(car·member는 여전히 모달을 쓴다). 렌더링 내용(본문·댓글·좋아요·북마크·
+// 수정·삭제)은 예전 openPost()와 동일하며 대상 컨테이너만 바뀐 것이다.
+function parsePostDetailPath() {
+  const match = /^\/community\/(free|maintenance|parts|drive)\/([0-9]+)$/.exec(location.pathname);
+  return match ? { category: match[1], id: Number(match[2]) } : null;
+}
+async function showPostDetailPage(id) {
+  const wrap = $("#post-detail"),
+    root = $("#post-detail-content");
+  if (!wrap || !root) return;
+  $("#community")?.setAttribute("hidden", "");
+  $("#write-post")?.setAttribute("hidden", "");
+  wrap.hidden = false;
   root.replaceChildren(el("p", "이야기를 불러오고 있어요.", "empty"));
-  openDialog($("#detail-dialog"));
-  const [post, comments] = await Promise.all([
-    api(`/api/board/posts/${id}`),
-    api(`/api/board/posts/${id}/comments`),
-  ]);
-  if (request !== state.detailRequest) return;
+  let post, comments;
+  try {
+    [post, comments] = await Promise.all([
+      api(`/api/board/posts/${id}`),
+      api(`/api/board/posts/${id}/comments`),
+    ]);
+  } catch (e) {
+    root.replaceChildren(
+      el(
+        "p",
+        e.status === 404 ? "삭제되었거나 없는 이야기예요." : "이야기를 불러오지 못했어요.",
+        "empty",
+      ),
+    );
+    return;
+  }
+  // URL의 category 세그먼트가 실제 글의 category와 다르면(오래된 링크, 카테고리 변경 등)
+  // 에러 대신 정확한 canonical 주소로 조용히 교정한다.
+  const canonical = getPostUrl(post);
+  if (canonical !== location.pathname) history.replaceState(null, "", canonical + location.search);
   if (!viewed.has(id)) {
     try {
       const v = await api(`/api/board/posts/${id}/view`, {});
       post.views = v.views;
       viewed.add(id);
     } catch {}
-    if (request !== state.detailRequest) return;
   }
+  renderPostDetail(root, post, comments, id);
+}
+function renderPostDetail(root, post, comments, id) {
   root.replaceChildren(
     el("span", labels[post.category], "post-category"),
     el("h2", post.title, "detail-title"),
@@ -477,7 +528,7 @@ async function openPost(id) {
       async () => {
         if (!requireLogin()) return;
         await api(`/api/board/posts/${id}/${kind}`, { active: !active }, "PUT");
-        await openPost(id);
+        await showPostDetailPage(id);
         await refreshPosts();
       },
       "",
@@ -489,9 +540,7 @@ async function openPost(id) {
     button(
       "링크 복사",
       async () => {
-        await navigator.clipboard.writeText(
-          location.origin + location.pathname + `#post-${id}`,
-        );
+        await navigator.clipboard.writeText(location.origin + getPostUrl(post));
         notify("글 링크를 복사했어요.");
       },
       "",
@@ -506,9 +555,8 @@ async function openPost(id) {
           if (!(await confirmDelete("게시글과 댓글을 함께 삭제합니다.")))
             return;
           await api(`/api/board/posts/${id}`, {}, "DELETE");
-          closeDetail();
-          await refreshPosts();
-          notify("글을 삭제했어요.");
+          // 상세는 이제 페이지라 닫을 모달이 없다. 글이 있던 카테고리 목록으로 돌아간다.
+          location.href = `/community?category=${encodeURIComponent(post.category)}`;
         },
         "danger-text",
       ),
@@ -568,7 +616,7 @@ async function openPost(id) {
           async () => {
             if (!(await confirmDelete("이 댓글을 삭제할까요?"))) return;
             await api(`/api/board/comments/${c.id}`, {}, "DELETE");
-            await openPost(id);
+            await showPostDetailPage(id);
             await refreshPosts();
           },
           "danger-text",
@@ -597,7 +645,7 @@ async function openPost(id) {
         content: input.value,
         parentId,
       });
-      await openPost(id);
+      await showPostDetailPage(id);
       await refreshPosts();
     } finally {
       submit.disabled = false;
@@ -682,7 +730,7 @@ async function openReports() {
   reports.forEach((r) => {
     const row = el("div", "", "notification");
     row.append(
-      link(r.title, `#post-${r.postId}`),
+      link(r.title, getPostUrl({ id: r.postId, category: r.category })),
       el("p", r.reason),
       el(
         "small",
@@ -709,7 +757,7 @@ on($("#notifications-button"), "click", async () => {
     row.append(
       link(
         `${n.username} 님이 댓글을 남겼어요 · ${n.title}`,
-        `#post-${n.postId}`,
+        getPostUrl({ id: n.postId, category: n.category }),
       ),
       el("small", dateText(n.createdAt)),
     );
@@ -986,15 +1034,27 @@ async function loadCompatibility() {
 }
 async function route() {
   const match = /^#(post|car|member)-(\d+)$/.exec(location.hash);
-  if (!match) {
-    if ($("#detail-dialog").open) closeDetail();
+  // 예전 /#post-123 링크(북마크·공유된 링크 등) 호환: 글을 조회해 category를 알아낸 뒤
+  // 새 canonical 주소로 옮겨준다. 모달을 열지 않는다.
+  if (match && match[1] === "post") {
+    try {
+      const post = await api(`/api/board/posts/${match[2]}`);
+      location.replace(getPostUrl(post));
+    } catch (e) {
+      notify(e.message || "이야기를 찾을 수 없어요.");
+    }
     return;
   }
-  $("#panel-dialog").close();
+  // /parts 등 detail-dialog가 없는 페이지에서는 car·member 해시 라우팅을 하지 않는다.
+  const dialog = $("#detail-dialog");
+  if (!dialog) return;
+  if (!match) {
+    if (dialog.open) closeDetail();
+    return;
+  }
+  $("#panel-dialog")?.close();
   try {
-    await { post: openPost, car: openCar, member: openMember }[match[1]](
-      Number(match[2]),
-    );
+    await { car: openCar, member: openMember }[match[1]](Number(match[2]));
     $("#detail-dialog").scrollTop = 0;
   } catch (e) {
     $("#detail-content").replaceChildren(el("p", e.message, "empty"));
@@ -1004,21 +1064,122 @@ on(window, "hashchange", route);
 on(window, "focus", async () => {
   if (state.user) await refreshNotificationCount();
 });
+function applyInitialCategory() {
+  // /community?category=free 같은 딥링크를 초기 진입 시 반영한다. #community가
+  // 없는 페이지(/garage, /parts)에서는 해당 없음.
+  const category = new URLSearchParams(location.search).get("category");
+  if (!category) return;
+  const tab = document.querySelector(`[data-category="${CSS.escape(category)}"]`);
+  if (!tab) return;
+  state.category = category;
+  document.querySelectorAll("[data-category]").forEach((b) => b.classList.toggle("active", b === tab));
+}
+function applyInitialVehicleFilter() {
+  // 홈 "차종별 게시판"에서 /community?vehicle=아반떼 N 형태로 넘어온 딥링크를 반영한다.
+  const vehicle = new URLSearchParams(location.search).get("vehicle");
+  const input = $("#vehicle-filter");
+  if (!vehicle || !input) return;
+  input.value = vehicle;
+  state.vehicle = vehicle;
+}
+function timeAgo(iso) {
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (diffSec < 60) return "방금 전";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay}일 전`;
+  return dateText(iso);
+}
+function homeEmpty(target, message) {
+  target.replaceChildren(el("p", message, "empty"));
+}
+// 홈 2x2 포털 전용 컴팩트 행. 기존 renderPost()는 본문 미리보기·사진·저장 상태까지 보여주는
+// 커뮤니티 목록 전용이라 홈 요약에는 과해서, 화면을 건드리지 않도록 별도 렌더 함수로 둔다.
+function renderHomePostRow(post, { showLikes = false, showAuthor = false, showTime = false, showVehicle = false } = {}) {
+  const row = link("", getPostUrl(post), "home-row");
+  row.append(el("span", labels[post.category] || "자유", "home-row-category"));
+  row.append(el("span", post.title, "home-row-title"));
+  const metaText = [];
+  if (showAuthor) metaText.push(post.username);
+  if (showVehicle && post.vehicle) metaText.push(post.vehicle);
+  if (showTime) metaText.push(timeAgo(post.createdAt));
+  if (metaText.length) row.append(el("span", metaText.join(" · "), "home-row-meta"));
+  const stats = el("span", "", "home-row-stats");
+  if (showLikes) stats.append(el("span", `♥ ${post.likeCount}`));
+  stats.append(el("span", `💬 ${post.commentCount}`));
+  row.append(stats);
+  return row;
+}
+async function refreshHomePopularToday() {
+  const target = $("#home-popular-today");
+  const posts = await api("/api/board/posts?sort=popular&period=today&limit=5");
+  if (!posts.length) return homeEmpty(target, "오늘 추천받은 글이 아직 없어요.");
+  target.replaceChildren(...posts.map((p) => renderHomePostRow(p, { showLikes: true })));
+}
+async function refreshHomeLatest() {
+  const target = $("#home-latest");
+  const posts = await api("/api/board/posts?sort=latest&limit=5");
+  if (!posts.length) return homeEmpty(target, "아직 이야기가 없어요.");
+  target.replaceChildren(...posts.map((p) => renderHomePostRow(p, { showAuthor: true, showTime: true })));
+}
+async function refreshHomeParts() {
+  const target = $("#home-parts");
+  const posts = await api("/api/board/posts?category=parts&sort=latest&limit=5");
+  if (!posts.length) return homeEmpty(target, "아직 부품 관련 글이 없어요.");
+  target.replaceChildren(
+    ...posts.map((p) => renderHomePostRow(p, { showAuthor: true, showVehicle: true, showTime: true })),
+  );
+}
+async function refreshHomeVehicles() {
+  const target = $("#home-vehicles");
+  const items = await api("/api/board/vehicles/popular?limit=8");
+  if (!items.length) return homeEmpty(target, "차종 정보가 담긴 글이 아직 없어요.");
+  target.replaceChildren(
+    ...items.map((v) => {
+      const row = link("", `/community?vehicle=${encodeURIComponent(v.vehicle)}`, "home-row");
+      row.append(el("span", v.vehicle, "home-row-title"));
+      row.append(el("span", `게시글 ${v.postCount}개`, "home-row-stats"));
+      return row;
+    }),
+  );
+}
 async function initialize() {
+  applyInitialCategory();
+  applyInitialVehicleFilter();
   await refreshSession();
-  const results = await Promise.allSettled([
-    refreshPosts(),
-    refreshGarage(),
-    loadCompatibility(),
-  ]);
-  if (results[0].status === "rejected")
-    $("#posts").replaceChildren(
-      el("p", "게시글을 불러오지 못했어요. 새로고침해주세요.", "empty"),
-    );
-  if (results[1].status === "rejected")
-    $("#vehicles").replaceChildren(
-      el("p", "차고를 불러오지 못했어요.", "empty"),
-    );
+  // 이 페이지에 실제로 있는 섹션만 불러온다(index.html의 홈 포털, /community·/garage·/parts는 각각 일부).
+  const postDetail = parsePostDetailPath();
+  const jobs = [];
+  if (postDetail && $("#post-detail"))
+    jobs.push({ key: "post-detail", promise: showPostDetailPage(postDetail.id) });
+  else if ($("#community")) jobs.push({ key: "posts", promise: refreshPosts() });
+  if ($("#garage")) jobs.push({ key: "garage", promise: refreshGarage() });
+  if ($("#compatibility")) jobs.push({ key: "parts", promise: loadCompatibility() });
+  if ($("#home-popular-today")) jobs.push({ key: "home-popular", promise: refreshHomePopularToday() });
+  if ($("#home-latest")) jobs.push({ key: "home-latest", promise: refreshHomeLatest() });
+  if ($("#home-parts")) jobs.push({ key: "home-parts", promise: refreshHomeParts() });
+  if ($("#home-vehicles")) jobs.push({ key: "home-vehicles", promise: refreshHomeVehicles() });
+  const results = await Promise.allSettled(jobs.map((j) => j.promise));
+  results.forEach((r, i) => {
+    if (r.status !== "rejected") return;
+    if (jobs[i].key === "posts")
+      $("#posts").replaceChildren(
+        el("p", "게시글을 불러오지 못했어요. 새로고침해주세요.", "empty"),
+      );
+    if (jobs[i].key === "garage")
+      $("#vehicles").replaceChildren(
+        el("p", "차고를 불러오지 못했어요.", "empty"),
+      );
+    if (jobs[i].key === "home-popular") homeEmpty($("#home-popular-today"), "불러오지 못했어요.");
+    if (jobs[i].key === "home-latest") homeEmpty($("#home-latest"), "불러오지 못했어요.");
+    if (jobs[i].key === "home-parts") homeEmpty($("#home-parts"), "불러오지 못했어요.");
+    if (jobs[i].key === "home-vehicles") homeEmpty($("#home-vehicles"), "불러오지 못했어요.");
+    if (jobs[i].key === "post-detail")
+      $("#post-detail-content").replaceChildren(el("p", "이야기를 불러오지 못했어요.", "empty"));
+  });
   if (results.some((r) => r.status === "rejected"))
     notify("일부 정보를 불러오지 못했어요. 잠시 후 새로고침해주세요.");
   await route();

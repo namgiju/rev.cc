@@ -39,7 +39,6 @@ export function GarageSessionProvider({children}: {children: ReactNode}) {
 export function RequireGarageSession({children}: {children: ReactNode}) {
   const session = useGarageSession();
   if (session.loading) return <p className={styles.loading} role="status">로그인 상태를 확인하고 있습니다.</p>;
-  if (session.error) return <p className={styles.loading}>서버 연결을 확인한 뒤 다시 시도해주세요.</p>;
   if (!session.user) return <GarageLogin />;
   return <>{children}</>;
 }

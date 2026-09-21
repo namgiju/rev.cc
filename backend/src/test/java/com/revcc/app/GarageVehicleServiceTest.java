@@ -12,7 +12,7 @@ class GarageVehicleServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final GarageVehicleService service = new GarageVehicleService(vehicles, users);
     private final GarageVehicleRequest request = new GarageVehicleRequest("Hyundai", "Avante N", 2024,
-        "N", "DCT", "Performance Blue", "기주의 아반떼 N", "오너 차량");
+        "N", "DCT", "Performance Blue", "기주의 아반떼 N", "오너 차량", "123가4567");
 
     private User owner() {
         User user = mock(User.class);
@@ -30,7 +30,7 @@ class GarageVehicleServiceTest {
         assertEquals("owner", result.username());
         assertEquals("Performance Blue", result.color());
         Vehicle minimal = new Vehicle(owner(), new GarageVehicleRequest(" Hyundai ", " Avante N ", 2024,
-            null, null, null, null, null));
+            null, null, null, null, null, "123가4567"));
         assertEquals("Hyundai", minimal.getManufacturer());
         assertEquals("", minimal.getDescription());
     }
