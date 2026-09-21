@@ -194,8 +194,8 @@ let browser;
     boxes[0].x + boxes[0].width < boxes[1].x &&
       boxes[1].x + boxes[1].width < boxes[2].x,
   );
-  assert.equal(boxes[0].width, 230);
-  assert.equal(boxes[2].width, 280);
+  assert.equal(boxes[0].width, 270);
+  assert.equal(boxes[2].width, 310);
   assert.ok(boxes[1].width >= 800);
   assert.equal(await page.evaluate(() => window.injected), undefined);
   assert.equal(await page.locator(".detail-gallery img").count(), 1);

@@ -732,48 +732,6 @@ textarea {
   background:#4d5d53;
 }
 
-footer {
-  border-top:1px solid var(--line);
-  padding:37px 0 22px;
-}
-
-.footer-top {
-  display:flex;
-  justify-content:space-between;
-  gap:25px;
-}
-
-.footer-top .logo {
-  font-size:29px;
-}
-
-.footer-top p {
-  color:#989da2;
-  font-size:12px;
-  margin-top:15px;
-}
-
-.footer-links {
-  display:flex;
-  gap:32px;
-  font-size:12px;
-  color:#777d83;
-}
-
-.footer-bottom {
-  display:flex;
-  gap:20px;
-  border-top:1px solid var(--line);
-  padding-top:22px;
-  margin-top:24px;
-  font-size:10px;
-  color:#a0a5aa;
-}
-
-.footer-bottom a {
-  margin-left:auto;
-}
-
 .sr-only {
   position:absolute;
   width:1px;
@@ -996,16 +954,6 @@ footer {
     font-size:10px;
     max-width:155px;
   }
-  .footer-top {
-    flex-direction:column;
-  }
-  .footer-links {
-    gap:22px;
-  }
-  .footer-bottom {
-    gap:12px;
-    font-size:9px;
-  }
   .post h3 {
     font-size:14px;
   }
@@ -1084,7 +1032,7 @@ footer {
 
 /* 게시글 상세 전용 데스크톱 3단 구조. 본문/버튼 스타일은 기존 규칙을 재사용한다. */
 .container.post-detail-wide{width:min(1500px,calc(100% - 64px))}
-.post-detail-layout{display:grid;grid-template-columns:230px minmax(0,1fr) 280px;gap:22px;align-items:start}
+.post-detail-layout{display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:22px;align-items:start}
 .post-detail-layout>article{min-width:0}
 .post-sidebar{display:grid;gap:16px;min-width:0;overflow-wrap:anywhere}
 .context-card{border:1px solid var(--line);border-radius:14px;padding:20px;background:#fff}
@@ -1110,3 +1058,45 @@ footer {
 .context-vehicle-row:hover strong,.context-post-row:hover strong{color:#2462b4}
 .context-car-photo{display:block;width:100%;height:130px;object-fit:cover;border-radius:8px;margin-top:14px}
 .context-board-link{display:block;border:1px solid var(--line);border-radius:8px;font-size:12px;padding:10px;margin-top:16px;text-align:center}
+
+/* Reference post detail: public author information, never the viewer's garage. */
+.post-detail-page #post-detail-content{background:#fff;padding:28px;min-height:760px}
+.author-profile-card{padding:16px;overflow:hidden}
+.author-profile-card>h3{font-size:11px;color:var(--muted);letter-spacing:.08em}
+.author-vehicle-cover{display:block;width:100%;height:126px;object-fit:cover;border-radius:8px}
+.has-vehicle-cover>.author-card-title{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.author-identity{text-align:center;position:relative}
+.author-avatar{width:88px;height:88px;margin:12px auto;border:4px solid white;box-shadow:0 0 0 1px var(--line);background:#edf2f7;font-weight:700}
+.has-vehicle-cover .author-avatar{margin-top:-38px}
+.author-identity>a{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+.author-car-name{margin:8px 0;font-size:13px}
+.author-verification{display:inline-block;color:#2462b4;border:1px solid #a6c6eb;border-radius:20px;background:#edf4ff;padding:3px 9px;font-size:11px}
+.author-profile-card>.author-badge-list{justify-content:center;margin-top:20px}
+.author-stats{margin:20px 0;padding:6px 0}
+.author-stats>div{padding:9px 0;border-bottom:1px solid #f0f3f6}
+.author-stats>div:last-child{border:0}
+.author-stats dd{font-variant-numeric:tabular-nums;font-weight:500}
+.author-badge{background:#f5f7fa;border:0;min-width:150px}
+.author-badge.compact{min-width:0;background:transparent;padding:4px}
+.badge-mark{width:40px;height:44px;clip-path:polygon(50% 0,95% 25%,95% 75%,50% 100%,5% 75%,5% 25%);border-radius:0;background:#d8edff;border:0;color:#2462b4;font-size:24px}
+.author-badge.compact .badge-mark{width:30px;height:34px;font-size:20px}
+.author-badges{padding-bottom:24px;margin-bottom:28px}
+.post-detail-page .detail-meta{align-items:center;line-height:1.8}
+.post-detail-page .detail-text{margin:30px 0;min-height:100px}
+.post-detail-page .detail-actions{gap:10px;padding:18px 0}
+.post-detail-page .detail-actions button{background:white;min-height:40px}
+.post-detail-page .comment-form{border:1px solid var(--line);border-radius:10px;padding:14px;margin:22px 0;display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.post-detail-page .comment-form textarea{border:0;resize:vertical;min-height:78px;background:transparent}
+.post-detail-page .comment-form>.primary{align-self:flex-end}
+.post-detail-page .comment{padding:18px 0}
+.context-vehicle-row img{width:56px;height:56px}
+.context-post-row>div{min-width:0}
+.context-post-row strong{display:block;overflow-wrap:anywhere}
+.related-avatar{display:grid;place-items:center;flex-shrink:0;width:38px;height:38px;border-radius:50%;background:#edf2f7;color:#718297;font-size:14px}
+.context-board-link{background:#f6f8fa}
+.context-board-link:hover{background:#edf4ff;color:#2462b4}
+.author-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.member-guestbook{margin-top:28px;border-top:1px solid var(--line);padding-top:20px}
+.member-guestbook .comment-form{display:grid;gap:10px;margin-bottom:18px}
+.member-guestbook textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;resize:vertical}
+.member-guestbook .comment-form button{justify-self:end}

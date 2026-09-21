@@ -12,87 +12,12 @@ function contextCard(title) {
   card.append(el("h3", title));
   return card;
 }
-function authorBadge(badge, compact = false) {
-  const item = el("div", "", `author-badge${compact ? " compact" : ""}`);
-  // 현재 인증 인장에는 전용 이미지가 없으므로 기존 색상의 텍스트 표식을 쓴다.
-  const mark = el("span", "✓", "badge-mark");
-  mark.setAttribute("aria-hidden", "true");
-  const text = el("div");
-  text.append(el("strong", badge.name));
-  if (!compact) text.append(el("p", badge.description, "context-muted"));
-  else item.title = badge.description;
-  item.append(mark, text);
-  return item;
-}
 function renderAuthorContext(member) {
-  const card = contextCard("작성자");
-  const avatar = el("div", [...member.username][0] || "", "author-avatar");
-  avatar.setAttribute("aria-label", "프로필 사진 미등록");
-  card.append(avatar, memberLink(member.id, member.username));
-  card.append(
-    el(
-      "p",
-      member.verified ? "오너 인증 완료" : "인증된 차량 없음",
-      "context-muted",
-    ),
-  );
-  const representative = member.representativeVehicle;
-  if (representative) {
-    card.append(
-      el(
-        "p",
-        `${representative.verified ? "인증 차량" : "등록 차량"} · ${representative.model}`,
-        "author-car-name",
-      ),
-    );
-  }
-  const badges = el("div", "", "author-badge-list");
-  member.badges
-    .slice(0, 3)
-    .forEach((badge) => badges.append(authorBadge(badge, true)));
-  if (!member.badges.length)
-    badges.append(el("p", "표시할 인장이 없어요.", "context-muted"));
-  card.append(badges);
-  const stats = el("dl", "", "author-stats");
-  for (const [label, value] of [
-    [
-      "가입일",
-      member.joinedAt
-        ? new Date(member.joinedAt).toLocaleDateString("ko-KR")
-        : "기록 없음",
-    ],
-    ["게시글", member.postCount],
-    ["댓글", member.commentCount],
-    ["받은 추천", member.receivedLikes],
-  ]) {
-    const row = el("div");
-    row.append(el("dt", label), el("dd", String(value)));
-    stats.append(row);
-  }
-  card.append(stats, el("h3", `보유 차량 ${member.vehicles.length}`));
-  const cars = el("div", "", "author-cars");
-  for (const vehicle of member.vehicles) {
-    const row = link("", `#car-${vehicle.id}`, "context-vehicle-row");
-    if (vehicle.imageId) row.append(photo(vehicle.imageId, vehicle.model));
-    const info = el("div");
-    info.append(
-      el("strong", vehicle.nickname || vehicle.model),
-      el(
-        "p",
-        `${vehicle.year} · ${vehicle.model}${vehicle.verified ? " · 인증" : ""}`,
-        "context-muted",
-      ),
-    );
-    row.append(info);
-    cars.append(row);
-  }
-  if (!member.vehicles.length)
-    cars.append(el("p", "등록한 차량이 없어요.", "context-muted"));
-  card.append(cars);
+  const card = memberProfileCard(member);
   $("#post-author").replaceChildren(card);
   const section = $("#post-author-badges");
   const list = el("div", "", "author-badge-list");
-  member.badges.slice(0, 3).forEach((badge) => list.append(authorBadge(badge)));
+  member.badges.forEach((badge) => list.append(authorBadge(badge)));
   if (!member.badges.length)
     list.append(el("p", "아직 표시할 인장이 없어요.", "context-muted"));
   section.replaceChildren(el("h3", "작성자의 인장"), list);
@@ -105,6 +30,11 @@ function renderRelatedPosts(card, posts, currentId) {
     .forEach((post) => {
       const row = link("", getPostUrl(post), "context-post-row");
       if (post.imageIds?.length) row.append(photo(post.imageIds[0], ""));
+      else {
+        const initial = el("span", [...post.username][0] || "", "related-avatar");
+        initial.setAttribute("aria-hidden", "true");
+        row.append(initial);
+      }
       const info = el("div");
       info.append(
         el("strong", post.title),

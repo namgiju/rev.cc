@@ -1,0 +1,23 @@
+/* Only service pages opt in. Footer remains in document flow, never fixed. */
+body.site-footer-layout{min-height:100vh;display:flex;flex-direction:column}
+body.site-footer-layout>header{flex-shrink:0}
+body.site-footer-layout>main{flex:1 0 auto}
+#site-footer{flex-shrink:0;width:100%;padding:40px 0 24px;border-top:1px solid var(--line);background:#fafbfc;color:#747b84;font-size:12px;line-height:1.8}
+.site-footer-inner{width:min(1240px,calc(100% - 64px));margin:0 auto}
+.site-footer-top{display:flex;flex-wrap:wrap;gap:32px 64px;justify-content:space-between}
+.site-footer-brand{flex:1 1 200px}
+.site-footer-brand img{display:block;object-fit:contain;object-position:left center}
+.site-footer-brand p{margin:12px 0 0;font-size:13px}
+#site-footer h2{font-size:12px;color:var(--ink);font-weight:650;margin:0 0 12px}
+.site-footer-services{display:flex;flex:0 0 140px;flex-direction:column;align-items:flex-start;gap:5px}
+.site-footer-services h2{margin-bottom:7px!important}
+.site-footer-info{flex:0 1 420px;min-width:0}
+.site-footer-info dl{margin:0}
+.site-footer-info dl>div{display:flex;gap:14px;margin:4px 0}
+.site-footer-info dt{flex:0 0 86px;color:#858b93}
+.site-footer-info dd{margin:0;overflow-wrap:anywhere}
+.site-footer-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px 24px;border-top:1px solid var(--line);padding-top:20px;margin-top:28px;font-size:11px}
+.site-footer-copyright{display:flex;flex-wrap:wrap;gap:8px 20px;margin:0}
+.site-footer-disclaimer{margin:8px 0 0;max-width:620px;color:#777e87}
+.site-footer-to-top{padding:6px 0;font-size:12px;white-space:nowrap;color:#626a75}
+#site-footer a:hover,.site-footer-to-top:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}

@@ -1,199 +1,290 @@
-// 로그인한 회원의 홈 화면. 기존 랜딩 화면(js/app.js)과는 별도 스크립트로 두어
-// 기존 커뮤니티 화면의 동작을 건드리지 않는다. 세션은 기존 Redis 쿠키를 그대로 재사용한다.
-const $ = (selector) => document.querySelector(selector);
-const dateText = (value) =>
-  new Date(value).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
-const dateTimeText = (value) =>
-  new Date(value).toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" });
-
-async function api(path) {
-  const response = await fetch(path, { credentials: "same-origin" });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw Object.assign(new Error(data.message || `요청 실패 (${response.status})`), {
-      status: response.status,
-    });
-  return data;
-}
-
+// /home is the personal garage for every signed-in member, including ADMIN.
+const $ = selector => document.querySelector(selector);
+const state = {user:null, authStatus:"CHECKING", sessionRequest:0, garageRequest:0,
+  detailRequest:0, activityRequest:0, profile:null, profileRequest:0, activity:"mine", page:1, vehicleEditing:null, vehicleImage:null};
+const recordLabels = {maintenance:"정비", tuning:"튜닝", parts:"부품"};
+const dateText = value => new Date(value).toLocaleDateString("ko-KR");
+const imageUrl = id => `/api/board/images/${Number(id)}`;
 function el(tag, text = "", className = "") {
-  const node = document.createElement(tag);
-  node.textContent = text;
+  const node = document.createElement(tag); node.textContent = text;
   if (className) node.className = className;
   return node;
 }
-
-// 랜딩 화면의 글/차량 상세로 이동했다가 닫으면 /home으로 돌아오게 표시해 둔다.
-function markReturnToHome(link) {
-  link.addEventListener("click", () => sessionStorage.setItem("revcc-return-to", "/home"));
-  return link;
-}
-
 function notify(message) {
-  const notice = $("#notice");
-  notice.textContent = message;
-  setTimeout(() => {
-    if (notice.textContent === message) notice.textContent = "";
-  }, 7000);
+  $("#notice").textContent = message;
+  document.querySelectorAll(".dialog-notice").forEach(node => node.remove());
+  const dialog = [...document.querySelectorAll("dialog[open]")].at(-1);
+  if (dialog) dialog.prepend(el("p", message, "dialog-notice"));
 }
-
-function pillEl(text, kind) {
-  return el("span", text, kind ? `pill ${kind}` : "pill");
-}
-
-const verifiedVehicle = (vehicles) => vehicles.find((v) => v.verified);
-
-// 실제 데이터로 계산되는 태그(차량, 오너 인증, 관리자)와, 아직 취향 태그 기능이 없어
-// 예시로만 붙이는 태그(pill-mock)를 명확히 구분한다. 오너 인증 pill은 차량이 있다고
-// 붙는 게 아니라 실제로 verified=true인 차량이 있을 때만 붙는다.
-function renderTags(user, vehicles) {
-  const container = $("#home-tags");
-  container.innerHTML = "";
-  const verified = verifiedVehicle(vehicles);
-  if (vehicles.length) container.append(pillEl(`🚗 ${vehicles[0].nickname || vehicles[0].model}`, "pill-blue"));
-  if (verified) container.append(pillEl("✅ 오너 인증", "pill-green"));
-  if (user.role === "ADMIN") container.append(pillEl("🛡️ 관리자", "pill-green"));
-  container.append(pillEl("⛰️ 와인딩", "pill-mock"));
-  container.append(pillEl("🛠️ DIY", "pill-mock"));
-}
-
-function renderPosts(posts) {
-  const target = $("#home-posts");
-  target.innerHTML = "";
-  if (!posts.length) {
-    target.append(el("p", "아직 등록된 이야기가 없어요.", "empty"));
-    return;
-  }
-  posts.slice(0, 6).forEach((post) => {
-    const row = el("div", "", "post-row");
-    const titleCell = el("div", "", "post-row-title");
-    const link = el("a", post.title);
-    // 게시글 상세는 이제 실제 페이지라 뒤로가기가 그냥 동작한다. return-to 표시가 필요 없다.
-    link.href = getPostUrl(post);
-    titleCell.append(link);
-    const authorCell = el("span", post.username, "post-row-author");
-    row.append(
-      titleCell,
-      authorCell,
-      el("span", dateText(post.createdAt), "num"),
-      el("span", String(post.views), "num"),
-      el("span", String(post.likeCount), "num"),
-    );
-    target.append(row);
-  });
-}
-
-const statusChip = {
-  PENDING: ["오너 인증 검토 중", "pending"],
-  APPROVED: ["오너 인증 완료", "ok"],
-  REJECTED: ["인증이 승인되지 않았어요", "blocked"],
-};
-
-function renderGarage(vehicles) {
-  const target = $("#home-garage");
-  target.innerHTML = "";
-  if (!vehicles.length) {
-    target.append(emptyGarageCard());
-    return;
-  }
-  vehicles.forEach((vehicle) => {
-    const row = el("div", "", "mini-vehicle-row");
-    const top = el("div", "", "mini-vehicle-top");
-    const link = markReturnToHome(el("a", `${vehicle.manufacturer} ${vehicle.model} (${vehicle.modelYear})`));
-    link.href = `/garage#car-${vehicle.id}`;
-    const info = el("div");
-    info.append(link, el("small", vehicle.licensePlate || "차량번호 미등록"));
-    top.append(info);
-    const [chipText, chipKind] = statusChip[vehicle.verificationStatus] || ["오너 인증 전", "pending"];
-    top.append(el("span", chipText, `status-chip ${vehicle.verificationStatus ? chipKind : "pending"}`));
-    row.append(top);
-    if (!vehicle.verificationStatus || vehicle.verificationStatus === "REJECTED") {
-      const action = el("div", "", "mini-vehicle-action");
-      const button = el("button", vehicle.verificationStatus === "REJECTED" ? "다시 인증 요청" : "오너 인증 요청", "secondary");
-      button.type = "button";
-      button.addEventListener("click", () => openDocumentStep(vehicle.id));
-      action.append(button);
-      row.append(action);
-    }
-    target.append(row);
-  });
-}
-
-function emptyGarageCard() {
-  const wrap = el("div", "", "garage-empty");
-  wrap.append(
-    el("p", "아직 차고가 비어 있어요."),
-    el("p", "내 차를 등록하고 REV.CC 오너 인증을 받아보세요."),
-  );
-  const button = el("button", "+ 내 차 등록하기", "primary");
-  button.type = "button";
-  button.addEventListener("click", openRegistration);
-  wrap.append(button);
-  const list = el("ul");
-  ["오너 인증", "내 차고 프로필", "차량 기반 인장/태그", "차량 관련 커뮤니티 기능"].forEach((text) =>
-    list.append(el("li", `· ${text}`)),
-  );
-  wrap.append(list);
-  return wrap;
-}
-
-const activityText = {
-  like: "님이 내 글을 좋아합니다",
-  comment: "님이 내 글에 댓글을 남겼어요",
-  reply: "님이 내 댓글에 답글을 남겼어요",
-};
-
-function renderActivity(notes) {
-  const target = $("#home-activity");
-  target.innerHTML = "";
-  if (!notes.length) {
-    target.append(el("p", "최근 활동이 없어요.", "empty"));
-    return;
-  }
-  notes.slice(0, 5).forEach((note) => {
-    const row = el("div", "", "mini-activity");
-    row.append(el("span", `${note.username}${activityText[note.kind] || "님의 소식이 있어요"} · ${note.title}`));
-    row.append(el("small", dateTimeText(note.createdAt)));
-    target.append(row);
-  });
-}
-
-function renderDemoPost(user, vehicles, mine) {
-  const target = $("#demo-post");
-  target.innerHTML = "";
-  if (!mine.length) {
-    target.append(el("p", "아직 작성한 글이 없어서 예시로 보여줄 게시글이 없어요.", "empty"));
-    return;
-  }
-  const post = mine[0];
-  const head = el("div", "", "demo-post-head");
-  const avatar = el("div", user.username.slice(0, 1).toUpperCase(), "avatar");
-  const info = el("div");
-  const nameRow = el("div", "", "pill-row");
-  nameRow.style.marginBottom = "0";
-  const strong = el("strong", user.username);
-  info.append(strong);
-  const tagRow = el("div", "", "pill-row");
-  if (vehicles.length) tagRow.append(pillEl(`🚗 ${vehicles[0].nickname || vehicles[0].model}`, "pill-blue"));
-  if (verifiedVehicle(vehicles)) tagRow.append(pillEl("✅ 오너 인증", "pill-green"));
-  info.append(tagRow);
-  head.append(avatar, info);
-  target.append(head, el("p", post.content));
-}
-
-// api()는 board-service용 헬퍼라 core(Spring)에도 그대로 재사용하되, body가 있는 요청을 위해 별도 헬퍼를 둔다.
-async function coreApi(path, options = {}) {
-  const response = await fetch(path, {
-    method: options.method || (options.body ? "POST" : "GET"),
-    credentials: "same-origin",
-    ...(options.body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(options.body) }),
-  });
+async function api(path, body, method) {
+  const response = await fetch(path, {credentials:"same-origin", cache:"no-store",
+    method:method || (body === undefined ? "GET" : "POST"),
+    ...(body === undefined ? {} : {headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})});
   const data = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw Object.assign(new Error(data.message || `요청 실패 (${response.status})`), { status: response.status });
+  if (!response.ok) {
+    if (response.status === 401) signedOut();
+    throw Object.assign(new Error(data.message || `요청 실패 (${response.status})`), {status:response.status});
+  }
   return data;
 }
+const coreApi = (path, options = {}) => api(path, options.body, options.method);
+function requireLogin() {
+  if (state.authStatus === "AUTHENTICATED" && state.user) return true;
+  notify("내 차고를 이용하려면 로그인이 필요합니다.");
+  return false;
+}
+function openDialog(dialog) { if (!dialog.open) dialog.showModal(); }
+function closeDetail() {
+  state.detailRequest++;
+  $("#detail-dialog").close();
+  history.replaceState(null, "", location.pathname + location.search);
+}
+const memberLink = (id, name) => link(name, `/#member-${id}`, "owner-link");
+const isMyGaragePage = () => true;
+function on(node, event, handler) {
+  // /community, /garage, /parts 등 독립 페이지는 index.html의 일부 요소가 없을 수 있어
+  // 없는 요소에 대한 바인딩은 조용히 건너뛴다(전체 스크립트가 죽는 것을 방지).
+  if (!node) return null;
+  node.addEventListener(event, async (e) => {
+    try {
+      await handler(e);
+    } catch (error) {
+      notify(error.message);
+    }
+  });
+  return node;
+}
+function button(text, action, className = "secondary") {
+  const b = el("button", text, className);
+  b.type = "button";
+  on(b, "click", async () => {
+    b.disabled = true;
+    try {
+      await action();
+    } finally {
+      b.disabled = false;
+    }
+  });
+  return b;
+}
+function link(text, href, className = "") {
+  const a = el("a", text, className);
+  a.href = href;
+  return a;
+}
+function photo(id, alt, className = "") {
+  const img = document.createElement("img");
+  img.src = imageUrl(id);
+  img.alt = alt;
+  img.loading = "lazy";
+  img.className = className;
+  return img;
+}
+function confirmDelete(message) {
+  return new Promise((resolve) => {
+    const d = $("#confirm-dialog");
+    $("#confirm-message").textContent = message;
+    const finish = (value) => {
+      d.close();
+      $("#confirm-delete").onclick = null;
+      $("#confirm-cancel").onclick = null;
+      d.oncancel = null;
+      resolve(value);
+    };
+    $("#confirm-delete").onclick = () => finish(true);
+    $("#confirm-cancel").onclick = () => finish(false);
+    d.oncancel = (e) => {
+      e.preventDefault();
+      finish(false);
+    };
+    d.showModal();
+  });
+}
+async function uploadFile(file) {
+  if (
+    !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+    file.size > 3 * 1024 * 1024
+  )
+    throw new Error("JPG, PNG, WebP 사진을 장당 3MB 이하로 선택해주세요.");
+  const data = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("사진을 읽지 못했어요."));
+    r.readAsDataURL(file);
+  });
+  return (await api("/api/board/images", { data })).id;
+}
+function renderPreviews(ids, target, remove) {
+  target.replaceChildren(
+    ...ids.map((id) => {
+      const box = el("div", "", "image-preview");
+      const b = button("✕", () => remove(id), "");
+      b.setAttribute("aria-label", "첨부 사진 제거");
+      box.append(photo(id, "첨부 사진 미리보기"), b);
+      return box;
+    }),
+  );
+}
 
+function clearPrivateUI() {
+  state.detailRequest++;
+  document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
+  for (const id of ["detail-content", "panel-content", "vehicle-preview", "home-posts", "home-profile", "owned-vehicles", "home-badge-list", "home-guestbook"])
+    $("#" + id).replaceChildren();
+  $("#member-content").hidden = true;
+  for(const id of ["home-profile","owned-panel","home-badges","home-guestbook","edit-profile"]) $("#"+id).hidden=true;
+  $("#home-user").textContent = "";
+  $("#admin-link").hidden = true;
+  $("#logout").hidden = true;
+  $("#home-add-vehicle").hidden = true;
+  $("#activity-more").hidden = true;
+  $("#vehicle-form").reset();
+  $("#vehicle-info-form").reset();
+  $("#vehicle-document-form").reset();
+  state.vehicleEditing = null; state.vehicleImage = null; pendingVehicleId = null;
+}
+function signedOut() {
+  state.sessionRequest++; state.garageRequest++; state.activityRequest++;
+  state.profileRequest++; state.profile=null;
+  state.user = null; state.authStatus = "NOT_AUTHENTICATED";
+  clearPrivateUI();
+  $("#home-login").hidden = false;
+  renderGarageState("NOT_AUTHENTICATED");
+}
+function renderGarageState(status, vehicles = []) {
+  const target = $("#home-garage");
+  target.dataset.state = status;
+  target.replaceChildren();
+  $("#home-add-vehicle").hidden = status !== "HAS_VEHICLE";
+  if (status === "NOT_AUTHENTICATED") {
+    target.append(el("p", "내 차고를 이용하려면 로그인이 필요합니다.", "empty"),
+      link("로그인하기", "/api/auth/kakao/login", "primary"));
+  } else if (status === "EMPTY_GARAGE") {
+    const empty = el("div", "", "garage-empty");
+    empty.append(el("h2", "아직 등록된 차량이 없습니다."),
+      el("p", "내 차량을 등록하고 REV.CC의 오너 기능을 이용해보세요."),
+      button("차량 등록하기", openRegistration, "primary"));
+    target.append(empty);
+  } else if (status === "HAS_VEHICLE") {
+    const representative = state.profile?.representativeVehicle?.id;
+    const vehicle = vehicles.find(v=>v.id===representative) || vehicles[0];
+    const card = el("article", "", "home-vehicle-card");
+    const publicVehicle = state.profile?.vehicles.find(v=>v.id===vehicle.id);
+    if(publicVehicle?.imageId) card.append(photo(publicVehicle.imageId,vehicle.model,"representative-photo"));
+    const info=el("div");
+    info.append(el("p",vehicle.manufacturer,"eyebrow"),el("h2",vehicle.nickname||vehicle.model),
+      el("p",[vehicle.modelYear,vehicle.trim].filter(Boolean).join(" · ")));
+    const status = vehicle.verified ? ["인증 완료", "ok"] :
+      ({PENDING:["인증 검토 중", "pending"], REJECTED:["인증 반려", "blocked"]}[vehicle.verificationStatus] || ["인증 전", "pending"]);
+    info.append(el("span",status[0],`status-chip ${status[1]}`));
+    if(vehicle.description)info.append(el("p",vehicle.description));
+    const actions=el("div","","detail-actions");
+    actions.append(link("차량 상세",`#car-${vehicle.id}`,"secondary"),button("수정",()=>editVehicle(vehicle.id)),
+      link("정비 기록",`#car-${vehicle.id}`,"secondary"));
+    if(!vehicle.verified && vehicle.verificationStatus!=="PENDING")actions.append(button(vehicle.verificationStatus==="REJECTED"?"인증 재신청":"오너 인증 신청",()=>openDocumentStep(vehicle.id)));
+    info.append(actions);card.append(info);target.append(card);
+  } else if (status === "ERROR") {
+    target.append(el("p", "차고 정보를 불러오지 못했어요. 다시 확인해주세요.", "empty"), button("다시 시도", initialize));
+  } else target.append(el("p", "로그인 및 차고 정보를 확인하고 있어요.", "empty"));
+}
+async function refreshGarage() {
+  if (state.authStatus !== "AUTHENTICATED") return;
+  const request = ++state.garageRequest, userId = state.user.id;
+  renderGarageState("LOADING");
+  try {
+    const [vehicles,member] = await Promise.all([api("/api/garage/vehicles"),api(`/api/board/members/${userId}`)]);
+    if (request !== state.garageRequest || userId !== state.user?.id) return;
+    state.profile=member;
+    renderGarageState(vehicles.length ? "HAS_VEHICLE" : "EMPTY_GARAGE", vehicles);
+    renderMyProfile(member,vehicles);
+  } catch (error) {
+    if (request === state.garageRequest) renderGarageState("ERROR");
+  }
+}
+async function editVehicle(id) {
+  const userId=state.user?.id;
+  const vehicle=await api(`/api/board/garage/${id}`);
+  if(state.user?.id===userId && state.authStatus==="AUTHENTICATED")vehicleForm(vehicle);
+}
+function renderMyProfile(member,vehicles) {
+  $("#home-profile").replaceChildren(memberProfileCard(member));
+  for(const id of ["home-profile","owned-panel","home-badges","edit-profile"])$("#"+id).hidden=false;
+  const owned=$("#owned-vehicles");owned.replaceChildren();
+  for(const vehicle of vehicles){
+    const row=el("article","","owned-vehicle");row.dataset.vehicleId=vehicle.id;
+    const publicVehicle=member.vehicles.find(v=>v.id===vehicle.id);
+    const title=link("",`#car-${vehicle.id}`,"context-vehicle-row");
+    if(publicVehicle?.imageId)title.append(photo(publicVehicle.imageId,vehicle.model));
+    const info=el("div");info.append(el("strong",vehicle.model),el("p",[vehicle.modelYear,vehicle.trim].filter(Boolean).join(" · "),"context-muted"));title.append(info);row.append(title);
+    const selected=member.representativeVehicle?.id===vehicle.id;
+    const choose=button(selected?"대표 차량":"대표 차량 설정",async()=>{await api("/api/board/profile/representative-vehicle",{vehicleId:vehicle.id},"PUT");await refreshGarage();},"text-link");
+    choose.disabled=selected;
+    row.append(choose,button("수정",()=>editVehicle(vehicle.id),"text-link"));owned.append(row);
+  }
+  if(!vehicles.length)owned.append(el("p","등록된 차량이 없습니다.","context-muted"));
+  $("#home-add-vehicle").hidden=false;
+  const badges=$("#home-badge-list");badges.replaceChildren(...member.badges.map(b=>authorBadge(b)));
+  if(!member.badges.length)badges.append(el("p","아직 획득한 인장이 없습니다. 차량 인증을 완료하면 오너 인장이 표시됩니다.","context-muted"));
+}
+function editProfile() {
+  if(!requireLogin()||!state.profile)return;
+  const userId=state.user.id, member=state.profile;
+  const root=$("#panel-content");root.replaceChildren();$("#panel-title").textContent="프로필 수정";
+  const form=el("form","","dialog-form"), bio=document.createElement("textarea");bio.name="bio";bio.maxLength=300;bio.value=member.bio||"";
+  const label=el("label","한 줄 소개");label.append(bio);form.append(label);
+  const fields=[];
+  for(const [name,title,id] of [["avatarImageId","프로필 이미지",member.avatarImageId],["coverImageId","커버 이미지",member.coverImageId]]){
+    const group=el("label",title),input=document.createElement("input");input.type="file";input.accept="image/jpeg,image/png,image/webp";input.name=name;
+    const remove=document.createElement("input");remove.type="checkbox";const removeLabel=el("label","기존 이미지 제거");removeLabel.prepend(remove);
+    group.append(input);form.append(group,removeLabel);fields.push({name,input,remove,id});
+  }
+  const submit=el("button","프로필 저장","primary");submit.type="submit";form.append(submit);
+  on(form,"submit",async event=>{
+    event.preventDefault();submit.disabled=true;
+    try{
+      const body={bio:bio.value};
+      for(const field of fields)body[field.name]=field.input.files[0]?await uploadFile(field.input.files[0]):field.remove.checked?null:field.id??null;
+      if(state.user?.id!==userId || state.authStatus!=="AUTHENTICATED")return;
+      await api("/api/board/profile",body,"PUT");$("#panel-dialog").close();await refreshGarage();
+    }finally{submit.disabled=false;}
+  });root.append(form);openDialog($("#panel-dialog"));
+}
+const {vehicleForm, openCar} = createVehicleUI({$, state, api, el, on, button, photo, memberLink,
+  requireLogin, openDialog, closeDetail, confirmDelete, uploadFile, renderPreviews, refreshGarage,
+  isMyGaragePage, recordLabels});
+
+async function refreshActivity(append = false) {
+  if (state.authStatus !== "AUTHENTICATED") return;
+  const request = ++state.activityRequest, userId = state.user.id, scope = state.activity;
+  const page = append ? state.page + 1 : 1;
+  const target = $("#home-posts");
+  $("#activity-list-title").textContent = {mine:"내가 쓴 글", commented:"내가 댓글 단 글", notifications:"내 활동 알림"}[scope];
+  document.querySelectorAll("[data-activity]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.activity === scope)));
+  $("#activity-more").hidden = true;
+  if (!append) target.replaceChildren(el("p", "내 활동을 불러오고 있어요.", "empty"));
+  try {
+    const items = await api(scope === "notifications" ? "/api/board/notifications" :
+      `/api/board/posts?scope=${scope}&sort=latest&limit=20&page=${page}`);
+    if (request !== state.activityRequest || userId !== state.user?.id) return;
+    if (!append) target.replaceChildren();
+    if (!items.length && !append) target.append(el("p", {
+      mine:"아직 작성한 글이 없습니다.", commented:"아직 댓글을 남긴 글이 없습니다.", notifications:"아직 받은 활동 알림이 없습니다."
+    }[scope], "empty"));
+    items.forEach(item => {
+      const row = el("article", "", "personal-post-row");
+      row.append(link(item.title, getPostUrl(scope === "notifications" ? {id:item.postId, category:item.category} : item)));
+      row.append(el("small", scope === "notifications" ? `${item.username} 님의 댓글 · ${dateText(item.createdAt)}` :
+        `${item.username} · ${dateText(item.createdAt)} · 댓글 ${item.commentCount} · 추천 ${item.likeCount}`));
+      target.append(row);
+    });
+    state.page = page;
+    $("#activity-more").hidden = scope === "notifications" || items.length < 20;
+  } catch (error) {
+    if (request !== state.activityRequest) return;
+    if (!append) target.replaceChildren();
+    target.append(el("p", "내 활동을 불러오지 못했어요.", "empty"), button("활동 다시 확인", () => refreshActivity()));
+  }
+}
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -206,29 +297,34 @@ function readFileAsDataUrl(file) {
 let pendingVehicleId = null;
 
 function openRegistration() {
+  if (!requireLogin()) return;
   pendingVehicleId = null;
   $("#vehicle-dialog-title").textContent = "내 차 등록";
   $("#vehicle-step-info").hidden = false;
   $("#vehicle-step-document").hidden = true;
   $("#vehicle-info-form").reset();
-  $("#vehicle-dialog").showModal();
+  openDialog($("#registration-dialog"));
 }
 
 function openDocumentStep(vehicleId) {
+  if (!requireLogin()) return;
   pendingVehicleId = vehicleId;
   $("#vehicle-dialog-title").textContent = "오너 인증 신청";
   $("#vehicle-step-info").hidden = true;
   $("#vehicle-step-document").hidden = false;
   $("#vehicle-document-form").reset();
-  $("#vehicle-dialog").showModal();
+  openDialog($("#registration-dialog"));
 }
 
-document.querySelectorAll("#vehicle-dialog [data-close]").forEach((button) =>
-  button.addEventListener("click", () => $("#vehicle-dialog").close()),
+document.querySelectorAll("#registration-dialog [data-close]").forEach((button) =>
+  button.addEventListener("click", () => $("#registration-dialog").close()),
 );
 
 $("#vehicle-info-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!requireLogin()) return;
+  const submit = event.currentTarget.querySelector("button[type=submit]");
+  submit.disabled = true;
   const form = new FormData(event.currentTarget);
   try {
     const vehicle = await coreApi("/api/garage/vehicles", {
@@ -239,80 +335,90 @@ $("#vehicle-info-form").addEventListener("submit", async (event) => {
         licensePlate: String(form.get("licensePlate") || "").trim(),
       },
     });
+    await refreshGarage();
     openDocumentStep(vehicle.id);
   } catch (e) {
     notify(e.message || "차량 등록에 실패했어요.");
-  }
+  } finally { submit.disabled = false; }
 });
 
 $("#vehicle-skip-document").addEventListener("click", () => {
-  $("#vehicle-dialog").close();
+  $("#registration-dialog").close();
   notify("차량이 등록되었어요. 준비되면 차고에서 오너 인증을 신청해주세요.");
   void initialize();
 });
 
 $("#vehicle-document-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!requireLogin()) return;
   const file = $("#vehicle-document-input").files[0];
   if (!file) return;
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) {
     notify("JPG, PNG, WebP 사진을 3MB 이하로 선택해주세요.");
     return;
   }
+  const submit = event.currentTarget.querySelector("button[type=submit]");
+  submit.disabled = true;
   try {
     const data = await readFileAsDataUrl(file);
     await coreApi(`/api/garage/vehicles/${pendingVehicleId}/verification`, { body: { data } });
-    $("#vehicle-dialog").close();
+    $("#registration-dialog").close();
     notify("오너 인증을 신청했어요. 관리자 검토 후 결과를 알려드릴게요.");
     void initialize();
   } catch (e) {
     notify(e.message || "인증 신청에 실패했어요.");
-  }
+  } finally { submit.disabled = false; }
 });
 
-async function initialize() {
-  let user;
-  try {
-    user = await api("/api/board/me");
-  } catch (e) {
-    location.replace("/api/auth/kakao/login");
-    return;
-  }
-  $("#home-avatar").textContent = user.username.slice(0, 1).toUpperCase();
-  $("#home-username").textContent = user.username;
-  $("#home-handle").textContent = `@${user.username}`;
-  $("#home-role").textContent = user.role === "ADMIN" ? "관리자 계정으로 로그인했어요." : "REV.CC 회원입니다.";
-  $("#home-user").textContent = `${user.username} 님`;
-  $("#admin-link").hidden = user.role !== "ADMIN";
 
-  const [posts, vehicles, notes, mine] = await Promise.all([
-    api("/api/board/posts?limit=6&sort=latest").catch(() => []),
-    coreApi("/api/garage/vehicles").catch(() => []),
-    api("/api/board/notifications").catch(() => []),
-    api("/api/board/posts?scope=mine&sort=latest").catch(() => []),
-  ]);
-  renderPosts(posts);
-  renderGarage(vehicles);
-  renderActivity(notes);
-  renderTags(user, vehicles);
-  renderDemoPost(user, vehicles, mine);
-
-  $("#stat-posts").textContent = String(mine.length);
-  $("#stat-comments").textContent = String(mine.reduce((sum, p) => sum + p.commentCount, 0));
-  $("#stat-likes").textContent = String(mine.reduce((sum, p) => sum + p.likeCount, 0));
+async function route() {
+  if (state.authStatus !== "AUTHENTICATED") return;
+  const match = /^#(car|member|post)-(\d+)$/.exec(location.hash);
+  if (!match) { state.detailRequest++; $("#detail-dialog").close(); return; }
+  if (match[1] !== "car") { location.replace("/" + location.hash); return; }
+  try { await openCar(Number(match[2])); }
+  catch (error) { if (state.user) notify(error.message); }
 }
-
-$("#logout").addEventListener("click", async () => {
-  try {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-  } finally {
-    location.href = "/";
+async function initialize() {
+  const request = ++state.sessionRequest, previousId = state.user?.id;
+  state.garageRequest++; state.activityRequest++; state.profileRequest++;
+  state.authStatus = "CHECKING";
+  renderGarageState("CHECKING");
+  $("#member-content").hidden = true;
+  for(const id of ["home-profile","owned-panel","home-badges","home-guestbook","edit-profile"]) $("#"+id).hidden=true;
+  let user;
+  try { user = await api("/api/auth/me"); }
+  catch (error) {
+    if (request !== state.sessionRequest) return;
+    clearPrivateUI(); state.profileRequest++; state.profile=null;
+  state.user = null; state.authStatus = "ERROR";
+    renderGarageState("ERROR"); return;
   }
-});
-
-initialize().catch((e) => notify(e.message || "정보를 불러오지 못했어요."));
+  if (request !== state.sessionRequest) return;
+  if (previousId !== user.id) clearPrivateUI();
+  state.user = user; state.authStatus = "AUTHENTICATED";
+  $("#home-login").hidden = true; $("#logout").hidden = false;
+  renderManagementNav(user);
+  $("#home-user").textContent = `${user.username} 님`;
+  $("#member-content").hidden = false;
+  const profileTicket=++state.profileRequest;
+  $("#home-guestbook").hidden=false;
+  await Promise.all([refreshGarage(), refreshActivity(),renderGuestbook($("#home-guestbook"),user.id,
+    {current:()=>profileTicket===state.profileRequest && state.user?.id===user.id && state.authStatus==="AUTHENTICATED"})]);
+  if (request === state.sessionRequest) await route();
+}
+on($("#edit-profile"), "click", editProfile);
+on($("#home-add-vehicle"), "click", openRegistration);
+on($("#activity-more"), "click", () => refreshActivity(true));
+document.querySelectorAll("[data-activity]").forEach(button => on(button, "click", () => {
+  state.activity = button.dataset.activity; return refreshActivity();
+}));
+on($("#logout"), "click", async () => { await api("/api/auth/logout", {}); signedOut(); });
+document.querySelectorAll("dialog:not(#registration-dialog) [data-close]").forEach(button => on(button, "click", () => {
+  const dialog = button.closest("dialog"); if (dialog.id === "detail-dialog") closeDetail(); else dialog.close();
+}));
+on($("#detail-dialog"), "cancel", event => {event.preventDefault(); closeDetail();});
+on(window, "hashchange", route);
+on(window, "focus", () => initialize());
+on(window, "pageshow", event => {if (event.persisted) return initialize();});
+initialize().catch(error => notify(error.message));

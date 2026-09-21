@@ -4,13 +4,17 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="차를 좋아하는 사람들의 커뮤니티. 오너들의 이야기와 내 차에 맞는 부품을 REV.CC에서 만나보세요.">
   <title>REV.CC | 당신의 차, 가까워지는 이야기</title>
-  <link rel="stylesheet" href="/css/style.css"><script src="/js/post-url.js" defer></script><script src="/js/app.js" defer></script>
+  <link rel="stylesheet" href="/css/style.css"><script src="/js/site-nav.js" defer></script>
+  <script src="/js/post-url.js" defer></script><script src="/js/guestbook-ui.js" defer></script>
+  <script src="/js/vehicle-ui.js" defer></script><script src="/js/app.js" defer></script>
+  <link rel="stylesheet" href="/css/footer.css">
+  <script src="/js/footer.js" defer></script>
 </head>
-<body>
+<body class="site-footer-layout">
   <a class="skip-link" href="#main">본문으로 바로가기</a>
   <header class="header"><div class="header-inner">
     <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
-    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/garage">내 차고</a><a href="/parts">부품 찾기</a></nav>
+    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/home">내 차고</a><a href="/parts">부품 찾기</a></nav>
     <div class="header-actions"><button id="activity-button" hidden>내 활동</button><button id="notifications-button" hidden>알림 <span id="notification-count"></span></button><span id="core-user"></span><a id="kakao-login" class="login" href="/api/auth/kakao/login">로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
   </div></header>
   <main id="main" class="container">
@@ -23,7 +27,7 @@
     </section>
     <section class="services" aria-labelledby="services-title"><h2 id="services-title">REV.CC 둘러보기</h2><div class="service-grid">
       <a href="/community"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="10" y="12" width="44" height="33" rx="11" fill="#e6edf8"/><path d="m19 43-2 11 15-10" fill="#e6edf8"/><circle cx="22" cy="29" r="3" fill="#6485bd"/><circle cx="32" cy="29" r="3" fill="#6485bd"/><circle cx="42" cy="29" r="3" fill="#6485bd"/></svg></span><strong>오너 이야기</strong><small>함께 나누는 자동차 생활</small></a>
-      <a href="/garage"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m9 26 9-15h28l9 15" fill="#dce9e3"/><rect x="7" y="25" width="50" height="22" rx="7" fill="#709a86"/><rect x="14" y="43" width="8" height="10" rx="3" fill="#354a41"/><rect x="42" y="43" width="8" height="10" rx="3" fill="#354a41"/><path d="m19 24 5-9h16l5 9" fill="#fff"/><path d="M14 33h9m18 0h9" stroke="#f8e9b5" stroke-width="5"/></svg></span><strong>내 차고</strong><small>오너들의 차량 둘러보기</small></a>
+      <a href="/home"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m9 26 9-15h28l9 15" fill="#dce9e3"/><rect x="7" y="25" width="50" height="22" rx="7" fill="#709a86"/><rect x="14" y="43" width="8" height="10" rx="3" fill="#354a41"/><rect x="42" y="43" width="8" height="10" rx="3" fill="#354a41"/><path d="m19 24 5-9h16l5 9" fill="#fff"/><path d="M14 33h9m18 0h9" stroke="#f8e9b5" stroke-width="5"/></svg></span><strong>내 차고</strong><small>내 차량과 인증 상태 관리</small></a>
       <a href="/parts"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m33 11 20 11v24L33 57 11 45V22Z" fill="#eee2d3"/><path d="m11 22 22 12 20-12M33 34v23" fill="none" stroke="#bda58b" stroke-width="2"/><path d="m22 16 21 12v12l-9 5V33L14 22" fill="#cdb497"/></svg></span><strong>부품 찾기</strong><small>내 차에 맞는 부품 확인</small></a>
       <a href="#write-post"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="14" y="9" width="35" height="47" rx="6" fill="#ebe4f2"/><path d="M23 22h17M23 30h12M23 38h9" stroke="#b19ac9" stroke-width="3" stroke-linecap="round"/><path d="m35 43 15-20 7 5-15 20-10 6Z" fill="#8d75ad"/></svg></span><strong>이야기 쓰기</strong><small>작은 경험도 반가워요</small></a>
     </div></section>
@@ -59,12 +63,12 @@
         <div class="form-bottom"><span>서로를 배려하는 따뜻한 대화를 나눠요.</span><button id="submit-post" type="submit">이야기 등록 ↗</button></div>
       </form></section>
   </main>
+  <footer id="site-footer" aria-label="REV.CC 서비스 정보"></footer>
   <dialog id="detail-dialog" class="community-dialog"><div class="dialog-bar"><span>REV.CC COMMUNITY</span><button data-close aria-label="상세 화면 닫기">✕</button></div><div id="detail-content"></div></dialog>
   <dialog id="panel-dialog" class="community-dialog"><div class="dialog-bar"><h2 id="panel-title"></h2><button data-close aria-label="창 닫기">✕</button></div><div id="panel-content"></div></dialog>
   <dialog id="vehicle-dialog" class="community-dialog"><div class="dialog-bar"><h2 id="vehicle-form-title">내 차 등록</h2><button data-close aria-label="차량 등록 닫기">✕</button></div>
     <form id="vehicle-form"><label>차종<input name="model" required maxlength="100" placeholder="예: 현대 아반떼 N"></label><div class="form-row"><label>연식<input name="year" type="number" min="1900" max="2100" required></label><label>트림<input name="trim" maxlength="100" placeholder="예: DCT"></label></div><label>차 소개<textarea name="bio" maxlength="1000" rows="3" placeholder="내 차와 함께한 이야기를 소개해주세요."></textarea></label><label>차량 사진<input id="vehicle-image" type="file" accept="image/jpeg,image/png,image/webp"></label><small>JPG · PNG · WebP / 최대 3MB</small><div id="vehicle-preview" class="image-previews"></div><button class="primary" type="submit">차량 저장</button></form>
   </dialog>
   <dialog id="confirm-dialog" class="confirm-dialog"><h2>삭제할까요?</h2><p id="confirm-message"></p><div class="form-bottom"><button class="secondary" id="confirm-cancel">취소</button><button class="danger" id="confirm-delete">삭제</button></div></dialog>
-  <footer><div class="footer-top container"><div><a href="/" class="logo"><img src="/img/logo.png" alt="REV.CC" height="24"></a><p>차를 좋아하는 사람들의 연결.</p></div><div class="footer-links"><a href="/community">커뮤니티</a><a href="/garage">오너들의 차고</a><a href="/parts">부품 찾기</a></div></div><div class="footer-bottom container"><span>© 2026 REV.CC</span><span>Built for car people.</span><a href="#main">맨 위로 ↑</a></div></footer>
 </body>
 </html>

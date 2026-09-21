@@ -1,5 +1,8 @@
 # REV.CC starter
 
+HTML 사이트의 내 차고는 `/home`입니다. 기존 `/garage` 링크도 자동 연결됩니다.
+[차량·개인 활동 화면 및 검증](docs/GARAGE-HOME.md)
+
 My Garage 구현 구조와 검증 결과: [docs/MY-GARAGE.md](docs/MY-GARAGE.md)
 
 기존 HTML 사이트와 Next.js 차고를 함께 실행:

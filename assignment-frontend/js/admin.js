@@ -162,6 +162,7 @@ async function initialize() {
     location.replace("/api/auth/kakao/login");
     return;
   }
+  renderManagementNav(user);
   if (user.role !== "ADMIN") {
     $("#admin-denied").hidden = false;
     return;

@@ -8,6 +8,9 @@ const labels = {
 const recordLabels = { maintenance: "정비", tuning: "튜닝", parts: "부품" };
 const state = {
   user: null,
+  authStatus: "CHECKING",
+  sessionRequest: 0,
+  garageRequest: 0,
   posts: [],
   query: "",
   category: "",
@@ -172,14 +175,36 @@ function confirmDelete(message) {
   });
 }
 async function refreshSession() {
+  const request = ++state.sessionRequest;
+  const previousId = state.user?.id;
+  state.authStatus = "CHECKING";
+  state.garageRequest++;
+  renderGarageState("CHECKING");
+  let user = null;
+  let authStatus;
   try {
-    state.user = await api("/api/board/me");
+    user = await api("/api/board/me");
+    authStatus = "AUTHENTICATED";
   } catch (e) {
-    state.user = null;
+    authStatus = e.status === 401 ? "NOT_AUTHENTICATED" : "ERROR";
+    if (request !== state.sessionRequest) return;
     if (e.status !== 401)
       notify("로그인 상태를 확인하지 못했어요. 새로고침해주세요.");
   }
-  const user = state.user;
+  if (request !== state.sessionRequest) return;
+  state.user = user;
+  renderManagementNav(user);
+  state.authStatus = authStatus;
+  if (previousId !== user?.id || !user) {
+    state.detailRequest++;
+    document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+    $("#detail-content")?.replaceChildren();
+    $("#panel-content")?.replaceChildren();
+    state.vehicleEditing = null;
+    state.vehicleImage = null;
+    $("#vehicle-form")?.reset();
+  }
+  if (!user) renderGarageState(authStatus);
   $("#core-user").textContent = user ? `${user.username} 님` : "";
   for (const id of ["logout", "activity-button", "notifications-button"])
     $("#" + id).hidden = !user;
@@ -190,7 +215,7 @@ async function refreshSession() {
     boardUser.textContent = user
       ? `${user.username} 님, 오늘의 이야기를 남겨주세요.`
       : "이야기를 쓰려면 먼저 로그인해주세요.";
-  if (user) await refreshNotificationCount();
+  if (user) await refreshNotificationCount().catch(() => {});
   else $("#notification-count").textContent = "";
 }
 async function refreshNotificationCount() {
@@ -347,9 +372,12 @@ on($("#logout"), "click", async () => {
   state.scope = "";
   state.images = [];
   state.vehicleImage = null;
-  resetComposer();
-  document.querySelectorAll("dialog[open]").forEach(closeDialog);
+  if ($("#post-form")) resetComposer();
+  state.garageRequest++;
+  state.detailRequest++;
+  document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
   await refreshSession();
+  await refreshGarage();
   await refreshPosts();
   notify("로그아웃되었습니다.");
 });
@@ -514,7 +542,7 @@ function renderPostDetail(root, post, comments, id) {
   const meta = el("div", "", "detail-meta");
   meta.append(
     memberLink(post.authorId, post.username),
-    el("span", post.ownerVehicle || "오너"),
+    el("span", post.ownerVehicle || ""),
     el("span", dateText(post.createdAt)),
     el("span", `조회 ${post.views}`),
   );
@@ -647,7 +675,6 @@ function renderPostDetail(root, post, comments, id) {
         .forEach((reply) => list.append(commentNode(reply)));
     });
   if (!comments.length) list.append(el("p", "첫 댓글을 남겨보세요.", "empty"));
-  root.append(list);
   form.append(replyLabel, input, submit);
   on(form, "submit", async (e) => {
     e.preventDefault();
@@ -664,7 +691,7 @@ function renderPostDetail(root, post, comments, id) {
       submit.disabled = false;
     }
   });
-  root.append(form);
+  root.append(form, list);
 }
 function openReport(id) {
   if (!requireLogin()) return;
@@ -728,7 +755,7 @@ on($("#activity-button"), "click", () => {
       "내 차고",
       () => {
         $("#panel-dialog").close();
-        location.hash = `member-${state.user.id}`;
+        location.href = "/home";
       },
       "",
     ),
@@ -791,216 +818,65 @@ function vehicleCard(v) {
   );
   return card;
 }
+const isMyGaragePage = () => /^\/garage(?:\/index\.html|\/)?$/.test(location.pathname);
+function renderGarageState(status, vehicles = []) {
+  const root = $("#vehicles");
+  if (!root) return;
+  root.dataset.state = status;
+  root.replaceChildren();
+  $("#add-vehicle").hidden = !["EMPTY_GARAGE", "HAS_VEHICLE"].includes(status);
+  if (status === "NOT_AUTHENTICATED") {
+    root.append(el("p", "내 차고를 이용하려면 로그인이 필요해요.", "empty"),
+      link("로그인하기", "/api/auth/kakao/login", "primary"));
+  } else if (status === "EMPTY_GARAGE") {
+    root.append(el("p", "아직 등록된 차량이 없어요. 첫 차량을 등록해보세요.", "empty"),
+      button("내 차 등록", () => vehicleForm(), "primary"),
+      link("차량 등록·인증 안내", "/home", "text-link"));
+  } else if (status === "HAS_VEHICLE") {
+    root.append(...vehicles.map((v) => {
+      const item = el("div", "", "my-vehicle");
+      const card = vehicleCard(v);
+      card.append(el("span", v.verified ? "오너 인증 완료" :
+        ({PENDING: "오너 인증 검토 중", REJECTED: "오너 인증 반려"}[v.verificationStatus] || "오너 인증 전")));
+      item.append(card, button("차량 수정", () => vehicleForm(v)),
+        link("차량·기록 관리", `#car-${v.id}`, "text-link"),
+        link("차량 인증 관리", "/home", "text-link"));
+      return item;
+    }));
+  } else if (status === "ERROR") {
+    root.append(el("p", "차고 정보를 확인하지 못했어요. 다시 시도해주세요.", "empty"),
+      button("다시 시도", refreshMyGarageSession));
+  } else {
+    root.append(el("p", "로그인 및 차고 정보를 확인하고 있어요.", "empty"));
+  }
+}
 async function refreshGarage() {
-  const vehicles = await api("/api/board/garage");
-  $("#vehicles").replaceChildren(...vehicles.slice(0, 4).map(vehicleCard));
-  if (!vehicles.length)
-    $("#vehicles").append(
-      el("p", "아직 등록된 차가 없어요. 나만의 차고를 만들어보세요.", "empty"),
-    );
-  if (vehicles.length > 4)
-    $("#vehicles").append(
-      button("차고 전체 보기", async () => {
-        const root = panel("오너들의 차고"),
-          grid = el("div", "", "garage-cards");
-        grid.append(...vehicles.map(vehicleCard));
-        root.append(grid);
-      }),
-    );
-}
-function vehiclePreviews() {
-  renderPreviews(
-    state.vehicleImage ? [state.vehicleImage] : [],
-    $("#vehicle-preview"),
-    () => {
-      state.vehicleImage = null;
-      vehiclePreviews();
-    },
-  );
-}
-function vehicleForm(v = null) {
-  if (!requireLogin()) return;
-  state.vehicleEditing = v?.id ?? null;
-  state.vehicleImage = v?.imageId ?? null;
-  const f = $("#vehicle-form");
-  f.reset();
-  for (const key of ["model", "year", "trim", "bio"])
-    f.elements[key].value =
-      v?.[key] ?? (key === "year" ? new Date().getFullYear() : "");
-  f.elements.year.max = new Date().getFullYear() + 1;
-  $("#vehicle-form-title").textContent = v ? "차량 정보 수정" : "내 차 등록";
-  vehiclePreviews();
-  openDialog($("#vehicle-dialog"));
-}
-on($("#add-vehicle"), "click", () => vehicleForm());
-on($("#vehicle-image"), "change", async (e) => {
-  const file = e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-  const b = $("#vehicle-form button[type=submit]");
-  b.disabled = true;
-  e.target.disabled = true;
+  if (!$("#vehicles")) return;
+  if (state.authStatus !== "AUTHENTICATED") {
+    renderGarageState(state.authStatus);
+    return;
+  }
+  const request = ++state.garageRequest;
+  const userId = state.user.id;
+  renderGarageState("LOADING");
   try {
-    state.vehicleImage = await uploadFile(file);
-    vehiclePreviews();
-  } finally {
-    b.disabled = false;
-    e.target.disabled = false;
+    const vehicles = await api("/api/board/garage/mine");
+    if (request !== state.garageRequest || state.user?.id !== userId) return;
+    renderGarageState(vehicles.length ? "HAS_VEHICLE" : "EMPTY_GARAGE", vehicles);
+  } catch (error) {
+    if (request !== state.garageRequest) return;
+    if (error.status === 401) {
+      await refreshSession();
+      if (state.authStatus === "AUTHENTICATED") renderGarageState("ERROR");
+    } else renderGarageState("ERROR");
   }
-});
-on($("#vehicle-form"), "submit", async (e) => {
-  e.preventDefault();
-  if (!requireLogin()) return;
-  const b = e.target.querySelector("[type=submit]");
-  b.disabled = true;
-  try {
-    const data = Object.fromEntries(new FormData(e.target));
-    data.year = Number(data.year);
-    data.imageId = state.vehicleImage;
-    const id = state.vehicleEditing;
-    const result = await api(
-      id ? `/api/board/garage/${id}` : "/api/board/garage",
-      data,
-      id ? "PUT" : "POST",
-    );
-    $("#vehicle-dialog").close();
-    await refreshGarage();
-    if (location.hash === `#car-${result.id}`) await openCar(result.id);
-    else location.hash = `car-${result.id}`;
-  } finally {
-    b.disabled = false;
-  }
-});
-async function openCar(id) {
-  const request = ++state.detailRequest,
-    root = $("#detail-content");
-  root.replaceChildren(el("p", "차고를 불러오고 있어요.", "empty"));
-  openDialog($("#detail-dialog"));
-  const v = await api(`/api/board/garage/${id}`);
-  if (request !== state.detailRequest) return;
-  root.replaceChildren(
-    el("span", "OWNER’S GARAGE", "post-category"),
-    el("h2", v.model, "detail-title"),
-  );
-  root.append(
-    memberLink(v.ownerId, v.username),
-    el("p", `${v.year}년 · ${v.trim || "오너 차량"}`, "detail-meta"),
-  );
-  if (v.imageId) {
-    const gallery = el("div", "", "detail-gallery");
-    gallery.append(photo(v.imageId, v.model));
-    root.append(gallery);
-  }
-  root.append(el("p", v.bio || "차량 소개를 기다리고 있어요.", "detail-text"));
-  const own = state.user?.id === v.ownerId;
-  if (own) {
-    const actions = el("div", "", "detail-actions");
-    actions.append(
-      button("차량 수정", () => vehicleForm(v), ""),
-      button(
-        "차량 삭제",
-        async () => {
-          if (
-            !(await confirmDelete("차량과 정비·튜닝 기록을 함께 삭제합니다."))
-          )
-            return;
-          await api(`/api/board/garage/${id}`, {}, "DELETE");
-          closeDetail();
-          await refreshGarage();
-        },
-        "danger-text",
-      ),
-    );
-    root.append(actions);
-  }
-  root.append(el("h3", `정비 · 튜닝 · 부품 기록 ${v.records.length}`));
-  if (!v.records.length)
-    root.append(
-      el("p", "아직 기록이 없어요. 첫 정비나 장착 경험을 남겨보세요.", "empty"),
-    );
-  v.records.forEach((r) => {
-    const item = el("article", "", "record");
-    if (own)
-      item.append(
-        button(
-          "삭제",
-          async () => {
-            if (!(await confirmDelete("이 차량 기록을 삭제할까요?"))) return;
-            await api(`/api/board/garage/${id}/records/${r.id}`, {}, "DELETE");
-            await openCar(id);
-            await refreshGarage();
-          },
-          "text-link danger-text",
-        ),
-      );
-    item.append(
-      el("small", `${r.date} · ${recordLabels[r.kind]}`),
-      el("h3", r.title),
-      el("p", r.content),
-    );
-    const facts = [];
-    if (r.mileage !== null) facts.push(`${r.mileage.toLocaleString()} km`);
-    if (r.cost !== null) facts.push(`${r.cost.toLocaleString()}원`);
-    item.append(el("small", facts.join(" · ")));
-    root.append(item);
-  });
-  if (own) root.append(recordForm(id));
 }
-function field(form, label, name, type = "text", required = false, maxLength) {
-  const wrapper = el("label", label),
-    input = document.createElement(type === "textarea" ? "textarea" : "input");
-  if (type !== "textarea") input.type = type;
-  input.name = name;
-  input.required = required;
-  if (maxLength) input.maxLength = maxLength;
-  wrapper.append(input);
-  form.append(wrapper);
-  return input;
+async function refreshMyGarageSession() {
+  await refreshSession();
+  await refreshGarage();
 }
-function recordForm(id) {
-  const form = el("form", "", "record-form");
-  form.append(el("h3", "새 차량 기록"));
-  const label = el("label", "종류"),
-    select = document.createElement("select");
-  select.name = "kind";
-  for (const [value, name] of Object.entries(recordLabels)) {
-    const o = el("option", name);
-    o.value = value;
-    select.append(o);
-  }
-  label.append(select);
-  form.append(label);
-  field(form, "제목", "title", "text", true, 150);
-  const date = field(form, "날짜", "date", "date", true);
-  date.value = new Date().toLocaleDateString("en-CA");
-  field(form, "내용", "content", "textarea", false, 2000);
-  const row = el("div", "", "form-row");
-  form.append(row);
-  const mileage = field(row, "주행거리 (km, 선택)", "mileage", "number");
-  mileage.min = 0;
-  mileage.max = 2000000;
-  const cost = field(row, "비용 (원, 선택)", "cost", "number");
-  cost.min = 0;
-  cost.max = 2000000000;
-  const b = el("button", "기록 저장", "primary");
-  b.type = "submit";
-  form.append(b);
-  on(form, "submit", async (e) => {
-    e.preventDefault();
-    b.disabled = true;
-    try {
-      const data = Object.fromEntries(new FormData(form));
-      data.mileage = data.mileage === "" ? null : Number(data.mileage);
-      data.cost = data.cost === "" ? null : Number(data.cost);
-      await api(`/api/board/garage/${id}/records`, data);
-      await openCar(id);
-      await refreshGarage();
-    } finally {
-      b.disabled = false;
-    }
-  });
-  return form;
-}
+
+const {vehicleForm, openCar} = createVehicleUI({$, state, api, el, on, button, photo, memberLink, requireLogin, openDialog, closeDetail, confirmDelete, uploadFile, renderPreviews, refreshGarage, isMyGaragePage, recordLabels});
 async function openMember(id) {
   const request = ++state.detailRequest,
     root = $("#detail-content");
@@ -1019,6 +895,8 @@ async function openMember(id) {
   if (!vehicles.length)
     grid.append(el("p", "아직 등록한 차량이 없어요.", "empty"));
   root.append(grid);
+  const guestbook=el("section", "", "member-guestbook");root.append(guestbook);
+  void renderGuestbook(guestbook,id,{current:()=>request===state.detailRequest && guestbook.isConnected});
   if (state.user?.id === id)
     root.append(button("내 차 등록", () => vehicleForm()));
   root.append(el("h3", "최근 작성한 이야기"));
@@ -1046,6 +924,7 @@ async function loadCompatibility() {
   });
 }
 async function route() {
+  if (isMyGaragePage() && state.authStatus !== "AUTHENTICATED") return;
   const match = /^#(post|car|member)-(\d+)$/.exec(location.hash);
   // 예전 /#post-123 링크(북마크·공유된 링크 등) 호환: 글을 조회해 category를 알아낸 뒤
   // 새 canonical 주소로 옮겨준다. 모달을 열지 않는다.
@@ -1075,7 +954,11 @@ async function route() {
 }
 on(window, "hashchange", route);
 on(window, "focus", async () => {
-  if (state.user) await refreshNotificationCount();
+  if (isMyGaragePage()) await refreshMyGarageSession();
+  else if (state.user) await refreshNotificationCount();
+});
+on(window, "pageshow", async (event) => {
+  if (event.persisted && isMyGaragePage()) await refreshMyGarageSession();
 });
 function applyInitialCategory() {
   // /community?category=free 같은 딥링크를 초기 진입 시 반영한다. #community가

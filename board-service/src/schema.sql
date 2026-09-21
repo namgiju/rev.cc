@@ -82,4 +82,20 @@ CREATE TABLE IF NOT EXISTS vehicle_verifications (
 );
 CREATE INDEX IF NOT EXISTS vehicle_verifications_vehicle ON vehicle_verifications(vehicle_id,id DESC);
 CREATE INDEX IF NOT EXISTS vehicle_verifications_status ON vehicle_verifications(status,id DESC);
+-- Optional personal settings; authentication and login names remain in users.
+CREATE TABLE IF NOT EXISTS member_profiles (
+ user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+ bio VARCHAR(300) NOT NULL DEFAULT '',
+ avatar_image_id INTEGER REFERENCES community_images(id) ON DELETE SET NULL,
+ cover_image_id INTEGER REFERENCES community_images(id) ON DELETE SET NULL,
+ representative_vehicle_id INTEGER REFERENCES owner_vehicles(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS garage_guestbook (
+ id SERIAL PRIMARY KEY,
+ owner_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ author_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ content VARCHAR(1000) NOT NULL CHECK(length(btrim(content)) > 0),
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS garage_guestbook_owner ON garage_guestbook(owner_id,id DESC);
 COMMIT;

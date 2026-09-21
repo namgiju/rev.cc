@@ -348,6 +348,48 @@ export function communityRouter({ db, auth }) {
     );
     res.json({ ok: true });
   });
+  // Personal settings are always bound to the shared session, never to role or body.userId.
+  router.put("/profile", auth, async (req, res) => {
+    const bio = text(req.body?.bio, 300, false);
+    const avatar = req.body?.avatarImageId == null ? null : positive(req.body.avatarImageId);
+    const cover = req.body?.coverImageId == null ? null : positive(req.body.coverImageId);
+    await images([avatar, cover].filter(Boolean), req.user.id);
+    await db.query(`INSERT INTO member_profiles(user_id,bio,avatar_image_id,cover_image_id)
+      VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE
+      SET bio=EXCLUDED.bio,avatar_image_id=EXCLUDED.avatar_image_id,cover_image_id=EXCLUDED.cover_image_id`,
+      [req.user.id, bio, avatar, cover]);
+    res.json({ok:true});
+  });
+  router.put("/profile/representative-vehicle", auth, async (req, res) => {
+    const id = positive(req.body?.vehicleId);
+    const {rowCount} = await db.query(`INSERT INTO member_profiles(user_id,representative_vehicle_id)
+      SELECT owner_id,id FROM owner_vehicles WHERE id=$1 AND owner_id=$2
+      ON CONFLICT(user_id) DO UPDATE SET representative_vehicle_id=EXCLUDED.representative_vehicle_id`, [id,req.user.id]);
+    if (!rowCount) fail(403, "본인 차량만 대표 차량으로 설정할 수 있어요.");
+    res.json({ok:true});
+  });
+  router.get("/members/:id/guestbook", async (req, res) => {
+    const before = req.query.before === undefined ? null : positive(req.query.before);
+    const owner = await db.query(`SELECT id,(SELECT COUNT(*)::int FROM garage_guestbook WHERE owner_id=$1) AS total FROM users WHERE id=$1`,[req.params.id]);
+    if (!owner.rows.length) fail(404, "회원을 찾을 수 없어요.");
+    const {rows} = await db.query(`SELECT g.id,g.owner_id AS "ownerId",g.author_id AS "authorId",u.username,g.content,g.created_at AS "createdAt"
+      FROM garage_guestbook g JOIN users u ON u.id=g.author_id
+      WHERE g.owner_id=$1 AND ($2::int IS NULL OR g.id<$2) ORDER BY g.id DESC LIMIT 21`,[req.params.id,before]);
+    const items=rows.slice(0,20).map(r=>({...r,ownerId:Number(r.ownerId),authorId:Number(r.authorId)}));
+    res.json({items,total:owner.rows[0].total,nextCursor:rows.length>20?items.at(-1).id:null});
+  });
+  router.post("/members/:id/guestbook", auth, async (req, res) => {
+    const content = text(req.body?.content,1000);
+    const {rows} = await db.query(`INSERT INTO garage_guestbook(owner_id,author_id,content)
+      SELECT id,$2,$3 FROM users WHERE id=$1 RETURNING id`,[req.params.id,req.user.id,content]);
+    if (!rows.length) fail(404,"회원을 찾을 수 없어요.");
+    res.status(201).json(rows[0]);
+  });
+  router.delete("/members/:id/guestbook/:entryId", auth, async (req, res) => {
+    const {rowCount} = await db.query(`DELETE FROM garage_guestbook WHERE id=$1 AND owner_id=$2 AND (author_id=$3 OR owner_id=$3)`,[positive(req.params.entryId),req.params.id,req.user.id]);
+    if (!rowCount) fail(403,"작성자 또는 방명록 주인만 삭제할 수 있어요.");
+    res.json({ok:true});
+  });
   router.get("/members/:id", async (req, res) => {
     const { rows } = await db.query(
       `SELECT u.id,u.username,u.created_at AS "joinedAt",
@@ -368,13 +410,16 @@ export function communityRouter({ db, auth }) {
        FROM owner_vehicles WHERE owner_id=$1 ORDER BY verified DESC,id ASC`,
       [req.params.id],
     );
+    const settings = (await db.query(`SELECT bio,avatar_image_id AS "avatarImageId",cover_image_id AS "coverImageId",
+      representative_vehicle_id AS "representativeVehicleId" FROM member_profiles WHERE user_id=$1`,[req.params.id])).rows[0] || {};
     const verified = vehicles.rows.some((v) => v.verified);
     res.json({
       ...rows[0],
       id: Number(rows[0].id),
-      avatarUrl: null, // 현재 프로필 사진은 저장하지 않는다.
+      ...settings,
+      avatarUrl: settings.avatarImageId ? `/api/board/images/${settings.avatarImageId}` : null,
       vehicles: vehicles.rows,
-      representativeVehicle: vehicles.rows[0] ?? null,
+      representativeVehicle: vehicles.rows.find(v=>v.id===settings.representativeVehicleId) ?? vehicles.rows[0] ?? null,
       verified,
       // 실제 인증 상태에서 계산하는 표시용 인장. 획득 이력은 생성하지 않는다.
       badges: verified ? [{ code: "verified-owner", name: "인증 오너",
@@ -396,6 +441,19 @@ export function communityRouter({ db, auth }) {
       [limit],
     );
     res.json(rows);
+  });
+  // Personal garage: identity comes only from the shared Redis session, including ADMIN.
+  // Keep the public /garage?owner=... API for community member profiles.
+  router.get("/garage/mine", auth, async (req, res) => {
+    const { rows } = await db.query(
+      `SELECT v.id,v.owner_id AS "ownerId",u.username,v.manufacturer,v.model,v.year,v.trim,v.bio,
+       v.nickname,v.image_id AS "imageId",v.verified,v.verification_status AS "verificationStatus",
+       (SELECT COUNT(*)::int FROM vehicle_records r WHERE r.vehicle_id=v.id) AS "recordCount"
+       FROM owner_vehicles v JOIN users u ON u.id=v.owner_id
+       WHERE v.owner_id=$1 ORDER BY v.id DESC`,
+      [req.user.id],
+    );
+    res.json(rows.map((v) => ({ ...v, ownerId: Number(v.ownerId) })));
   });
   router.get("/garage", async (req, res) => {
     const owner =
