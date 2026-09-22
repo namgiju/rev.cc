@@ -30,7 +30,7 @@ async function cars(page, ids) {
   page.on('pageerror',error=>errors.push(error.message));
   let privateCalls=0;
   page.on('request',req=>{if (/\/api\/(garage\/vehicles|board\/(garage|posts\?scope|notifications))/.test(req.url()))privateCalls++;});
-  await page.goto(base);await page.locator('nav a[href="/home"]').click();
+  await page.goto(base);await page.locator('nav[aria-label="주 메뉴"] a[href="/home"]').click();
   await state(page,'NOT_AUTHENTICATED');
   assert.match(await page.locator('#home-garage').innerText(), /내 차고를 이용하려면 로그인이 필요합니다/);
   assert.equal(await page.locator('#home-garage a').getAttribute('href'),'/api/auth/kakao/login');
@@ -177,7 +177,7 @@ async function cars(page, ids) {
   const submissions=await request(admin.context,'/api/admin/vehicle-verifications');
   const submission=submissions.find(item=>item.vehicleId===admin.cars[0]);assert.ok(submission);
   await request(admin.context,`/api/admin/vehicle-verifications/${submission.id}/approve`,'POST',{});
-  await admin.page.locator('nav a[href="/home"]').click();await cars(admin.page,admin.cars);
+  await admin.page.locator('nav[aria-label="주 메뉴"] a[href="/home"]').click();await cars(admin.page,admin.cars);
   assert.match(await admin.page.locator('#home-garage').innerText(),/인증 완료/);
   assert.deepEqual(await request(admin.context,'/api/auth/me'),admin.session);
   assert.equal((await admin.context.cookies()).find(c=>c.name==='REVCC_SESSION').value,cookie);

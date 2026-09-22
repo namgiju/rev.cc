@@ -1,40 +1,9 @@
 import { Router } from "express";
 
+import { fail, text, positive, integer } from "./validation.js";
+import { validateOwnedImages } from "./owned-images.js";
+
 const categories = ["free", "maintenance", "parts", "drive"];
-const fail = (status, message) => {
-  throw Object.assign(new Error(message), { status });
-};
-function text(value, max, required = true) {
-  if (value === undefined && !required) return "";
-  if (
-    typeof value !== "string" ||
-    value.length > max ||
-    (required && !value.trim())
-  )
-    fail(400, `입력 내용을 확인해주세요. (최대 ${max}자)`);
-  return value.trim();
-}
-function positive(value) {
-  if (
-    !/^\d+$/.test(String(value)) ||
-    !Number.isSafeInteger(Number(value)) ||
-    Number(value) < 1 ||
-    Number(value) > 2147483647
-  )
-    fail(400, "올바른 항목을 선택해주세요.");
-  return Number(value);
-}
-function integer(value, min, max, optional = false) {
-  if (optional && (value === "" || value == null)) return null;
-  if (
-    typeof value !== "number" ||
-    !Number.isInteger(value) ||
-    value < min ||
-    value > max
-  )
-    fail(400, "숫자 입력 범위를 확인해주세요.");
-  return value;
-}
 export function decodeImage(value) {
   if (typeof value !== "string" || value.length > 4200000)
     fail(400, "사진은 3MB 이하로 올려주세요.");
@@ -106,20 +75,7 @@ export function communityRouter({ db, auth }) {
     if (!rows.length) fail(404, "삭제되었거나 없는 글입니다.");
     return rows[0];
   };
-  async function images(ids, userId) {
-    if (!Array.isArray(ids) || ids.length > 3)
-      fail(400, "사진은 최대 3장까지 첨부할 수 있어요.");
-    const normalized = [...new Set(ids.map(positive))];
-    if (normalized.length) {
-      const { rows } = await db.query(
-        "SELECT id FROM community_images WHERE id=ANY($1::int[]) AND owner_id=$2",
-        [normalized, userId],
-      );
-      if (rows.length !== normalized.length)
-        fail(400, "직접 업로드한 사진을 선택해주세요.");
-    }
-    return normalized;
-  }
+  const images = (ids, userId) => validateOwnedImages(db, ids, userId);
   async function postInput(body, userId) {
     const {
       title,

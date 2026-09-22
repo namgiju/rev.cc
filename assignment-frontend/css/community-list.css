@@ -1,0 +1,39 @@
+/* Only the community listing uses this grid. Detail/NAV/Footer keep their own layouts. */
+#main.community-list-layout{width:min(1500px,calc(100% - 64px));display:grid;grid-template-columns:210px minmax(0,1fr) 280px;gap:24px;align-items:start;padding:28px 0 48px}
+.community-list-layout>#notice{grid-column:1 / -1;margin:0}
+.community-list-layout>#notice:empty{display:none}
+.community-list-layout>#community-left{grid-column:1;grid-row:2 / 4}
+.community-list-layout>#community{grid-column:2;grid-row:2;margin:0;padding:0;min-width:0}
+.community-list-layout>#community-right{grid-column:3;grid-row:2 / 4;min-width:0}
+.community-list-layout>#write-post{grid-column:2;grid-row:3;display:block;margin-top:20px;padding-top:28px;min-width:0}
+.community-list-layout .write-intro{margin-bottom:24px}
+.community-list-layout .write-intro h2{font-size:24px}.community-list-layout .write-intro h2 br{display:none}
+.community-navigation{padding:20px 16px;border:1px solid var(--line);border-radius:12px}
+.community-navigation h2{font-size:20px;margin:0 0 20px}
+.community-categories,.community-shortcuts{display:flex;flex-direction:column;gap:5px}
+.community-categories button,.community-shortcuts button,.community-shortcuts>a{padding:11px 12px;text-align:left;font-size:13px;border-radius:7px}
+.community-categories button.active,.community-shortcuts button[aria-pressed=true]{background:#edf4ff;color:#2462b4;font-weight:650}
+.community-categories button:hover,.community-shortcuts button:hover{background:#f4f7fb}
+.community-write-link{display:block;text-align:center;margin:22px 0}
+.community-shortcuts{border-top:1px solid var(--line);padding-top:18px}.community-shortcuts h3{font-size:12px;color:var(--muted);margin:0 12px 6px}
+#community-description{font-size:13px;color:var(--muted);margin:8px 0 0}
+.community-list-layout #community-title{font-size:27px;margin:0}
+.community-list-layout .section-heading{gap:20px;align-items:center;margin-bottom:24px}
+.community-list-layout .section-heading>a{flex-shrink:0;font-size:12px}
+.community-search{display:flex;gap:8px;margin-bottom:14px}.community-search input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fafbfc}.community-search button{font-size:12px}
+.community-list-layout .feed-controls{font-size:12px;margin-bottom:22px;gap:10px}.community-list-layout .feed-controls input{width:160px}.community-list-layout #activity-scope{font-size:12px;margin:16px 0}
+.community-feed-heading,.community-feed-row{display:grid;grid-template-columns:minmax(0,1fr) 95px 86px repeat(3,38px);gap:10px;align-items:center}
+.community-feed-heading{font-size:11px;color:var(--muted);background:#f6f8fa;border-radius:7px;padding:10px 8px}
+.community-feed-row{padding:17px 8px;border-bottom:1px solid var(--line);font-size:12px}
+.community-feed-title{display:flex;align-items:center;gap:12px;min-width:0}.community-feed-title>div{min-width:0}.community-feed-title strong{display:block;font-size:14px;font-weight:600;line-height:1.6;overflow-wrap:anywhere}.community-feed-title .post-category{display:inline-block;font-size:10px;margin-top:4px}.community-feed-title img{width:56px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.community-feed-author{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.community-feed-date,.community-feed-stat{font-size:11px;color:var(--muted)}
+.community-list-layout #load-more{display:block;margin:24px auto}
+.community-side-section{padding:20px;border:1px solid var(--line);border-radius:12px;margin-bottom:18px}
+.community-side-section h2{font-size:15px;margin:0 0 12px}.community-side-section>p{margin-top:-4px;margin-bottom:12px}
+.community-popular-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:center;padding:9px 0;font-size:12px}.community-popular-row strong{font-weight:500;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.community-rank{color:#2462b4;font-weight:650}
+
+.community-side-post{display:block;padding:10px 0;border-bottom:1px solid var(--line);font-size:12px;overflow-wrap:anywhere}.community-side-post:last-child{border:0}
+@media(max-width:1200px){#main.community-list-layout{grid-template-columns:180px minmax(0,1fr)}.community-list-layout>#community-right{grid-column:2;grid-row:4;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.community-side-section{margin:0}}
+@media(max-width:760px){#main.community-list-layout{width:calc(100% - 32px);grid-template-columns:minmax(0,1fr);gap:20px}.community-list-layout>#community-left,.community-list-layout>#community,.community-list-layout>#community-right,.community-list-layout>#write-post{grid-column:1;grid-row:auto}.community-categories,.community-shortcuts{flex-direction:row;flex-wrap:wrap}.community-navigation{padding:14px}.community-write-link{margin:12px 0}.community-list-layout>#community-right{grid-template-columns:1fr}.community-feed-heading{display:none}.community-feed-row{grid-template-columns:1fr repeat(3,40px)}.community-feed-title{grid-column:1 / -1}.community-feed-date{grid-column:1}.community-feed-author{grid-column:1 / -1}.community-list-layout .section-heading{flex-wrap:wrap}}
+
+.community-list-layout .feed-controls label{flex:0 1 auto}.community-list-layout #post-sort{width:125px}

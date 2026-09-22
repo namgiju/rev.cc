@@ -98,4 +98,29 @@ CREATE TABLE IF NOT EXISTS garage_guestbook (
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS garage_guestbook_owner ON garage_guestbook(owner_id,id DESC);
+-- Marketplace listings are not community posts; reuse members and public image uploads.
+CREATE TABLE IF NOT EXISTS parts_listings (
+ id SERIAL PRIMARY KEY,
+ seller_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ title VARCHAR(150) NOT NULL,
+ description VARCHAR(5000) NOT NULL,
+ price BIGINT NOT NULL CHECK(price BETWEEN 0 AND 2000000000),
+ category VARCHAR(30) NOT NULL CHECK(category IN ('wheels','suspension','brakes','intake-exhaust','exterior','interior','electronics','engine','other')),
+ status VARCHAR(15) NOT NULL DEFAULT 'selling' CHECK(status IN ('selling','reserved','sold')),
+ image_ids INTEGER[] NOT NULL DEFAULT '{}',
+ vehicle VARCHAR(200) NOT NULL,
+ region VARCHAR(100) NOT NULL,
+ contact VARCHAR(300) NOT NULL,
+ views INTEGER NOT NULL DEFAULT 0,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ updated_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS parts_favorites (
+ listing_id INTEGER NOT NULL REFERENCES parts_listings(id) ON DELETE CASCADE,
+ user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ PRIMARY KEY(listing_id,user_id)
+);
+CREATE INDEX IF NOT EXISTS parts_listings_seller ON parts_listings(seller_id,id DESC);
+CREATE INDEX IF NOT EXISTS parts_listings_category_status ON parts_listings(category,status,id DESC);
+CREATE INDEX IF NOT EXISTS parts_favorites_user ON parts_favorites(user_id,listing_id);
 COMMIT;

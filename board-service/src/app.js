@@ -1,5 +1,6 @@
 import express from "express";
 import morgan from "morgan";
+import { marketRouter } from "./market.js";
 import { communityRouter } from "./community.js";
 
 // Spring과 동일한 쿠키 이름·토큰 형식·Redis 키를 사용한다. TTL은 로그인부터 30분이다.
@@ -42,7 +43,7 @@ export function createApp({ db, redis }) {
     await redis.ping();
     res.json({ status: "ok" });
   });
-  app.use("/api/board", async (req, res, next) => {
+  app.use(["/api/board", "/api/parts"], async (req, res, next) => {
     req.user = await sessionUser(redis, req.headers.cookie);
     next();
   });
@@ -53,6 +54,7 @@ export function createApp({ db, redis }) {
   };
   app.get("/api/board/me", auth, (req, res) => res.json(req.user));
   app.use("/api/board", communityRouter({ db, auth }));
+  app.use("/api/parts/listings", marketRouter({ db, auth }));
   app.get("/api/parts/compatibility", (req, res) => {
     if (!/^[12]$/.test(req.query.vehicleId ?? ""))
       return res

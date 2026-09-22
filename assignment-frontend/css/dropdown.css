@@ -1,0 +1,177 @@
+/* REV.CC 공통 커스텀 드롭다운 (js/dropdown.js) */
+.rev-dd {
+  position: relative;
+  display: block;
+  min-width: 0;
+  --rev-dd-radius: 8px;
+  --rev-dd-pad: 10px 12px;
+  --rev-dd-font: 13px;
+}
+/* 값의 원본인 네이티브 select는 화면에서만 숨긴다(폼/검증/코드 접근은 그대로). */
+.rev-dd > select.rev-dd-native {
+  position: absolute !important;
+  inset: auto 0 0 0 !important;
+  width: 100% !important;
+  height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden;
+}
+.rev-dd-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: var(--rev-dd-pad);
+  border: 1px solid #e5e7e9;
+  border-radius: var(--rev-dd-radius);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--rev-dd-font);
+  font-weight: 400;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
+}
+.rev-dd-trigger:hover {
+  border-color: #c9d3de;
+}
+.rev-dd.is-open > .rev-dd-trigger,
+.rev-dd-trigger:focus-visible {
+  border-color: #3478c7;
+  outline: 0;
+}
+.rev-dd-trigger:focus-visible {
+  box-shadow: 0 0 0 2px #3478c733;
+}
+.rev-dd-trigger:disabled {
+  background: #f6f8fa;
+  color: #9299a0;
+  cursor: not-allowed;
+}
+.rev-dd-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rev-dd-trigger::after {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: -3px 3px 0 0;
+  border: solid #3478c7;
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+.rev-dd.is-open > .rev-dd-trigger::after {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+}
+.rev-dd-menu {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: max-content;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #e5e7e9;
+  border-radius: var(--rev-dd-radius);
+  background: #fff;
+  box-shadow: 0 6px 16px #182c440f;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transform-origin: top;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease,
+    visibility 0s linear 0.12s;
+}
+.rev-dd-menu.is-above {
+  transform: translateY(4px);
+  transform-origin: bottom;
+}
+.rev-dd-menu.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease,
+    visibility 0s;
+}
+.rev-dd-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  user-select: none;
+}
+.rev-dd-option::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 5px;
+  margin-top: -3px;
+  border: solid transparent;
+  border-width: 0 0 1.8px 1.8px;
+  transform: rotate(-45deg);
+}
+.rev-dd-option.is-active {
+  background: #f5f8fb;
+}
+.rev-dd-option.is-selected {
+  background: #edf4ff;
+  color: #2462b4;
+  font-weight: 600;
+}
+.rev-dd-option.is-selected::before {
+  border-color: #3478c7;
+}
+.rev-dd-option.is-selected.is-active {
+  background: #e3eeff;
+}
+.rev-dd-option.is-disabled {
+  color: #b4b9be;
+  cursor: not-allowed;
+}
+@media (max-width: 760px) {
+  .rev-dd-option {
+    min-height: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rev-dd-menu,
+  .rev-dd-menu.is-open,
+  .rev-dd-trigger,
+  .rev-dd-trigger::after {
+    transition: none;
+  }
+}

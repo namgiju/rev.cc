@@ -195,6 +195,7 @@ async function refreshSession() {
   state.user = user;
   renderManagementNav(user);
   state.authStatus = authStatus;
+  void window.communityList?.garage();
   if (previousId !== user?.id || !user) {
     state.detailRequest++;
     document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
@@ -217,6 +218,7 @@ async function refreshSession() {
       : "이야기를 쓰려면 먼저 로그인해주세요.";
   if (user) await refreshNotificationCount().catch(() => {});
   else $("#notification-count").textContent = "";
+  window.partsMarket?.sessionChanged();
 }
 async function refreshNotificationCount() {
   if (!state.user) return;
@@ -265,7 +267,17 @@ async function refreshPosts(append = false) {
   // 게시글 상세가 페이지로 분리된 뒤 홈(`/`)에는 이 목록 UI 자체가 없다. "내가 쓴 글" 같은
   // 활동 버튼은 어느 페이지에서나 누를 수 있어 여기서 조용히 멈춘다(크래시 방지).
   if (!$("#posts")) return;
+  window.communityList?.sync();
   const request = ++state.feedRequest;
+  if (window.communityList?.isList() && state.scope && !state.user) {
+    state.posts = [];
+    $("#posts").replaceChildren(el("p", "내 활동을 보려면 로그인이 필요합니다.", "empty"),
+      link("로그인하기", "/api/auth/kakao/login", "text-link"));
+    $("#load-more").hidden = true;
+    $("#activity-scope").hidden = true;
+    $("#search-summary").textContent = "";
+    return;
+  }
   const page = append ? state.page + 1 : 1;
   const query = new URLSearchParams({
     q: state.query,
@@ -282,7 +294,7 @@ async function refreshPosts(append = false) {
     if (request !== state.feedRequest) return;
     state.page = page;
     state.posts = append ? [...state.posts, ...posts] : posts;
-    $("#posts").replaceChildren(...state.posts.map(renderPost));
+    $("#posts").replaceChildren(...state.posts.map(window.communityList?.isList() ? window.communityList.row : renderPost));
     if (!state.posts.length)
       $("#posts").append(
         el(
@@ -507,6 +519,7 @@ async function showPostDetailPage(id) {
     ]);
   } catch (e) {
     if (contextRequest !== postContextRequest) return;
+    if (e.status === 404) window.communityList?.forget(id);
     $("#post-author").replaceChildren();
     $("#post-related").replaceChildren();
     root.replaceChildren(
@@ -532,6 +545,7 @@ async function showPostDetailPage(id) {
   }
   if (contextRequest !== postContextRequest) return;
   renderPostDetail(root, post, comments, id);
+  window.communityList?.remember(post);
   void renderPostContext(post, contextRequest);
 }
 function renderPostDetail(root, post, comments, id) {
@@ -726,6 +740,7 @@ function openReport(id) {
 }
 async function showScope(scope) {
   if (!requireLogin()) return;
+  if (!$("#posts") || parsePostDetailPath()) { location.href = `/community?scope=${encodeURIComponent(scope)}`; return; }
   state.scope = scope;
   state.query = "";
   state.category = "";
@@ -954,11 +969,15 @@ async function route() {
 }
 on(window, "hashchange", route);
 on(window, "focus", async () => {
-  if (isMyGaragePage()) await refreshMyGarageSession();
+  if (window.partsMarket?.active()) await refreshSession();
+  else if (window.communityList?.isList()) { await refreshSession(); if(state.scope) await refreshPosts(); }
+  else if (isMyGaragePage()) await refreshMyGarageSession();
   else if (state.user) await refreshNotificationCount();
 });
 on(window, "pageshow", async (event) => {
-  if (event.persisted && isMyGaragePage()) await refreshMyGarageSession();
+  if (event.persisted && window.partsMarket?.active()) { await refreshSession(); await window.partsMarket.start(); }
+  else if (event.persisted && window.communityList?.isList()) { await refreshSession(); await refreshPosts(); }
+  else if (event.persisted && isMyGaragePage()) await refreshMyGarageSession();
 });
 function applyInitialCategory() {
   // /community?category=free 같은 딥링크를 초기 진입 시 반영한다. #community가
@@ -1043,12 +1062,15 @@ async function refreshHomeVehicles() {
   );
 }
 async function initialize() {
+  window.communityList?.setup();
+  window.partsMarket?.setup();
   applyInitialCategory();
   applyInitialVehicleFilter();
   await refreshSession();
   // 이 페이지에 실제로 있는 섹션만 불러온다(index.html의 홈 포털, /community·/garage·/parts는 각각 일부).
   const postDetail = parsePostDetailPath();
   const jobs = [];
+  if (window.partsMarket?.active()) jobs.push({ key: "market", promise: window.partsMarket.start() });
   if (postDetail && $("#post-detail"))
     jobs.push({ key: "post-detail", promise: showPostDetailPage(postDetail.id) });
   else if ($("#community")) jobs.push({ key: "posts", promise: refreshPosts() });

@@ -7,7 +7,9 @@
   <link rel="stylesheet" href="/css/style.css"><script src="/js/site-nav.js" defer></script>
   <script src="/js/member-card.js" defer></script>
   <script src="/js/post-url.js" defer></script><script src="/js/post-context.js" defer></script><script src="/js/guestbook-ui.js" defer></script>
-  <script src="/js/vehicle-ui.js" defer></script><script src="/js/app.js" defer></script>
+  <script src="/js/vehicle-ui.js" defer></script><script src="/js/my-garage-card.js" defer></script><script src="/js/community-list.js" defer></script><script src="/js/app.js" defer></script>
+  <link rel="stylesheet" href="/css/community-list.css">
+  <link rel="stylesheet" href="/css/my-garage-card.css">
   <link rel="stylesheet" href="/css/footer.css">
   <script src="/js/footer.js" defer></script>
 </head>
@@ -28,12 +30,25 @@
         <aside id="post-related" class="post-sidebar" aria-label="관련 콘텐츠"></aside>
       </div>
     </section>
-    <section id="community" class="community" aria-labelledby="community-title"><div class="section-heading"><div><p class="eyebrow">COMMUNITY</p><h2 id="community-title">지금, 오너들의 이야기</h2></div><a href="#write-post" class="text-link">글쓰기 <span aria-hidden="true">↗</span></a></div>
-      <div class="tabs" aria-label="게시판 분류"><button class="active" data-category="">전체</button><button data-category="free">자유 이야기</button><button data-category="maintenance">정비·관리</button><button data-category="parts">부품 이야기</button><button data-category="drive">드라이브</button></div>
-      <div class="feed-controls"><label>정렬<select id="post-sort"><option value="latest">최신순</option><option value="popular">인기순</option></select></label><label>차종<input id="vehicle-filter" placeholder="예: 아반떼 N" maxlength="100"></label><button id="apply-filter" class="secondary">적용</button><button id="reset-filter" class="text-link">초기화</button></div>
+    <aside id="community-left" class="community-navigation" hidden>
+      <h2>커뮤니티</h2>
+      <div class="community-categories" role="group" aria-label="게시판 분류">
+        <button class="active" data-category="">전체 게시글</button><button data-category="free">자유게시판</button><button data-category="maintenance">정비 / DIY</button><button data-category="parts">부품 이야기</button><button data-category="drive">드라이브</button>
+      </div>
+      <a href="#write-post" class="primary community-write-link">＋ 글쓰기</a>
+      <div class="community-shortcuts"><h3>빠른 이동</h3><button data-community-scope="mine">내가 쓴 글</button><button data-community-scope="commented">내가 댓글 단 글</button><button data-community-scope="bookmarks">북마크한 글</button><a href="#community-recent">최근 본 글</a></div>
+    </aside>
+    <section id="community" class="community" aria-labelledby="community-title"><div class="section-heading"><div><p class="eyebrow">COMMUNITY</p><h1 id="community-title">전체 게시글</h1><p id="community-description"></p></div><a href="#write-post" class="secondary">＋ 글쓰기</a></div>
+      <form id="search-form" class="community-search" role="search"><label class="sr-only" for="search-input">게시글 검색</label><input id="search-input" type="search" maxlength="100" placeholder="제목, 내용, 작성자 검색"><button class="secondary" type="submit">검색</button></form>
+      <div class="feed-controls"><label>정렬<select id="post-sort"><option value="latest">최신순</option><option value="popular">추천순</option></select></label><label>차종<input id="vehicle-filter" placeholder="예: 아반떼 N" maxlength="100"></label><button id="apply-filter" class="secondary">적용</button><button id="reset-filter" class="text-link">초기화</button></div>
       <div id="activity-scope" hidden><strong id="scope-label"></strong><button id="clear-scope" class="text-link">전체 글 보기</button></div>
-      <div id="search-summary" aria-live="polite"></div><div id="posts"><p class="empty">이야기를 불러오고 있어요.</p></div><button id="load-more" class="secondary" hidden>이야기 더 보기</button>
+      <div id="search-summary" aria-live="polite"></div><div class="community-feed-heading" aria-hidden="true"><span>제목</span><span>작성자</span><span>작성일</span><span>조회</span><span>추천</span><span>댓글</span></div><div id="posts"><p class="empty">이야기를 불러오고 있어요.</p></div><button id="load-more" class="secondary" hidden>이야기 더 보기</button>
     </section>
+    <aside id="community-right" hidden>
+      <section class="community-side-section"><h2>지금 인기글</h2><p class="context-muted">추천 수를 기준으로 모았어요.</p><div id="community-popular"><p class="context-muted">이야기를 불러오고 있어요.</p></div></section>
+      <section class="community-side-section"><h2>MY GARAGE</h2><div id="community-my-garage" class="my-garage-mini" aria-live="polite"></div></section>
+      <section id="community-recent" class="community-side-section"><h2>최근 본 글</h2><p class="context-muted">이 브라우저에서 읽은 글</p><div id="community-recent-list"></div></section>
+    </aside>
     <section id="write-post" class="write-section"><div class="write-intro"><p class="eyebrow">SHARE YOUR STORY</p><h2>당신의 이야기도<br>들려주세요.</h2><p>궁금한 점, 유용한 팁, 오늘의 드라이브.<br>어떤 자동차 이야기든 좋아요.</p><span id="board-user" class="session-status">로그인 상태 확인 중</span></div><form id="post-form">
         <div id="edit-status" hidden>게시글 수정 중 <button type="button" id="cancel-edit" class="text-link">수정 취소</button></div>
         <div class="form-row"><label>게시판<select name="category" required><option value="free">자유 이야기</option><option value="maintenance">정비·관리</option><option value="parts">부품 이야기</option><option value="drive">드라이브</option></select></label><label>관련 차종<input name="vehicle" maxlength="100" placeholder="예: 아반떼 N (선택)"></label></div>

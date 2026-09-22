@@ -58,6 +58,20 @@ async function req(context,path,method='GET',data,status=200){
   }
  }
  console.log('PASS live: A -> A; A/admin/anonymous -> B, four categories, actual author cars/badges, reload and ownership UI');
+ // Actual session/vehicle source behind the community mini card, including selected representative.
+ const second=await req(a.context,'/api/garage/vehicles','POST',{manufacturer:'Test',model:`Selected-${run}`,modelYear:2025,licensePlate:'TEST2'},201);
+ await req(a.context,'/api/board/profile/representative-vehicle','PUT',{vehicleId:second.id});
+ for(const account of [a,b,admin]){
+  await account.page.goto(base+'/community');await account.page.locator('#community-my-garage strong').waitFor();
+  assert.match(await account.page.locator('#community-my-garage').innerText(),new RegExp(account===a?second.model:account.vehicle.model));
+  assert.equal(await account.page.locator('#admin-link').isVisible(),account===admin);
+  await account.page.locator('[data-community-scope="mine"]').click();
+  await account.page.waitForFunction(()=>document.querySelector('#activity-scope')?.hidden===false);
+  const authors=await account.page.locator('#posts .community-feed-author').allTextContents();
+  assert.ok(authors.every(name=>name===account.username));
+ }
+ await guestPage.goto(base+'/community');await guestPage.waitForFunction(()=>document.querySelector('#community-my-garage')?.dataset.state==='NOT_AUTHENTICATED');
+ console.log('PASS live list: USER/ADMIN own garage, explicitly selected vehicle, scoped posts, anonymous gate and admin NAV');
  const p=posts[0],path=`/api/board/posts/${p.id}`;
  await a.page.goto(`${base}/community/free/${p.id}`);await a.page.locator('#post-author .author-stats').waitFor();
  await a.page.getByRole('button',{name:'♡ 추천 0',exact:true}).click();await a.page.getByRole('button',{name:'♡ 추천 1',exact:true}).waitFor();
