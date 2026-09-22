@@ -88,14 +88,18 @@ async function renderPostContext(post, request) {
     );
   }
   // 게시글의 명시적 차종을 우선한다. 다른 차량 사진을 연관 사진으로 사용하지 않는다.
-  const model = post.vehicle || member?.representativeVehicle?.model || "";
+  const model = post.linkedVehicle?.model || post.vehicle || member?.representativeVehicle?.model || "";
   if (!model) {
     vehicleCard.append(el("p", "연결된 차종이 없어요.", "context-muted"));
     popularCard.append(
       el("p", "차종이 연결되면 관련 글을 볼 수 있어요.", "context-muted"),
     );
   } else {
-    const matching = member?.vehicles.find((v) => v.model === model);
+    const matching = post.linkedVehicle || member?.vehicles.find((v) => v.model === model);
+    if (post.linkedVehicle) {
+      vehicleCard.querySelector("h3").textContent = "이 글에 연결된 차량";
+      vehicleCard.append(el("p", `${matching.year} · ${matching.verified ? "인증 오너" : "등록 차량"}`, "context-muted"));
+    }
     vehicleCard.append(el("strong", model));
     if (matching?.imageId)
       vehicleCard.append(photo(matching.imageId, model, "context-car-photo"));

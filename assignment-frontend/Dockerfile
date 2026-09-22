@@ -10,3 +10,5 @@ COPY admin /usr/share/nginx/html/admin
 COPY community /usr/share/nginx/html/community
 COPY garage /usr/share/nginx/html/garage
 COPY parts /usr/share/nginx/html/parts
+
+COPY auth /usr/share/nginx/html/auth

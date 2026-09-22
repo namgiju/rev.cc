@@ -10,7 +10,7 @@ function createMyGarageCard({ root, api, getUser, el, link, photo, button }) {
       root.dataset.state = "NOT_AUTHENTICATED";
       root.append(
         el("p", "로그인하고 나의 차량을 만나보세요.", "context-muted"),
-        link("로그인하기", "/api/auth/kakao/login", "text-link"),
+        link("로그인하기", "/login", "text-link"),
       );
       return;
     }

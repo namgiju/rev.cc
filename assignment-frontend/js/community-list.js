@@ -65,7 +65,7 @@ window.communityList = (() => {
     if(!$('#community-left'))return;
     const active=isList();$('#community-left').hidden=!active;$('#community-right').hidden=!active;
     $('#main').classList.toggle('community-list-layout',active);
-    if(!active)return;
+    if(!active){void popular();return;}
     const params=new URLSearchParams(location.search);
     state.query=(params.get('q')||'').slice(0,100);$('#search-input').value=state.query;
     if(['latest','popular'].includes(params.get('sort'))){state.sort=params.get('sort');$('#post-sort').value=state.sort;}
@@ -75,5 +75,5 @@ window.communityList = (() => {
     on(window,'storage',e=>{if(e.key===storageKey)renderRecent();});
     on(window,'pageshow',()=>renderRecent());
   }
-  return {setup,sync,row,garage,remember,forget,isList};
+  return {setup,sync,row,garage,remember,forget,isList,popular};
 })();

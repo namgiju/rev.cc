@@ -7,18 +7,20 @@
   <link rel="stylesheet" href="/css/style.css"><script src="/js/site-nav.js" defer></script>
   <script src="/js/member-card.js" defer></script>
   <script src="/js/post-url.js" defer></script><script src="/js/post-context.js" defer></script><script src="/js/guestbook-ui.js" defer></script>
-  <script src="/js/vehicle-ui.js" defer></script><script src="/js/my-garage-card.js" defer></script><script src="/js/community-list.js" defer></script><script src="/js/app.js" defer></script>
+  <script src="/js/vehicle-ui.js" defer></script><script src="/js/my-garage-card.js" defer></script><script src="/js/community-list.js" defer></script><script src="/js/post-editor.js" defer></script><script src="/js/app.js" defer></script>
   <link rel="stylesheet" href="/css/community-list.css">
+  <link rel="stylesheet" href="/css/dropdown.css"><link rel="stylesheet" href="/css/post-editor.css">
+  <script src="/js/dropdown.js" defer></script>
   <link rel="stylesheet" href="/css/my-garage-card.css">
   <link rel="stylesheet" href="/css/footer.css">
   <script src="/js/footer.js" defer></script>
 </head>
-<body class="site-footer-layout">
+<body class="site-footer-layout" data-rev-dropdown>
   <a class="skip-link" href="#main">본문으로 바로가기</a>
   <header class="header"><div class="header-inner">
     <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
     <nav aria-label="주 메뉴"><a href="/community" aria-current="page">커뮤니티</a><a href="/home">내 차고</a><a href="/parts">부품 찾기</a></nav>
-    <div class="header-actions"><button id="activity-button" hidden>내 활동</button><button id="notifications-button" hidden>알림 <span id="notification-count"></span></button><span id="core-user"></span><a id="kakao-login" class="login" href="/api/auth/kakao/login">로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
+    <div class="header-actions"><button id="activity-button" hidden>내 활동</button><button id="notifications-button" hidden>알림 <span id="notification-count"></span></button><span id="core-user"></span><a id="kakao-login" class="login" href="/login">로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
   </div></header>
   <main id="main" class="container">
     <p id="notice" role="status" aria-live="polite"></p>
@@ -45,18 +47,27 @@
       <div id="search-summary" aria-live="polite"></div><div class="community-feed-heading" aria-hidden="true"><span>제목</span><span>작성자</span><span>작성일</span><span>조회</span><span>추천</span><span>댓글</span></div><div id="posts"><p class="empty">이야기를 불러오고 있어요.</p></div><button id="load-more" class="secondary" hidden>이야기 더 보기</button>
     </section>
     <aside id="community-right" hidden>
+      <section class="community-side-section editor-help" hidden><h2>커뮤니티 이용 수칙</h2><ul><li>서로 존중하는 마음으로 작성해주세요.</li><li>욕설, 비방, 광고성 글은 제한될 수 있어요.</li><li>자동차와 관련된 유익한 정보를 공유해주세요.</li><li>개인정보 노출에 주의해주세요.</li></ul></section>
+      <section class="community-side-section editor-help" hidden><h2>글 작성 팁</h2><p>구체적인 제목과 사진은 이야기를 이해하는 데 도움이 됩니다.</p><p>관련된 내 차량을 연결하면 다른 오너들과 더 쉽게 소통할 수 있어요.</p></section>
       <section class="community-side-section"><h2>지금 인기글</h2><p class="context-muted">추천 수를 기준으로 모았어요.</p><div id="community-popular"><p class="context-muted">이야기를 불러오고 있어요.</p></div></section>
       <section class="community-side-section"><h2>MY GARAGE</h2><div id="community-my-garage" class="my-garage-mini" aria-live="polite"></div></section>
       <section id="community-recent" class="community-side-section"><h2>최근 본 글</h2><p class="context-muted">이 브라우저에서 읽은 글</p><div id="community-recent-list"></div></section>
     </aside>
-    <section id="write-post" class="write-section"><div class="write-intro"><p class="eyebrow">SHARE YOUR STORY</p><h2>당신의 이야기도<br>들려주세요.</h2><p>궁금한 점, 유용한 팁, 오늘의 드라이브.<br>어떤 자동차 이야기든 좋아요.</p><span id="board-user" class="session-status">로그인 상태 확인 중</span></div><form id="post-form">
-        <div id="edit-status" hidden>게시글 수정 중 <button type="button" id="cancel-edit" class="text-link">수정 취소</button></div>
-        <div class="form-row"><label>게시판<select name="category" required><option value="free">자유 이야기</option><option value="maintenance">정비·관리</option><option value="parts">부품 이야기</option><option value="drive">드라이브</option></select></label><label>관련 차종<input name="vehicle" maxlength="100" placeholder="예: 아반떼 N (선택)"></label></div>
-        <label for="post-title">제목</label><input id="post-title" name="title" required maxlength="150" placeholder="어떤 이야기를 나누고 싶으세요?">
-        <label for="post-content">내용</label><textarea id="post-content" name="content" required maxlength="5000" rows="5" placeholder="차종이나 부품 정보를 함께 적으면 더 도움이 돼요."></textarea>
-        <label class="upload-label" for="post-images">사진 첨부 <span>JPG · PNG · WebP / 장당 3MB, 최대 3장</span></label><input id="post-images" type="file" accept="image/jpeg,image/png,image/webp" multiple><div id="image-previews" class="image-previews"></div>
-        <div class="form-bottom"><span>서로를 배려하는 따뜻한 대화를 나눠요.</span><button id="submit-post" type="submit">이야기 등록 ↗</button></div>
-      </form></section>
+    <section id="write-post" class="write-section" hidden>
+      <p class="editor-breadcrumb"><a href="/community">커뮤니티</a> / <span id="editor-category">자유게시판</span> / 글쓰기</p>
+      <div class="write-intro"><h1 id="editor-heading">새 글 작성</h1><p>자동차와 관련된 다양한 이야기를 자유롭게 공유해주세요.</p><span id="board-user" class="session-status"></span></div>
+      <div id="editor-login" hidden><p>글을 작성하려면 로그인이 필요합니다.</p><a href="/login" class="primary">로그인하기</a></div>
+      <form id="post-form">
+        <div id="edit-status" hidden>게시글 수정 중</div>
+        <label>게시판 선택<select name="category" required aria-label="게시판 선택"><option value="free">자유게시판</option><option value="maintenance">정비 / DIY</option><option value="parts">부품 이야기</option><option value="drive">드라이브</option></select></label>
+        <label for="post-title">제목</label><input id="post-title" name="title" required maxlength="150" placeholder="제목을 입력해주세요."><small id="title-count" class="editor-count">0 / 150</small>
+        <div id="editor-vehicles" aria-live="polite"></div>
+        <input name="vehicle" type="hidden">
+        <label for="post-content">본문</label><p class="context-muted">일반 텍스트로 저장됩니다. 사진은 아래에서 첨부해주세요.</p><textarea id="post-content" name="content" required maxlength="5000" rows="14" placeholder="내용을 입력해주세요."></textarea><small id="content-count" class="editor-count">0 / 5000</small>
+        <label class="upload-label" for="post-images">사진 첨부 <span>JPG · PNG · WebP / 장당 3MB, 최대 3장</span></label><label for="post-images" class="editor-add-photo">＋ 사진 추가</label><input id="post-images" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple><p id="upload-status" role="status"></p><div id="image-previews" class="image-previews"></div>
+        <div class="form-bottom"><button id="cancel-edit" type="button" class="secondary">취소</button><button id="submit-post" class="primary" type="submit">등록하기</button></div>
+      </form>
+    </section>
   </main>
   <footer id="site-footer" aria-label="REV.CC 서비스 정보"></footer>
   <dialog id="detail-dialog" class="community-dialog"><div class="dialog-bar"><span>REV.CC COMMUNITY</span><button data-close aria-label="상세 화면 닫기">✕</button></div><div id="detail-content"></div></dialog>

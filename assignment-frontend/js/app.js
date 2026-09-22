@@ -24,7 +24,6 @@ const state = {
   vehicleImage: null,
   feedRequest: 0,
   detailRequest: 0,
-  uploading: false,
 };
 const dateText = (value) =>
   new Date(value).toLocaleString("ko-KR", {
@@ -219,6 +218,7 @@ async function refreshSession() {
   if (user) await refreshNotificationCount().catch(() => {});
   else $("#notification-count").textContent = "";
   window.partsMarket?.sessionChanged();
+  window.postEditor?.sessionChanged();
 }
 async function refreshNotificationCount() {
   if (!state.user) return;
@@ -272,7 +272,7 @@ async function refreshPosts(append = false) {
   if (window.communityList?.isList() && state.scope && !state.user) {
     state.posts = [];
     $("#posts").replaceChildren(el("p", "내 활동을 보려면 로그인이 필요합니다.", "empty"),
-      link("로그인하기", "/api/auth/kakao/login", "text-link"));
+      link("로그인하기", "/login", "text-link"));
     $("#load-more").hidden = true;
     $("#activity-scope").hidden = true;
     $("#search-summary").textContent = "";
@@ -334,6 +334,10 @@ document
   .forEach((b) => on(b, "click", () => search(b.dataset.query)));
 document.querySelectorAll("[data-category]").forEach((b) =>
   on(b, "click", async () => {
+    if (window.postEditor?.active()) {
+      window.postEditor.navigate(`/community?category=${b.dataset.category}`);
+      return;
+    }
     state.category = b.dataset.category;
     document.querySelectorAll("[data-category]").forEach((x) => {
       x.classList.toggle("active", x === b);
@@ -384,7 +388,6 @@ on($("#logout"), "click", async () => {
   state.scope = "";
   state.images = [];
   state.vehicleImage = null;
-  if ($("#post-form")) resetComposer();
   state.garageRequest++;
   state.detailRequest++;
   document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
@@ -419,79 +422,8 @@ function renderPreviews(ids, target, remove) {
     }),
   );
 }
-function postPreviews() {
-  renderPreviews(state.images, $("#image-previews"), (id) => {
-    state.images = state.images.filter((x) => x !== id);
-    postPreviews();
-  });
-}
-on($("#post-images"), "change", async (e) => {
-  const files = [...e.target.files];
-  e.target.value = "";
-  if (!requireLogin()) return;
-  if (files.length + state.images.length > 3)
-    throw new Error("사진은 최대 3장까지 첨부할 수 있어요.");
-  state.uploading = true;
-  $("#submit-post").disabled = true;
-  e.target.disabled = true;
-  try {
-    for (const file of files) {
-      state.images.push(await uploadFile(file));
-      postPreviews();
-    }
-  } finally {
-    state.uploading = false;
-    $("#submit-post").disabled = false;
-    e.target.disabled = false;
-  }
-});
-function resetComposer() {
-  state.editing = null;
-  state.images = [];
-  $("#post-form").reset();
-  $("#edit-status").hidden = true;
-  $("#submit-post").textContent = "이야기 등록 ↗";
-  postPreviews();
-}
-on($("#cancel-edit"), "click", resetComposer);
-on($("#post-form"), "submit", async (e) => {
-  e.preventDefault();
-  if (!requireLogin() || state.uploading) return;
-  const b = $("#submit-post");
-  b.disabled = true;
-  try {
-    const data = Object.fromEntries(new FormData(e.target));
-    data.imageIds = state.images;
-    const editing = state.editing;
-    const result = await api(
-      editing ? `/api/board/posts/${editing}` : "/api/board/posts",
-      data,
-      editing ? "PUT" : "POST",
-    );
-    resetComposer();
-    await refreshPosts();
-    location.hash = `post-${result.id}`;
-    notify(editing ? "글을 수정했어요." : "이야기를 등록했어요.");
-  } finally {
-    b.disabled = false;
-  }
-});
 function beginEdit(post) {
-  if (!requireLogin()) return;
-  closeDetail();
-  // 게시글 상세가 이제 페이지라 #write-post를 숨겨뒀을 수 있어 다시 보이게 한다.
-  const writePost = $("#write-post");
-  if (writePost) writePost.hidden = false;
-  state.editing = post.id;
-  state.images = [...post.imageIds];
-  const f = $("#post-form");
-  for (const key of ["title", "content", "category", "vehicle"])
-    f.elements[key].value = post[key];
-  $("#edit-status").hidden = false;
-  $("#submit-post").textContent = "수정 저장";
-  postPreviews();
-  location.hash = "write-post";
-  f.elements.title.focus();
+  return window.postEditor?.edit(post);
 }
 const viewed = new Set();
 // 게시글 상세는 더 이상 #detail-dialog 모달이 아니라 /community/{category}/{id} 페이지에
@@ -842,7 +774,7 @@ function renderGarageState(status, vehicles = []) {
   $("#add-vehicle").hidden = !["EMPTY_GARAGE", "HAS_VEHICLE"].includes(status);
   if (status === "NOT_AUTHENTICATED") {
     root.append(el("p", "내 차고를 이용하려면 로그인이 필요해요.", "empty"),
-      link("로그인하기", "/api/auth/kakao/login", "primary"));
+      link("로그인하기", "/login", "primary"));
   } else if (status === "EMPTY_GARAGE") {
     root.append(el("p", "아직 등록된 차량이 없어요. 첫 차량을 등록해보세요.", "empty"),
       button("내 차 등록", () => vehicleForm(), "primary"),
@@ -939,6 +871,11 @@ async function loadCompatibility() {
   });
 }
 async function route() {
+  if (location.hash === "#write-post" && ["/", "/index.html"].includes(location.pathname)) {
+    location.replace("/community#write-post");
+    return;
+  }
+  if (await window.postEditor?.route()) return;
   if (isMyGaragePage() && state.authStatus !== "AUTHENTICATED") return;
   const match = /^#(post|car|member)-(\d+)$/.exec(location.hash);
   // 예전 /#post-123 링크(북마크·공유된 링크 등) 호환: 글을 조회해 category를 알아낸 뒤
@@ -969,13 +906,15 @@ async function route() {
 }
 on(window, "hashchange", route);
 on(window, "focus", async () => {
-  if (window.partsMarket?.active()) await refreshSession();
+  if (window.postEditor?.active()) await refreshSession();
+  else if (window.partsMarket?.active()) await refreshSession();
   else if (window.communityList?.isList()) { await refreshSession(); if(state.scope) await refreshPosts(); }
   else if (isMyGaragePage()) await refreshMyGarageSession();
   else if (state.user) await refreshNotificationCount();
 });
 on(window, "pageshow", async (event) => {
-  if (event.persisted && window.partsMarket?.active()) { await refreshSession(); await window.partsMarket.start(); }
+  if (event.persisted && window.postEditor?.active()) await refreshSession();
+  else if (event.persisted && window.partsMarket?.active()) { await refreshSession(); await window.partsMarket.start(); }
   else if (event.persisted && window.communityList?.isList()) { await refreshSession(); await refreshPosts(); }
   else if (event.persisted && isMyGaragePage()) await refreshMyGarageSession();
 });
@@ -1063,6 +1002,7 @@ async function refreshHomeVehicles() {
 }
 async function initialize() {
   window.communityList?.setup();
+  window.postEditor?.setup();
   window.partsMarket?.setup();
   applyInitialCategory();
   applyInitialVehicleFilter();

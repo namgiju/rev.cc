@@ -159,7 +159,7 @@ async function initialize() {
   try {
     user = await api("/api/board/me");
   } catch (e) {
-    location.replace("/api/auth/kakao/login");
+    location.replace("/login");
     return;
   }
   renderManagementNav(user);

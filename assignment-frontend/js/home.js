@@ -158,7 +158,7 @@ function renderGarageState(status, vehicles = []) {
   $("#home-add-vehicle").hidden = status !== "HAS_VEHICLE";
   if (status === "NOT_AUTHENTICATED") {
     target.append(el("p", "내 차고를 이용하려면 로그인이 필요합니다.", "empty"),
-      link("로그인하기", "/api/auth/kakao/login", "primary"));
+      link("로그인하기", "/login", "primary"));
   } else if (status === "EMPTY_GARAGE") {
     const empty = el("div", "", "garage-empty");
     empty.append(el("h2", "아직 등록된 차량이 없습니다."),

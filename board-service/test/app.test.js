@@ -56,5 +56,5 @@ test("authenticated author is taken from Redis; invalid and unauthenticated post
   );
   assert.equal(result.status, 201);
   assert.equal((await result.json()).authorId, 7);
-  assert.deepEqual(parameters, ["hello", "world", 7, "free", "", []]);
+  assert.deepEqual(parameters, ["hello", "world", 7, "free", "", [], null]);
 });

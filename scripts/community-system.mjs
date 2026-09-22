@@ -82,6 +82,23 @@ try {
     tokenA,
     201,
   );
+  const linkedDraft={title:"linked",content:"real owner vehicle",category:"drive",vehicleId:car.id};
+  const linked=await req("/posts","POST",linkedDraft,tokenA,201);
+  assert.equal(linked.category,"drive");
+  const linkedDetail=await req(`/posts/${linked.id}`,"GET",undefined,"");
+  assert.equal(linkedDetail.vehicleId,car.id);
+  assert.equal(linkedDetail.linkedVehicle.model,"아반떼 N");
+  await req("/posts","POST",linkedDraft,tokenB,403);
+  await req(`/posts/${linked.id}`,"PUT",{...linkedDraft,vehicleId:2147483647},tokenA,403);
+  await req(`/posts/${linked.id}`,"PUT",{title:"legacy",content:"unchanged"});
+  assert.equal((await req(`/posts/${linked.id}`)).vehicleId,car.id);
+  await req(`/posts/${linked.id}`,"PUT",{...linkedDraft,vehicleId:null});
+  assert.equal((await req(`/posts/${linked.id}`)).linkedVehicle,null);
+  const transientCar=await req("/garage","POST",{model:"transient",year:2025},tokenA,201);
+  await req(`/posts/${linked.id}`,"PUT",{...linkedDraft,vehicleId:transientCar.id});
+  await req(`/garage/${transientCar.id}`,"DELETE",{});
+  assert.equal((await req(`/posts/${linked.id}`)).vehicleId,null);
+  await req(`/posts/${linked.id}`,"DELETE",{});
   const emptyMember = await req("/members/2");
   assert.equal(emptyMember.joinedAt, null);
   assert.equal(emptyMember.avatarUrl, null);

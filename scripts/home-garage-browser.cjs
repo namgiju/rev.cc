@@ -33,7 +33,7 @@ async function cars(page, ids) {
   await page.goto(base);await page.locator('nav[aria-label="주 메뉴"] a[href="/home"]').click();
   await state(page,'NOT_AUTHENTICATED');
   assert.match(await page.locator('#home-garage').innerText(), /내 차고를 이용하려면 로그인이 필요합니다/);
-  assert.equal(await page.locator('#home-garage a').getAttribute('href'),'/api/auth/kakao/login');
+  assert.equal(await page.locator('#home-garage a').getAttribute('href'),'/login');
   assert.equal(await page.locator('#member-content').isVisible(),false);
   for (const path of ['/home','/garage','/garage/','/garage/index.html']) {
     await page.goto(base+path+'?legacy=1#car-1');await state(page,'NOT_AUTHENTICATED');

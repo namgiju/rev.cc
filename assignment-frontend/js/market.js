@@ -204,7 +204,7 @@ window.partsMarket = (() => {
       $("#market-summary").textContent = "";
       root.replaceChildren(
         el("p", "내 판매글과 관심 매물을 보려면 로그인이 필요합니다.", "empty"),
-        link("로그인하기", "/api/auth/kakao/login", "text-link"),
+        link("로그인하기", "/login", "text-link"),
       );
       return;
     }
@@ -372,7 +372,7 @@ window.partsMarket = (() => {
     } else
       contact.append(
         el("p", "연락 방법은 로그인 후 확인할 수 있습니다."),
-        link("로그인하기", "/api/auth/kakao/login", "text-link"),
+        link("로그인하기", "/login", "text-link"),
       );
     root.append(contact);
     if (state.user?.id === item.sellerId) {

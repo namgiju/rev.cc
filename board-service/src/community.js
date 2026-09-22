@@ -31,6 +31,8 @@ export function decodeImage(value) {
   return { mime, data };
 }
 const postSelect = `SELECT p.id,p.title,p.content,p.author_id AS "authorId",u.username,
+ p.vehicle_id AS "vehicleId",
+ (SELECT json_build_object('id',v.id,'model',v.model,'year',v.year,'verified',v.verified,'imageId',v.image_id) FROM owner_vehicles v WHERE v.id=p.vehicle_id AND v.owner_id=p.author_id) AS "linkedVehicle",
  p.created_at AS "createdAt",p.updated_at AS "updatedAt",p.category,p.vehicle,p.image_ids AS "imageIds",p.views,
  (SELECT COUNT(*)::int FROM board_comments c WHERE c.post_id=p.id AND NOT c.deleted) AS "commentCount",
  (SELECT COUNT(*)::int FROM board_likes l WHERE l.post_id=p.id) AS "likeCount",
@@ -86,13 +88,23 @@ export function communityRouter({ db, auth }) {
     } = body ?? {};
     if (!categories.includes(category))
       fail(400, "게시판 분류를 선택해주세요.");
+    let linked = null;
+    if (body?.vehicleId != null && body.vehicleId !== "") {
+      const { rows } = await db.query(
+        "SELECT id,model FROM owner_vehicles WHERE id=$1 AND owner_id=$2",
+        [positive(body.vehicleId), userId],
+      );
+      if (!rows.length) fail(403, "본인 차량만 연결할 수 있어요.");
+      linked = rows[0];
+    }
     return [
       text(title, 150),
       text(content, 5000),
       userId,
       category,
-      text(vehicle, 100, false),
+      linked ? linked.model : text(vehicle, 100, false),
       await images(imageIds, userId),
+      linked?.id ?? null,
     ];
   }
   router.post("/images", auth, async (req, res) => {
@@ -169,8 +181,8 @@ export function communityRouter({ db, auth }) {
   router.post("/posts", auth, async (req, res) => {
     const values = await postInput(req.body, req.user.id);
     const { rows } = await db.query(
-      `INSERT INTO board_posts(title,content,author_id,category,vehicle,image_ids)
-      VALUES($1,$2,$3,$4,$5,$6) RETURNING id,title,content,author_id AS "authorId"`,
+      `INSERT INTO board_posts(title,content,author_id,category,vehicle,image_ids,vehicle_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,title,content,category,author_id AS "authorId"`,
       values,
     );
     res.status(201).json(asPost(rows[0]));
@@ -194,9 +206,11 @@ export function communityRouter({ db, auth }) {
   router.put("/posts/:id", auth, async (req, res) => {
     const values = await postInput(req.body, req.user.id);
     const { rows } = await db.query(
-      `UPDATE board_posts SET title=$1,content=$2,category=$4,vehicle=$5,image_ids=$6,updated_at=NOW()
-      WHERE id=$7 AND author_id=$3 RETURNING id`,
-      [...values, req.params.id],
+      `UPDATE board_posts SET title=$1,content=$2,category=$4,
+      vehicle=CASE WHEN NOT $9 AND vehicle_id IS NOT NULL THEN vehicle ELSE $5 END,
+      image_ids=$6,vehicle_id=CASE WHEN $9 THEN $7 ELSE vehicle_id END,updated_at=NOW()
+      WHERE id=$8 AND author_id=$3 RETURNING id,category`,
+      [...values, req.params.id, Object.hasOwn(req.body ?? {}, "vehicleId")],
     );
     if (!rows.length) fail(403, "본인이 작성한 글만 수정할 수 있어요.");
     res.json(rows[0]);

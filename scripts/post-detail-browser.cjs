@@ -93,6 +93,7 @@ let browser;
       });
     if (p === "/api/board/me")
       return send(user || { message: "login" }, user ? 200 : 401);
+    if (p === "/api/board/garage/mine") return send(noVehicle ? [] : [vehicle]);
     if (p === "/api/board/notifications") return send([]);
     if (p === "/api/board/images/9")
       return route.fulfill({

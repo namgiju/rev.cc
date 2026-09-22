@@ -2,12 +2,13 @@
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const assert=require('node:assert/strict');
 const base=process.env.REVCC_URL||'http://localhost:8090';let browser;
 (async()=>{browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{})});
-const page=await browser.newPage({viewport:{width:1536,height:1024}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const page=await browser.newPage({viewport:{width:1536,height:1024}});const errors=[];page.on('dialog',d=>d.accept());page.on('pageerror',e=>errors.push(e.message));
 let user=null,empty=false,memberFail=false,popularFail=false,requests=[];
 const posts=Array.from({length:25},(_,i)=>({id:i+1,title:`실제로 열린 글 ${i+1}`,content:'게시글 내용',category:['free','maintenance','parts','drive'][i%4],authorId:8,username:'작성자',createdAt:'2026-09-21T00:00:00Z',imageIds:[],views:10,likeCount:3,commentCount:2}));
 await page.route('**/api/**',route=>{const req=route.request(),url=new URL(req.url()),p=url.pathname;requests.push(url.pathname+url.search);
 const send=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
 if(p==='/api/board/me')return send(user||{},user?200:401);
+if(p==='/api/board/garage/mine')return send([]);
 if(p==='/api/board/notifications')return send([]);
 if(p.startsWith('/api/board/members/')){if(memberFail)return send({},503);const id=Number(p.split('/').pop()),v={id:id*10,manufacturer:'현대',model:`본인 차량 ${id}`,year:2024,verified:true};return send({id,username:'작성자',vehicles:empty?[]:[v],representativeVehicle:empty?null:v,badges:[],postCount:25,commentCount:2,receivedLikes:3});}
 if(p==='/api/board/posts'){if(popularFail&&url.searchParams.get('sort')==='popular')return send({},503);let items=posts;if(url.searchParams.get('category'))items=items.filter(x=>x.category===url.searchParams.get('category'));if(url.searchParams.get('q'))items=items.filter(x=>x.title.includes(url.searchParams.get('q')));const size=Number(url.searchParams.get('limit')||20),start=(Number(url.searchParams.get('page')||1)-1)*size;return send(items.slice(start,start+size));}

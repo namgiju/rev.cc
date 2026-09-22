@@ -41,4 +41,33 @@ class AuthControllerTest {
         assertEquals(401, controller.login(new AuthController.Credentials("test", "wrong"), null).getStatusCode().value());
         verifyNoInteractions(sessions);
     }
+
+    @Test void kakaoUsesExistingSessionAndReturnsHomeForAdmin() throws Exception {
+        User admin = mock(User.class);
+        when(admin.getRole()).thenReturn("ADMIN");
+        when(admin.getUsername()).thenReturn("kakao-owner");
+        when(kakao.exchange("test-code")).thenReturn(new KakaoOAuthService.KakaoUser(77L, "kakao-owner"));
+        when(users.findByKakaoId(77L)).thenReturn(Optional.of(admin));
+        when(sessions.create(admin)).thenReturn("oauth-session");
+        when(sessions.cookie("oauth-session", false)).thenReturn("REVCC_SESSION=oauth-session; HttpOnly");
+        var response = controller.kakaoCallback("test-code");
+        assertEquals(302, response.getStatusCode().value());
+        assertEquals("/home", response.getHeaders().getLocation().toString());
+        assertTrue(response.getHeaders().getFirst("Set-Cookie").contains("HttpOnly"));
+        verify(sessions).create(admin);
+    }
+
+    @Test void kakaoEntryReusesConfiguredAuthorizeUrl() {
+        when(kakao.authorizeUrl()).thenReturn("https://kauth.kakao.com/oauth/authorize?client_id=test");
+        var response = controller.kakaoLogin();
+        assertEquals(302, response.getStatusCode().value());
+        assertEquals(kakao.authorizeUrl(), response.getHeaders().getLocation().toString());
+    }
+
+    @Test void unknownAccountAndWrongPasswordHaveSameMessage() {
+        when(users.findByUsername("known")).thenReturn(Optional.of(new User("known", "secret")));
+        assertEquals(controller.login(new AuthController.Credentials("known", "wrong"), null).getBody(),
+            controller.login(new AuthController.Credentials("unknown", "wrong"), null).getBody());
+        verifyNoInteractions(sessions);
+    }
 }
