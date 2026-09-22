@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { VERIFIED_OWNER_BADGE } from "./badges.js";
 
 import { fail, text, positive, integer } from "./validation.js";
 import { validateOwnedImages } from "./owned-images.js";
@@ -53,6 +54,10 @@ function todayStartKst() {
     kstNow.getUTCDate(),
   );
   return new Date(kstMidnightAsUtc - KST_OFFSET_MS);
+}
+// period=week: 지금부터 최근 7일(rolling)을 되돌아본 시각. "이번 주 인기 이야기"에서 사용한다.
+function weekAgo() {
+  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 }
 
 export function communityRouter({ db, auth }) {
@@ -146,7 +151,8 @@ export function communityRouter({ db, auth }) {
       !["", "mine", "bookmarks", "commented"].includes(scope)
     )
       fail(400, "올바른 정렬을 선택해주세요.");
-    if (period && period !== "today") fail(400, "지원하지 않는 기간입니다.");
+    if (period && !["today", "week"].includes(period))
+      fail(400, "지원하지 않는 기간입니다.");
     if (scope && !req.user) fail(401, "로그인이 필요합니다.");
     const page = positive(req.query.page ?? 1);
     const limit =
@@ -158,7 +164,7 @@ export function communityRouter({ db, auth }) {
       `%${query.replace(/[\\%_]/g, "\\$&")}%`,
       category,
       `%${model.replace(/[\\%_]/g, "\\$&")}%`,
-      period === "today" ? todayStartKst() : null,
+      period === "today" ? todayStartKst() : period === "week" ? weekAgo() : null,
     ];
     let where = ` WHERE (p.title ILIKE $2 OR p.content ILIKE $2 OR u.username ILIKE $2) AND ($3='' OR p.category=$3) AND p.vehicle ILIKE $4 AND ($5::timestamptz IS NULL OR p.created_at>=$5)`;
     if (scope === "mine") where += " AND p.author_id=$1";
@@ -289,9 +295,10 @@ export function communityRouter({ db, auth }) {
     const reason = text(req.body?.reason, 500);
     const { rows } = await db.query(
       `INSERT INTO community_reports(user_id,post_id,reason) VALUES($1,$2,$3)
-      ON CONFLICT(user_id,post_id) DO UPDATE SET reason=EXCLUDED.reason RETURNING id`,
+      ON CONFLICT(user_id,post_id) DO UPDATE SET reason=EXCLUDED.reason WHERE community_reports.status='pending' RETURNING id`,
       [req.user.id, req.params.id, reason],
     );
+    if (!rows.length) fail(409, "이미 처리된 신고입니다.");
     res.status(201).json(rows[0]);
   });
   router.get("/reports", auth, async (req, res) => {
@@ -392,8 +399,7 @@ export function communityRouter({ db, auth }) {
       representativeVehicle: vehicles.rows.find(v=>v.id===settings.representativeVehicleId) ?? vehicles.rows[0] ?? null,
       verified,
       // 실제 인증 상태에서 계산하는 표시용 인장. 획득 이력은 생성하지 않는다.
-      badges: verified ? [{ code: "verified-owner", name: "인증 오너",
-        description: "자동차등록증 검토를 통해 보유 차량 인증 완료", imageUrl: null }] : [],
+      badges: verified ? [{ ...VERIFIED_OWNER_BADGE }] : [],
       posts: posts.rows.map(asPost),
     });
   });
@@ -409,6 +415,35 @@ export function communityRouter({ db, auth }) {
       WHERE vehicle IS NOT NULL AND vehicle<>'' GROUP BY vehicle
       ORDER BY "postCount" DESC, vehicle ASC LIMIT $1`,
       [limit],
+    );
+    res.json(rows);
+  });
+  // 홈 Hero 하단 서비스 지표. 실제 가입 회원/등록 차량/거래 완료 부품/게시글 수만 집계하며,
+  // 이벤트 기능은 아직 없어 "커뮤니티 게시글"로 대체한다. 새 테이블이나 통계 시스템은 만들지 않는다.
+  router.get("/stats/summary", async (req, res) => {
+    const { rows } = await db.query(
+      `SELECT
+       (SELECT COUNT(*)::int FROM users) AS "memberCount",
+       (SELECT COUNT(*)::int FROM owner_vehicles) AS "vehicleCount",
+       (SELECT COUNT(*)::int FROM parts_listings WHERE status='sold') AS "soldPartsCount",
+       (SELECT COUNT(*)::int FROM board_posts) AS "postCount"`,
+    );
+    res.json(rows[0]);
+  });
+  // 홈 "REV.CC 인기 게시판" 전용 최소 집계. 4개 고정 카테고리(자유/정비/부품/드라이브)의
+  // 게시글 수·최근 7일 게시글 수·누적 추천 수만 세며, 새로운 추천 시스템은 만들지 않는다.
+  router.get("/categories/summary", async (req, res) => {
+    const { rows } = await db.query(
+      `SELECT c.category,
+       COUNT(p.id)::int AS "postCount",
+       COUNT(p.id) FILTER (WHERE p.created_at>=$1)::int AS "recentPostCount",
+       COALESCE(SUM(pl.likes),0)::int AS "likeCount"
+       FROM (VALUES ('free'),('maintenance'),('parts'),('drive')) AS c(category)
+       LEFT JOIN board_posts p ON p.category=c.category
+       LEFT JOIN (SELECT post_id, COUNT(*) AS likes FROM board_likes GROUP BY post_id) pl ON pl.post_id=p.id
+       GROUP BY c.category
+       ORDER BY "recentPostCount" DESC,"likeCount" DESC,"postCount" DESC`,
+      [weekAgo()],
     );
     res.json(rows);
   });

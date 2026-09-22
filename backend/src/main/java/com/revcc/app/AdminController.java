@@ -25,8 +25,7 @@ public class AdminController {
         this.verifications = verifications;
     }
 
-    // 관리자 화면 나머지 섹션(회원/게시글/신고/인장·태그 관리)은 Mock UI이며
-    // 이 엔드포인트와 차량 인증 관리만 실제 값을 반환해 접근 제어가 프론트엔드가 아닌 서버에서 이뤄짐을 보장한다.
+    // 회원·차량 집계와 인증 관리는 Spring, 게시글·신고 운영 조회는 board-service가 담당한다.
     @GetMapping("/overview")
     public Map<String, Object> overview(
             @CookieValue(name = SharedSessionService.COOKIE, required = false) String token) {

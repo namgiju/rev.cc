@@ -1,4 +1,5 @@
 import express from "express";
+import { adminRouter } from "./admin.js";
 import morgan from "morgan";
 import { marketRouter } from "./market.js";
 import { communityRouter } from "./community.js";
@@ -53,6 +54,7 @@ export function createApp({ db, redis }) {
     next();
   };
   app.get("/api/board/me", auth, (req, res) => res.json(req.user));
+  app.use("/api/board/admin", adminRouter({ db, auth }));
   app.use("/api/board", communityRouter({ db, auth }));
   app.use("/api/parts/listings", marketRouter({ db, auth }));
   app.get("/api/parts/compatibility", (req, res) => {

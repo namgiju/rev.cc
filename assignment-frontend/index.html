@@ -19,42 +19,61 @@
   </div></header>
   <main id="main" class="container">
     <section class="hero" aria-labelledby="hero-title">
-      <p class="eyebrow">차를 좋아하는 우리 사이</p>
-      <h1 id="hero-title"><span class="sr-only">차로 연결되는 우리, 취향, 일상, 이야기</span><span aria-hidden="true">차로 연결되는<br class="mobile-break"> <span class="rotating-words"><span>우리</span><span>취향</span><span>일상</span><span>이야기</span></span></span></h1>
-      <p class="hero-description">궁금했던 내 차 이야기부터, 찾고 있던 부품까지.</p>
-      <form id="search-form" class="search" role="search"><label class="sr-only" for="search-input">커뮤니티 검색</label><span class="search-scope">커뮤니티 <span aria-hidden="true">⌄</span></span><input id="search-input" type="search" placeholder="어떤 자동차 이야기를 찾고 있나요?" autocomplete="off"><button aria-label="검색" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button></form>
-      <div class="trending"><span>추천 검색어</span><button data-query="아반떼">아반떼</button><button data-query="정비">정비 이야기</button><button data-query="타이어">타이어</button><button data-query="드라이브">드라이브</button></div>
-    </section>
-    <section class="services" aria-labelledby="services-title"><h2 id="services-title">REV.CC 둘러보기</h2><div class="service-grid">
-      <a href="/community"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="10" y="12" width="44" height="33" rx="11" fill="#e6edf8"/><path d="m19 43-2 11 15-10" fill="#e6edf8"/><circle cx="22" cy="29" r="3" fill="#6485bd"/><circle cx="32" cy="29" r="3" fill="#6485bd"/><circle cx="42" cy="29" r="3" fill="#6485bd"/></svg></span><strong>오너 이야기</strong><small>함께 나누는 자동차 생활</small></a>
-      <a href="/home"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m9 26 9-15h28l9 15" fill="#dce9e3"/><rect x="7" y="25" width="50" height="22" rx="7" fill="#709a86"/><rect x="14" y="43" width="8" height="10" rx="3" fill="#354a41"/><rect x="42" y="43" width="8" height="10" rx="3" fill="#354a41"/><path d="m19 24 5-9h16l5 9" fill="#fff"/><path d="M14 33h9m18 0h9" stroke="#f8e9b5" stroke-width="5"/></svg></span><strong>내 차고</strong><small>내 차량과 인증 상태 관리</small></a>
-      <a href="/parts"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m33 11 20 11v24L33 57 11 45V22Z" fill="#eee2d3"/><path d="m11 22 22 12 20-12M33 34v23" fill="none" stroke="#bda58b" stroke-width="2"/><path d="m22 16 21 12v12l-9 5V33L14 22" fill="#cdb497"/></svg></span><strong>부품 찾기</strong><small>내 차에 맞는 부품 확인</small></a>
-      <a href="/community#write-post"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="14" y="9" width="35" height="47" rx="6" fill="#ebe4f2"/><path d="M23 22h17M23 30h12M23 38h9" stroke="#b19ac9" stroke-width="3" stroke-linecap="round"/><path d="m35 43 15-20 7 5-15 20-10 6Z" fill="#8d75ad"/></svg></span><strong>이야기 쓰기</strong><small>작은 경험도 반가워요</small></a>
-    </div></section>
-    <section class="welcome-banner"><div><p>같은 취향, 더 가까운 우리</p><h2>차 이야기라면, 여기서 마음껏.</h2><span>첫 차의 설렘도, 오래 탄 차의 추억도 함께 나눠요.</span></div><a href="/community">이야기 둘러보기 <span aria-hidden="true">↗</span></a><div class="banner-road" aria-hidden="true"><div class="road-line"></div><div class="little-car">R</div></div></section>
-    <p id="notice" role="status" aria-live="polite"></p>
-    <section class="portal" aria-labelledby="portal-title">
-      <h2 id="portal-title" class="sr-only">커뮤니티 둘러보기</h2>
-      <div class="portal-grid">
-        <div class="portal-panel">
-          <div class="portal-panel-head"><h3>오늘 추천 많이 받은 글</h3><a href="/community" class="text-link">전체 보기 →</a></div>
-          <div id="home-popular-today" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
+      <div class="hero-grid">
+        <div class="hero-visual" aria-hidden="true">
+          <img src="/img/auth-side-visual.png" alt="" width="1145" height="1374">
+          <span class="hero-visual-tag">CARS<br>PEOPLE<br>LIFESTYLE</span>
         </div>
-        <div class="portal-panel">
-          <div class="portal-panel-head"><h3>지금 올라오는 이야기</h3><a href="/community" class="text-link">전체 보기 →</a></div>
-          <div id="home-latest" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
-        </div>
-        <div class="portal-panel">
-          <div class="portal-panel-head"><h3>부품 이야기</h3><a href="/community?category=parts" class="text-link">전체 보기 →</a></div>
-          <div id="home-parts" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
-        </div>
-        <div class="portal-panel">
-          <div class="portal-panel-head"><h3>차종별 게시판</h3></div>
-          <div id="home-vehicles" class="portal-rows"><p class="empty">불러오는 중이에요.</p></div>
+        <div class="hero-overlay" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="eyebrow">DRIVE · SHARE · CONNECT</p>
+          <h1 id="hero-title">좋은 차는<br>좋은 사람을 만듭니다.</h1>
+          <p class="hero-lead">REV.CC와 함께,<br>더 넓은 드라이빙의 순간을.</p>
+          <div class="hero-actions">
+            <a id="hero-cta-primary" href="/login" class="primary">지금 시작하기 <span aria-hidden="true">→</span></a>
+            <a href="/community" class="secondary">커뮤니티 둘러보기</a>
+          </div>
+          <dl class="hero-stats" id="hero-stats">
+            <div class="hero-stat"><dt>커뮤니티 회원</dt><dd id="stat-members">–</dd></div>
+            <div class="hero-stat"><dt>등록된 차량</dt><dd id="stat-vehicles">–</dd></div>
+            <div class="hero-stat"><dt>거래된 부품</dt><dd id="stat-parts">–</dd></div>
+            <div class="hero-stat"><dt>커뮤니티 게시글</dt><dd id="stat-posts">–</dd></div>
+          </dl>
         </div>
       </div>
     </section>
-    <section class="write-section"><div><h2>당신의 이야기도 들려주세요.</h2><p>궁금한 점, 유용한 팁, 오늘의 드라이브.</p><a class="primary" href="/community#write-post">＋ 글쓰기</a></div></section>
+    <section class="quick-action" aria-labelledby="quick-action-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">QUICK ACTION</p><h2 id="quick-action-title">지금,<br>바로 시작해보세요.</h2></div>
+      </div>
+      <div class="quick-action-grid">
+        <a href="/community#write-post" class="quick-action-card"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="14" y="9" width="35" height="47" rx="6" fill="#ebe4f2"/><path d="M23 22h17M23 30h12M23 38h9" stroke="#b19ac9" stroke-width="3" stroke-linecap="round"/><path d="m35 43 15-20 7 5-15 20-10 6Z" fill="#8d75ad"/></svg></span><span class="quick-action-body"><strong>글쓰기</strong><span>새로운 이야기를 공유해보세요.</span></span><span class="quick-action-arrow" aria-hidden="true">›</span></a>
+        <a href="/home" class="quick-action-card"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m9 26 9-15h28l9 15" fill="#dce9e3"/><rect x="7" y="25" width="50" height="22" rx="7" fill="#709a86"/><rect x="14" y="43" width="8" height="10" rx="3" fill="#354a41"/><rect x="42" y="43" width="8" height="10" rx="3" fill="#354a41"/><path d="m19 24 5-9h16l5 9" fill="#fff"/><path d="M14 33h9m18 0h9" stroke="#f8e9b5" stroke-width="5"/></svg></span><span class="quick-action-body"><strong>차량 등록</strong><span>내 차고에 새로운 차량을 추가해보세요.</span></span><span class="quick-action-arrow" aria-hidden="true">›</span></a>
+        <a href="/parts" class="quick-action-card"><span class="service-icon"><svg viewBox="0 0 64 64"><path d="m33 11 20 11v24L33 57 11 45V22Z" fill="#eee2d3"/><path d="m11 22 22 12 20-12M33 34v23" fill="none" stroke="#bda58b" stroke-width="2"/><path d="m22 16 21 12v12l-9 5V33L14 22" fill="#cdb497"/></svg></span><span class="quick-action-body"><strong>부품 판매</strong><span>사용하지 않는 부품을 판매해보세요.</span></span><span class="quick-action-arrow" aria-hidden="true">›</span></a>
+        <button type="button" id="quick-action-activity" class="quick-action-card"><span class="service-icon"><svg viewBox="0 0 64 64"><rect x="10" y="12" width="44" height="33" rx="11" fill="#e6edf8"/><path d="m19 43-2 11 15-10" fill="#e6edf8"/><circle cx="22" cy="29" r="3" fill="#6485bd"/><circle cx="32" cy="29" r="3" fill="#6485bd"/><circle cx="42" cy="29" r="3" fill="#6485bd"/></svg></span><span class="quick-action-body"><strong>내 활동</strong><span>내 글, 댓글, 관심 항목을 확인하세요.</span></span><span class="quick-action-arrow" aria-hidden="true">›</span></button>
+      </div>
+    </section>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section class="home-section" aria-labelledby="weekly-best-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">WEEKLY BEST</p><h2 id="weekly-best-title">이번 주 인기 이야기</h2><p class="section-sub">이번 주 REV.CC에서 많은 관심을 받은 이야기</p></div>
+        <a href="/community?sort=popular" class="text-link">전체 보기 →</a>
+      </div>
+      <div id="home-weekly-best" class="weekly-grid"><p class="empty">불러오는 중이에요.</p></div>
+    </section>
+    <section class="home-section" aria-labelledby="boards-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">BOARDS</p><h2 id="boards-title">REV.CC 인기 게시판</h2><p class="section-sub">지금 가장 활발하게 이야기가 오가는 곳</p></div>
+        <a href="/community" class="text-link">전체 보기 →</a>
+      </div>
+      <div id="home-boards" class="boards-grid"><p class="empty">불러오는 중이에요.</p></div>
+    </section>
+    <section class="home-section" id="evergreen-section" aria-labelledby="evergreen-title" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow">ALL-TIME</p><h2 id="evergreen-title">오래 사랑받은 이야기</h2><p class="section-sub">시간이 지나도 계속 찾아보는 REV.CC의 이야기</p></div>
+      </div>
+      <div id="home-evergreen" class="evergreen-grid"></div>
+    </section>
   </main>
   <footer id="site-footer" aria-label="REV.CC 서비스 정보"></footer>
   <dialog id="detail-dialog" class="community-dialog"><div class="dialog-bar"><span>REV.CC COMMUNITY</span><button data-close aria-label="상세 화면 닫기">✕</button></div><div id="detail-content"></div></dialog>

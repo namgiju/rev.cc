@@ -209,6 +209,9 @@ async function refreshSession() {
   for (const id of ["logout", "activity-button", "notifications-button"])
     $("#" + id).hidden = !user;
   $("#kakao-login").hidden = !!user;
+  // 홈(`/`)에만 있는 Hero CTA: 로그인 상태면 글쓰기로, 아니면 로그인으로 보낸다.
+  const heroCta = $("#hero-cta-primary");
+  if (heroCta) heroCta.href = user ? "/community#write-post" : "/login";
   // #write-post가 없는 페이지(/garage, /parts)에서는 이 요소가 없다.
   const boardUser = $("#board-user");
   if (boardUser)
@@ -710,6 +713,8 @@ on($("#activity-button"), "click", () => {
   );
   root.append(actions);
 });
+// 홈(`/`)의 Quick Action "내 활동" 카드는 새 화면을 만들지 않고 헤더의 같은 버튼을 그대로 누른다.
+on($("#quick-action-activity"), "click", () => $("#activity-button")?.click());
 async function openReports() {
   const root = panel("내 신고 내역");
   const reports = await api("/api/board/reports");
@@ -721,7 +726,7 @@ async function openReports() {
       el("p", r.reason),
       el(
         "small",
-        `${r.status === "pending" ? "접수됨" : r.status} · ${dateText(r.createdAt)}`,
+        `${({pending:"접수됨",resolved:"처리 완료",dismissed:"반려"})[r.status] || r.status} · ${dateText(r.createdAt)}`,
       ),
     );
     root.append(row);
@@ -950,55 +955,82 @@ function timeAgo(iso) {
 function homeEmpty(target, message) {
   target.replaceChildren(el("p", message, "empty"));
 }
-// 홈 2x2 포털 전용 컴팩트 행. 기존 renderPost()는 본문 미리보기·사진·저장 상태까지 보여주는
-// 커뮤니티 목록 전용이라 홈 요약에는 과해서, 화면을 건드리지 않도록 별도 렌더 함수로 둔다.
-function renderHomePostRow(post, { showLikes = false, showAuthor = false, showTime = false, showVehicle = false } = {}) {
-  const row = link("", getPostUrl(post), "home-row");
-  row.append(el("span", labels[post.category] || "자유", "home-row-category"));
-  row.append(el("span", post.title, "home-row-title"));
-  const metaText = [];
-  if (showAuthor) metaText.push(post.username);
-  if (showVehicle && post.vehicle) metaText.push(post.vehicle);
-  if (showTime) metaText.push(timeAgo(post.createdAt));
-  if (metaText.length) row.append(el("span", metaText.join(" · "), "home-row-meta"));
-  const stats = el("span", "", "home-row-stats");
-  if (showLikes) stats.append(el("span", `♥ ${post.likeCount}`));
-  stats.append(el("span", `💬 ${post.commentCount}`));
-  row.append(stats);
-  return row;
+// 홈 "이번 주 인기 이야기"/"오래 사랑받은 이야기" 공용 카드. 실제 게시글 필드(추천수·댓글수·
+// 대표 이미지·작성 시각)만 사용하고, 순위 배지는 rank가 주어졌을 때만 그린다.
+function renderStoryCard(post, { rank } = {}) {
+  const card = link("", getPostUrl(post), "story-card");
+  if (rank) card.append(el("span", String(rank), "story-rank"));
+  const media = el("div", "", "story-media");
+  if (post.imageIds?.length) media.append(photo(post.imageIds[0], `${post.title} 대표 사진`, "story-photo"));
+  card.append(media);
+  const body = el("div", "", "story-body");
+  body.append(el("span", labels[post.category] || "자유 이야기", "story-category"));
+  body.append(el("h3", post.title, "story-title"));
+  body.append(el("p", post.content, "story-preview"));
+  const meta = el("div", "", "story-meta");
+  meta.append(el("span", post.username), el("span", timeAgo(post.createdAt)));
+  body.append(meta);
+  const stats = el("div", "", "story-stats");
+  stats.append(el("span", `♥ ${post.likeCount}`), el("span", `💬 ${post.commentCount}`));
+  body.append(stats);
+  card.append(body);
+  return card;
 }
-async function refreshHomePopularToday() {
-  const target = $("#home-popular-today");
-  const posts = await api("/api/board/posts?sort=popular&period=today&limit=5");
-  if (!posts.length) return homeEmpty(target, "오늘 추천받은 글이 아직 없어요.");
-  target.replaceChildren(...posts.map((p) => renderHomePostRow(p, { showLikes: true })));
+// "이번 주 인기 이야기"(최근 7일 추천순)와 "오래 사랑받은 이야기"(전체 기간 추천순)는 같은
+// posts API를 기간만 다르게 호출해서 얻는다. 별도 추천 시스템은 만들지 않는다.
+async function refreshHomeStories() {
+  const weeklyTarget = $("#home-weekly-best");
+  const evergreenSection = $("#evergreen-section");
+  const evergreenTarget = $("#home-evergreen");
+  const [weekly, allTime] = await Promise.all([
+    api("/api/board/posts?sort=popular&period=week&limit=5"),
+    api("/api/board/posts?sort=popular&limit=20"),
+  ]);
+  if (!weekly.length) homeEmpty(weeklyTarget, "이번 주 추천받은 이야기가 아직 없어요.");
+  else weeklyTarget.replaceChildren(...weekly.map((p, i) => renderStoryCard(p, { rank: i + 1 })));
+  const weeklyIds = new Set(weekly.map((p) => p.id));
+  const evergreen = allTime.filter((p) => !weeklyIds.has(p.id)).slice(0, 5);
+  evergreenSection.hidden = !evergreen.length;
+  if (evergreen.length) evergreenTarget.replaceChildren(...evergreen.map((p) => renderStoryCard(p)));
 }
-async function refreshHomeLatest() {
-  const target = $("#home-latest");
-  const posts = await api("/api/board/posts?sort=latest&limit=5");
-  if (!posts.length) return homeEmpty(target, "아직 이야기가 없어요.");
-  target.replaceChildren(...posts.map((p) => renderHomePostRow(p, { showAuthor: true, showTime: true })));
-}
-async function refreshHomeParts() {
-  const target = $("#home-parts");
-  const posts = await api("/api/board/posts?category=parts&sort=latest&limit=5");
-  if (!posts.length) return homeEmpty(target, "아직 부품 관련 글이 없어요.");
-  target.replaceChildren(
-    ...posts.map((p) => renderHomePostRow(p, { showAuthor: true, showVehicle: true, showTime: true })),
+// 실제 커뮤니티 카테고리(자유/정비/부품/드라이브) 4개만 보여준다. 설명 문구는
+// community-list.js의 게시판 소개와 같은 문구를 그대로 사용한다.
+const boardInfo = {
+  free: ["자유게시판", "자동차와 관련된 모든 이야기를 자유롭게 나누는 공간입니다."],
+  maintenance: ["정비 / DIY", "정비 경험과 직접 관리하는 노하우를 나눠보세요."],
+  parts: ["부품 이야기", "부품 선택부터 장착 후기까지, 함께 이야기해요."],
+  drive: ["드라이브", "좋았던 길과 함께 달리고 싶은 순간을 공유해요."],
+};
+function renderBoardCard(board, rank) {
+  const [title, description] = boardInfo[board.category] || [board.category, ""];
+  const card = link("", `/community?category=${board.category}`, "board-card");
+  card.append(el("span", String(rank), "board-rank"));
+  const body = el("div", "", "board-body");
+  body.append(el("strong", title, "board-title"));
+  if (description) body.append(el("p", description, "board-desc"));
+  const stats = el("div", "", "board-stats");
+  stats.append(
+    el("span", `게시글 ${board.postCount}개`),
+    el("span", `최근 7일 ${board.recentPostCount}개`),
+    el("span", `추천 ${board.likeCount}`),
   );
+  body.append(stats);
+  card.append(body);
+  return card;
 }
-async function refreshHomeVehicles() {
-  const target = $("#home-vehicles");
-  const items = await api("/api/board/vehicles/popular?limit=8");
-  if (!items.length) return homeEmpty(target, "차종 정보가 담긴 글이 아직 없어요.");
-  target.replaceChildren(
-    ...items.map((v) => {
-      const row = link("", `/community?vehicle=${encodeURIComponent(v.vehicle)}`, "home-row");
-      row.append(el("span", v.vehicle, "home-row-title"));
-      row.append(el("span", `게시글 ${v.postCount}개`, "home-row-stats"));
-      return row;
-    }),
-  );
+async function refreshHomeBoards() {
+  const target = $("#home-boards");
+  const boards = await api("/api/board/categories/summary");
+  if (!boards.length) return homeEmpty(target, "게시판 정보를 불러오지 못했어요.");
+  target.replaceChildren(...boards.map((b, i) => renderBoardCard(b, i + 1)));
+}
+// Hero 하단 서비스 지표. 실제 값만 보여주고 K/+ 같은 과장 표기는 하지 않는다.
+async function refreshHeroStats() {
+  const stats = await api("/api/board/stats/summary");
+  $("#stat-members").textContent = stats.memberCount.toLocaleString("ko-KR");
+  $("#stat-vehicles").textContent = stats.vehicleCount.toLocaleString("ko-KR");
+  $("#stat-parts").textContent = stats.soldPartsCount.toLocaleString("ko-KR");
+  $("#stat-posts").textContent = stats.postCount.toLocaleString("ko-KR");
 }
 async function initialize() {
   window.communityList?.setup();
@@ -1007,7 +1039,7 @@ async function initialize() {
   applyInitialCategory();
   applyInitialVehicleFilter();
   await refreshSession();
-  // 이 페이지에 실제로 있는 섹션만 불러온다(index.html의 홈 포털, /community·/garage·/parts는 각각 일부).
+  // 이 페이지에 실제로 있는 섹션만 불러온다(index.html의 홈 섹션, /community·/garage·/parts는 각각 일부).
   const postDetail = parsePostDetailPath();
   const jobs = [];
   if (window.partsMarket?.active()) jobs.push({ key: "market", promise: window.partsMarket.start() });
@@ -1016,10 +1048,9 @@ async function initialize() {
   else if ($("#community")) jobs.push({ key: "posts", promise: refreshPosts() });
   if ($("#garage")) jobs.push({ key: "garage", promise: refreshGarage() });
   if ($("#compatibility")) jobs.push({ key: "parts", promise: loadCompatibility() });
-  if ($("#home-popular-today")) jobs.push({ key: "home-popular", promise: refreshHomePopularToday() });
-  if ($("#home-latest")) jobs.push({ key: "home-latest", promise: refreshHomeLatest() });
-  if ($("#home-parts")) jobs.push({ key: "home-parts", promise: refreshHomeParts() });
-  if ($("#home-vehicles")) jobs.push({ key: "home-vehicles", promise: refreshHomeVehicles() });
+  if ($("#home-weekly-best")) jobs.push({ key: "home-stories", promise: refreshHomeStories() });
+  if ($("#home-boards")) jobs.push({ key: "home-boards", promise: refreshHomeBoards() });
+  if ($("#hero-stats")) jobs.push({ key: "hero-stats", promise: refreshHeroStats() });
   const results = await Promise.allSettled(jobs.map((j) => j.promise));
   results.forEach((r, i) => {
     if (r.status !== "rejected") return;
@@ -1031,10 +1062,14 @@ async function initialize() {
       $("#vehicles").replaceChildren(
         el("p", "차고를 불러오지 못했어요.", "empty"),
       );
-    if (jobs[i].key === "home-popular") homeEmpty($("#home-popular-today"), "불러오지 못했어요.");
-    if (jobs[i].key === "home-latest") homeEmpty($("#home-latest"), "불러오지 못했어요.");
-    if (jobs[i].key === "home-parts") homeEmpty($("#home-parts"), "불러오지 못했어요.");
-    if (jobs[i].key === "home-vehicles") homeEmpty($("#home-vehicles"), "불러오지 못했어요.");
+    if (jobs[i].key === "home-stories") {
+      homeEmpty($("#home-weekly-best"), "불러오지 못했어요.");
+      $("#evergreen-section").hidden = true;
+    }
+    if (jobs[i].key === "home-boards") homeEmpty($("#home-boards"), "불러오지 못했어요.");
+    if (jobs[i].key === "hero-stats")
+      for (const id of ["stat-members", "stat-vehicles", "stat-parts", "stat-posts"])
+        $("#" + id).textContent = "–";
     if (jobs[i].key === "post-detail")
       $("#post-detail-content").replaceChildren(el("p", "이야기를 불러오지 못했어요.", "empty"));
   });

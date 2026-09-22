@@ -7,13 +7,13 @@
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/dashboard.css">
   <script src="/js/site-nav.js" defer></script>
-  <script src="/js/admin.js" defer></script>
+  <script src="/js/post-url.js" defer></script><script src="/js/dropdown.js" defer></script><link rel="stylesheet" href="/css/dropdown.css"><script src="/js/admin.js" defer></script>
 </head>
-<body>
+<body data-rev-dropdown>
   <a class="skip-link" href="#main">본문으로 바로가기</a>
   <header class="header"><div class="header-inner">
     <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
-    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/home">내 차고</a><a href="/parts">부품 찾기</a><a href="/admin" class="admin-link" aria-current="page" hidden>관리</a></nav>
+    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/home">내 차고</a><a href="/parts">부품 찾기</a><a href="/admin" class="admin-link" hidden>관리</a></nav>
     <div class="header-actions dash-header-actions"><span id="admin-user"></span><button id="logout" class="secondary" hidden>로그아웃</button></div>
   </div></header>
   <main id="main" class="container">
@@ -27,28 +27,28 @@
           <button data-panel="posts">게시글 관리</button>
           <button data-panel="reports">신고 관리</button>
           <button data-panel="vehicles">차량 인증 관리</button>
-          <button data-panel="tags">인장/태그 관리</button>
+          <button data-panel="tags">인장 현황</button>
         </nav>
         <div>
           <section data-panel="overview" class="admin-panel">
             <h3>서비스 현황</h3>
-            <div class="stat-row" id="overview-stats"></div>
-            <p class="empty">회원 수·차량 수와 차량 인증 관리는 실제 값입니다. 나머지 화면은 실제 운영 API가 아직 없어 예시 데이터로 구성했습니다.</p>
+            <div class="stat-row" id="overview-stats"></div><button id="overview-refresh" class="secondary">새로고침</button>
+            <p class="empty">실제 회원·차량·커뮤니티 신고 데이터를 집계합니다.</p>
           </section>
           <section data-panel="members" class="admin-panel" hidden>
-            <h3>회원 관리 <span class="mock-badge">MOCK</span></h3>
-            <table class="admin-table"><thead><tr><th>아이디</th><th>권한</th><th>가입일</th><th>게시글</th><th>상태</th></tr></thead>
-              <tbody id="members-body"></tbody></table>
+            <h3>회원 관리</h3><form id="members-controls" class="feed-controls"></form><p id="members-count" aria-live="polite"></p>
+            <table class="admin-table"><thead><tr><th>아이디</th><th>권한</th><th>가입일</th><th>게시글</th><th>보유 차량</th></tr></thead>
+              <tbody id="members-body"></tbody></table><div id="members-pager" class="activity-actions"></div>
           </section>
           <section data-panel="posts" class="admin-panel" hidden>
-            <h3>게시글 관리 <span class="mock-badge">MOCK</span></h3>
-            <table class="admin-table"><thead><tr><th>제목</th><th>작성자</th><th>게시판</th><th>신고</th><th>상태</th></tr></thead>
-              <tbody id="posts-body"></tbody></table>
+            <h3>게시글 관리</h3><form id="posts-controls" class="feed-controls"></form><p id="posts-count" aria-live="polite"></p>
+            <table class="admin-table"><thead><tr><th>제목</th><th>작성자</th><th>게시판</th><th>신고</th><th>작성일</th></tr></thead>
+              <tbody id="posts-body"></tbody></table><div id="posts-pager" class="activity-actions"></div>
           </section>
           <section data-panel="reports" class="admin-panel" hidden>
-            <h3>신고 관리 <span class="mock-badge">MOCK</span></h3>
-            <table class="admin-table"><thead><tr><th>대상 게시글</th><th>신고자</th><th>사유</th><th>상태</th></tr></thead>
-              <tbody id="reports-body"></tbody></table>
+            <h3>신고 관리</h3><form id="reports-controls" class="feed-controls"></form><p id="reports-count" aria-live="polite"></p>
+            <table class="admin-table"><thead><tr><th>대상 게시글</th><th>신고자</th><th>사유</th><th>처리 기록</th><th>검토</th></tr></thead>
+              <tbody id="reports-body"></tbody></table><div id="reports-pager" class="activity-actions"></div>
           </section>
           <section data-panel="vehicles" class="admin-panel" hidden>
             <h3>차량 인증 관리</h3>
@@ -57,8 +57,8 @@
               <tbody id="vehicles-body"></tbody></table>
           </section>
           <section data-panel="tags" class="admin-panel" hidden>
-            <h3>인장/태그 관리 <span class="mock-badge">MOCK</span></h3>
-            <table class="admin-table"><thead><tr><th>태그</th><th>종류</th><th>사용 횟수</th><th>상태</th></tr></thead>
+            <h3>인장 현황</h3><p>현재 인장은 차량 인증 상태로 자동 계산됩니다.</p><button id="badges-refresh" class="secondary">새로고침</button>
+            <table class="admin-table"><thead><tr><th>인장</th><th>획득 조건</th><th>보유 회원 수</th></tr></thead>
               <tbody id="tags-body"></tbody></table>
           </section>
         </div>
@@ -70,5 +70,7 @@
       <a class="secondary" href="/home">내 홈으로 돌아가기</a>
     </div>
   </main>
+<dialog id="review-dialog" class="community-dialog"><h2>신고 검토</h2><p id="review-target"></p><p>검토 결과를 기록합니다. 회원 정지나 게시글 숨김은 적용되지 않습니다.</p>
+<form id="review-form"><label>처리 결과<select name="status"><option value="resolved">처리 완료</option><option value="dismissed">반려</option></select></label><label>검토 메모<textarea name="note" maxlength="500" required rows="4"></textarea></label><p id="review-error" role="alert"></p><div class="form-bottom"><button id="review-cancel" type="button" class="secondary">취소</button><button id="review-submit" type="submit">저장</button></div></form></dialog>
 </body>
 </html>

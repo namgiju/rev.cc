@@ -67,6 +67,10 @@ CREATE TABLE IF NOT EXISTS community_reports (
  reason VARCHAR(500) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'pending',
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(user_id,post_id)
 );
+ALTER TABLE community_reports ADD COLUMN IF NOT EXISTS reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE community_reports ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE community_reports ADD COLUMN IF NOT EXISTS resolution_note VARCHAR(500) NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS community_reports_status_id ON community_reports(status,id DESC);
 CREATE INDEX IF NOT EXISTS board_posts_category_id ON board_posts(category,id DESC);
 CREATE INDEX IF NOT EXISTS board_posts_author_id ON board_posts(author_id,id DESC);
 CREATE INDEX IF NOT EXISTS board_comments_post ON board_comments(post_id,id);
