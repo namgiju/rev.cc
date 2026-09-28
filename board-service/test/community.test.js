@@ -52,6 +52,34 @@ test("mutations enforce session ownership and validate filters before SQL", asyn
         calls++;
         return { rows: [], rowCount: 0 };
       },
+      // moderation.js uses a pg-style client (connect/query/release) with a
+      // transaction, so the DELETE routes need that shape, not the plain
+      // db.query() mock above. The FOR UPDATE row belongs to another user
+      // (author_id 999) so deleteContent()'s ownership/admin check hits the
+      // 403 branch these assertions exercise.
+      connect: async () => ({
+        query: async (sql) => {
+          if (/FOR UPDATE/.test(sql))
+            return {
+              rows: [
+                {
+                  id: 1,
+                  post_id: 1,
+                  post_title: "t",
+                  category: "free",
+                  author_id: 999,
+                  username: "other",
+                  content: "x",
+                  deleted: false,
+                  post_deleted: false,
+                  parent_id: null,
+                },
+              ],
+            };
+          return { rows: [], rowCount: 0 };
+        },
+        release: () => {},
+      }),
     },
   });
   const server = app.listen(0, "127.0.0.1");
