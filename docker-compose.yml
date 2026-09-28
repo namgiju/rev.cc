@@ -1,3 +1,4 @@
+
 # 단일 진입점: 호스트에는 proxy만 노출한다. DB 볼륨 이름은 기존 설정을 유지한다.
 services:
   proxy:
@@ -32,9 +33,9 @@ services:
     image: revcc-core:assignment
     container_name: revcc-core
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/revcc
-      POSTGRES_USER: revcc
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-revcc}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=require
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
@@ -56,10 +57,12 @@ services:
     image: revcc-board:assignment
     container_name: revcc-board
     environment:
-      PGHOST: postgres
-      PGDATABASE: revcc
-      PGUSER: revcc
-      PGPASSWORD: ${POSTGRES_PASSWORD:-revcc}
+      PGHOST: ${DB_HOST}
+      PGPORT: ${DB_PORT:-5432}
+      PGDATABASE: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGSSLMODE: require
       REDIS_URL: redis://redis:6379
     depends_on:
       core:

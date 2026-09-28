@@ -4,7 +4,11 @@ import { createClient } from "redis";
 import { createApp } from "./app.js";
 
 // Compose는 core의 JPA users 테이블 생성 후 board를 시작한다.
-const db = new pg.Pool();
+const db = new pg.Pool({
+  ssl: process.env.PGSSLMODE === "require"
+    ? { rejectUnauthorized: false }
+    : false,
+});
 // DB 재시작 시 유휴 연결의 error 이벤트를 처리해야 Node 프로세스가 종료되지 않는다.
 // pg가 끊어진 연결을 풀에서 제거하고 다음 요청에 새 연결을 생성한다.
 db.on("error", (err) =>
