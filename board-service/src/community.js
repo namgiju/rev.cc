@@ -4,6 +4,7 @@ import { VERIFIED_OWNER_BADGE } from "./badges.js";
 
 import { fail, text, positive, integer } from "./validation.js";
 import { validateOwnedImages } from "./owned-images.js";
+import { rateLimiter } from "./rate-limit.js";
 
 const categories = ["free", "maintenance", "parts", "drive"];
 export function decodeImage(value) {
@@ -63,6 +64,12 @@ function weekAgo() {
 
 export function communityRouter({ db, auth }) {
   const router = Router();
+  // 스팸/스토리지 고갈을 막는 기본적인 계정당 rate limit. 정상적인 글쓰기/댓글 흐름은
+  // 넉넉히 통과하도록 여유 있게 잡았다.
+  const postLimiter = rateLimiter({ windowMs: 60_000, max: 10, message: "글 작성이 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  const commentLimiter = rateLimiter({ windowMs: 60_000, max: 20, message: "댓글 작성이 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  const guestbookLimiter = rateLimiter({ windowMs: 60_000, max: 10, message: "방명록 작성이 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  const imageLimiter = rateLimiter({ windowMs: 60_000, max: 20, message: "사진 업로드가 너무 잦아요. 잠시 후 다시 시도해주세요." });
   router.param("id", (req, res, next, id) => {
     req.params.id = positive(id);
     next();
@@ -113,7 +120,7 @@ export function communityRouter({ db, auth }) {
       linked?.id ?? null,
     ];
   }
-  router.post("/images", auth, async (req, res) => {
+  router.post("/images", auth, imageLimiter, async (req, res) => {
     const { mime, data } = decodeImage(req.body?.data);
     const { rows } = await db.query(
       "INSERT INTO community_images(owner_id,mime,data) VALUES($1,$2,$3) RETURNING id",
@@ -185,7 +192,7 @@ export function communityRouter({ db, auth }) {
     );
     res.json(rows.map(asPost));
   });
-  router.post("/posts", auth, async (req, res) => {
+  router.post("/posts", auth, postLimiter, async (req, res) => {
     const values = await postInput(req.body, req.user.id);
     const { rows } = await db.query(
       `INSERT INTO board_posts(title,content,author_id,category,vehicle,image_ids,vehicle_id)
@@ -256,7 +263,7 @@ export function communityRouter({ db, auth }) {
     );
     res.json(rows.map((c) => ({ ...c, authorId: Number(c.authorId) })));
   });
-  router.post("/posts/:id/comments", auth, async (req, res) => {
+  router.post("/posts/:id/comments", auth, commentLimiter, async (req, res) => {
     const content = text(req.body?.content, 2000);
     const parent =
       req.body?.parentId == null ? null : positive(req.body.parentId);
@@ -348,7 +355,7 @@ export function communityRouter({ db, auth }) {
     const items=rows.slice(0,20).map(r=>({...r,ownerId:Number(r.ownerId),authorId:Number(r.authorId)}));
     res.json({items,total:owner.rows[0].total,nextCursor:rows.length>20?items.at(-1).id:null});
   });
-  router.post("/members/:id/guestbook", auth, async (req, res) => {
+  router.post("/members/:id/guestbook", auth, guestbookLimiter, async (req, res) => {
     const content = text(req.body?.content,1000);
     const {rows} = await db.query(`INSERT INTO garage_guestbook(owner_id,author_id,content)
       SELECT id,$2,$3 FROM users WHERE id=$1 RETURNING id`,[req.params.id,req.user.id,content]);

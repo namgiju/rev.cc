@@ -16,4 +16,11 @@ public record GarageVehicleResponse(
             vehicle.getDescription(), vehicle.getCreatedAt(), vehicle.getUpdatedAt(), vehicle.getUser().getUsername(),
             vehicle.getLicensePlate(), vehicle.isVerified(), vehicle.getVerificationStatus(), vehicle.getVerifiedAt());
     }
+
+    // 번호판은 소유자 본인 화면(내 차고 목록/등록/수정)에서만 내려주고,
+    // 인증 없이 누구나 조회 가능한 공개 프로필 응답에서는 제거한다.
+    public GarageVehicleResponse withoutLicensePlate() {
+        return new GarageVehicleResponse(id, userId, manufacturer, model, modelYear, trim, transmission,
+            color, nickname, description, createdAt, updatedAt, username, null, verified, verificationStatus, verifiedAt);
+    }
 }

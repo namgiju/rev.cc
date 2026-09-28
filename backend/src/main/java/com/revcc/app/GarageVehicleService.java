@@ -21,7 +21,8 @@ public class GarageVehicleService {
         return vehicles.findByUserIdOrderByIdDesc(userId).stream().map(GarageVehicleResponse::from).toList();
     }
 
-    public GarageVehicleResponse profile(Integer id) { return GarageVehicleResponse.from(find(id)); }
+    // 인증 없이 누구나 호출 가능한 공개 엔드포인트이므로 번호판(PII)은 내려주지 않는다.
+    public GarageVehicleResponse profile(Integer id) { return GarageVehicleResponse.from(find(id)).withoutLicensePlate(); }
 
     @Transactional
     public GarageVehicleResponse create(Long userId, GarageVehicleRequest request) {

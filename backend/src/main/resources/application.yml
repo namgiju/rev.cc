@@ -1,5 +1,8 @@
 server:
   port: 8080
+  # nginx가 X-Forwarded-For로 실제 클라이언트 IP를 전달하므로 request.getRemoteAddr()에 반영한다
+  # (rate limit이 프록시 IP 하나로 뭉치지 않고 클라이언트별로 정확히 적용되기 위해 필요하다).
+  forward-headers-strategy: framework
 spring:
   datasource:
     # 로컬 개발 기본값. Compose에서는 컨테이너 DNS 이름으로 덮어쓴다.

@@ -61,6 +61,14 @@ class GarageVehicleServiceTest {
         assertEquals(404, assertThrows(ResponseStatusException.class, () -> service.profile(999)).getStatusCode().value());
     }
 
+    @Test void publicProfileHidesLicensePlateButOwnListKeepsIt() {
+        Vehicle vehicle = new Vehicle(owner(), request);
+        when(vehicles.findById(15)).thenReturn(Optional.of(vehicle));
+        when(vehicles.findByUserIdOrderByIdDesc(7L)).thenReturn(List.of(vehicle));
+        assertNull(service.profile(15).licensePlate());
+        assertEquals("123가4567", service.mine(7L).get(0).licensePlate());
+    }
+
     @Test void timestampsUsePostgresPrecisionAndCreationTimeIsPreserved() {
         Vehicle vehicle = new Vehicle(owner(), request);
         vehicle.created();

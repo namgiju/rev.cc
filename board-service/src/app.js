@@ -33,6 +33,8 @@ const parts = [
 export function createApp({ db, redis }) {
   const app = express();
   app.disable("x-powered-by");
+  // nginx(단일 hop) 뒤에서 실행되므로 X-Forwarded-For의 클라이언트 IP를 req.ip로 신뢰한다.
+  app.set("trust proxy", 1);
   app.use(morgan("dev"));
   app.use(express.json({ limit: "5mb" }));
   app.use((req, res, next) => {
