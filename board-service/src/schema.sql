@@ -128,4 +128,14 @@ CREATE TABLE IF NOT EXISTS parts_favorites (
 CREATE INDEX IF NOT EXISTS parts_listings_seller ON parts_listings(seller_id,id DESC);
 CREATE INDEX IF NOT EXISTS parts_listings_category_status ON parts_listings(category,status,id DESC);
 CREATE INDEX IF NOT EXISTS parts_favorites_user ON parts_favorites(user_id,listing_id);
+-- Moderation retains post/comment relationships; logs are immutable snapshots, not cascading references.
+ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS moderation_logs (
+ id BIGSERIAL PRIMARY KEY,
+ action_type VARCHAR(20) NOT NULL CHECK(action_type IN ('POST_DELETE','COMMENT_DELETE','REPLY_DELETE')),
+ category VARCHAR(20) NOT NULL, post_id INTEGER NOT NULL, post_title VARCHAR(150) NOT NULL,
+ target_id INTEGER NOT NULL, target_author_id BIGINT NOT NULL, target_author_username TEXT NOT NULL,
+ original_content TEXT NOT NULL, reason VARCHAR(500) NOT NULL CHECK(length(btrim(reason))>0),
+ admin_id BIGINT NOT NULL, admin_username TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 COMMIT;

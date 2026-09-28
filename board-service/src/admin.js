@@ -1,3 +1,4 @@
+import { requireCurrentAdmin } from './admin-access.js';
 import { Router } from "express";
 import { fail, text, positive } from "./validation.js";
 import { VERIFIED_OWNER_BADGE } from "./badges.js";
@@ -6,11 +7,7 @@ import { VERIFIED_OWNER_BADGE } from "./badges.js";
 export function adminRouter({ db, auth }) {
   const router = Router();
   router.use(auth, async (req, res, next) => {
-    if (req.user.role !== "ADMIN") fail(403, "관리자만 접근할 수 있습니다.");
-    const { rows } = await db.query("SELECT role FROM users WHERE id=$1", [
-      req.user.id,
-    ]);
-    if (rows[0]?.role !== "ADMIN") fail(403, "관리자만 접근할 수 있습니다.");
+    await requireCurrentAdmin(db, req.user);
     next();
   });
   const filters = (req) => {
@@ -30,6 +27,11 @@ export function adminRouter({ db, auth }) {
     );
     res.json({ ...rows[0], page, pageSize: 20 });
   }
+  router.get('/logs', async (req, res) => {
+    const { q, page } = filters(req);
+    await list(res, 'SELECT * FROM moderation_logs',
+      'WHERE (post_title ILIKE $1 OR target_author_username ILIKE $1 OR admin_username ILIKE $1 OR reason ILIKE $1)', [q], page);
+  });
   router.get("/overview", async (req, res) => {
     const { rows } =
       await db.query(`SELECT (SELECT count(*)::int FROM board_posts) AS "totalPosts",

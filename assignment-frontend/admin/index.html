@@ -25,6 +25,7 @@
           <button data-panel="overview" class="active">서비스 현황</button>
           <button data-panel="members">회원 관리</button>
           <button data-panel="posts">게시글 관리</button>
+          <button data-panel="logs">운영 로그</button>
           <button data-panel="reports">신고 관리</button>
           <button data-panel="vehicles">차량 인증 관리</button>
           <button data-panel="tags">인장 현황</button>
@@ -44,6 +45,10 @@
             <h3>게시글 관리</h3><form id="posts-controls" class="feed-controls"></form><p id="posts-count" aria-live="polite"></p>
             <table class="admin-table"><thead><tr><th>제목</th><th>작성자</th><th>게시판</th><th>신고</th><th>작성일</th></tr></thead>
               <tbody id="posts-body"></tbody></table><div id="posts-pager" class="activity-actions"></div>
+          </section>
+          <section data-panel="logs" class="admin-panel" hidden>
+            <h3>운영 로그</h3><form id="logs-controls" class="feed-controls"></form><p id="logs-count" aria-live="polite"></p>
+            <table class="admin-table"><thead><tr><th>처리 일시 / 관리자</th><th>게시판 / 게시글</th><th>대상 / 작성자</th><th>삭제 사유 / 원문</th></tr></thead><tbody id="logs-body"></tbody></table><div id="logs-pager" class="activity-actions"></div>
           </section>
           <section data-panel="reports" class="admin-panel" hidden>
             <h3>신고 관리</h3><form id="reports-controls" class="feed-controls"></form><p id="reports-count" aria-live="polite"></p>

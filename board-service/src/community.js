@@ -1,3 +1,4 @@
+import { deleteContent } from './moderation.js';
 import { Router } from "express";
 import { VERIFIED_OWNER_BADGE } from "./badges.js";
 
@@ -40,7 +41,7 @@ const postSelect = `SELECT p.id,p.title,p.content,p.author_id AS "authorId",u.us
  EXISTS(SELECT 1 FROM board_likes l WHERE l.post_id=p.id AND l.user_id=$1) AS liked,
  EXISTS(SELECT 1 FROM board_bookmarks b WHERE b.post_id=p.id AND b.user_id=$1) AS bookmarked,
  (SELECT model FROM owner_vehicles v WHERE v.owner_id=p.author_id ORDER BY v.id LIMIT 1) AS "ownerVehicle"
- FROM board_posts p JOIN users u ON u.id=p.author_id`;
+ FROM (SELECT * FROM board_posts WHERE NOT deleted) p JOIN users u ON u.id=p.author_id`;
 const asPost = (row) => ({ ...row, authorId: Number(row.authorId) });
 
 // Asia/Seoul(KST, UTC+9는 서머타임이 없어 상수로 계산해도 안전하다) 기준 오늘 00:00을
@@ -76,7 +77,7 @@ export function communityRouter({ db, auth }) {
   });
   const exists = async (id) => {
     const { rows } = await db.query(
-      "SELECT id,author_id FROM board_posts WHERE id=$1",
+      "SELECT id,author_id FROM board_posts WHERE id=$1 AND NOT deleted",
       [id],
     );
     if (!rows.length) fail(404, "삭제되었거나 없는 글입니다.");
@@ -203,7 +204,7 @@ export function communityRouter({ db, auth }) {
   });
   router.post("/posts/:id/view", async (req, res) => {
     const { rows } = await db.query(
-      "UPDATE board_posts SET views=views+1 WHERE id=$1 RETURNING views",
+      "UPDATE board_posts SET views=views+1 WHERE id=$1 AND NOT deleted RETURNING views",
       [req.params.id],
     );
     if (!rows.length) fail(404, "삭제되었거나 없는 글입니다.");
@@ -215,18 +216,14 @@ export function communityRouter({ db, auth }) {
       `UPDATE board_posts SET title=$1,content=$2,category=$4,
       vehicle=CASE WHEN NOT $9 AND vehicle_id IS NOT NULL THEN vehicle ELSE $5 END,
       image_ids=$6,vehicle_id=CASE WHEN $9 THEN $7 ELSE vehicle_id END,updated_at=NOW()
-      WHERE id=$8 AND author_id=$3 RETURNING id,category`,
+      WHERE id=$8 AND author_id=$3 AND NOT deleted RETURNING id,category`,
       [...values, req.params.id, Object.hasOwn(req.body ?? {}, "vehicleId")],
     );
     if (!rows.length) fail(403, "본인이 작성한 글만 수정할 수 있어요.");
     res.json(rows[0]);
   });
   router.delete("/posts/:id", auth, async (req, res) => {
-    const { rowCount } = await db.query(
-      "DELETE FROM board_posts WHERE id=$1 AND author_id=$2",
-      [req.params.id, req.user.id],
-    );
-    if (!rowCount) fail(403, "본인이 작성한 글만 삭제할 수 있어요.");
+    await deleteContent(db, req.user, 'post', req.params.id, req.body?.reason);
     res.json({ ok: true });
   });
   for (const [route, table] of [
@@ -268,7 +265,7 @@ export function communityRouter({ db, auth }) {
       `WITH target AS (
       SELECT p.id,p.author_id,pc.author_id AS parent_author FROM board_posts p
       LEFT JOIN board_comments pc ON pc.id=$4 AND pc.post_id=p.id AND pc.parent_id IS NULL AND NOT pc.deleted
-      WHERE p.id=$1 AND ($4::int IS NULL OR pc.id IS NOT NULL)
+      WHERE p.id=$1 AND NOT p.deleted AND ($4::int IS NULL OR pc.id IS NOT NULL)
     ), inserted AS (
       INSERT INTO board_comments(post_id,author_id,content,parent_id) SELECT id,$2,$3,$4 FROM target RETURNING *
     ), notified AS (
@@ -283,11 +280,7 @@ export function communityRouter({ db, auth }) {
     res.status(201).json(rows[0]);
   });
   router.delete("/comments/:commentId", auth, async (req, res) => {
-    const { rowCount } = await db.query(
-      `UPDATE board_comments SET content='삭제된 댓글입니다.',deleted=true WHERE id=$1 AND author_id=$2 AND NOT deleted`,
-      [req.params.commentId, req.user.id],
-    );
-    if (!rowCount) fail(403, "본인이 작성한 댓글만 삭제할 수 있어요.");
+    await deleteContent(db, req.user, 'comment', req.params.commentId, req.body?.reason);
     res.json({ ok: true });
   });
   router.post("/posts/:id/report", auth, async (req, res) => {
@@ -304,7 +297,7 @@ export function communityRouter({ db, auth }) {
   router.get("/reports", auth, async (req, res) => {
     const { rows } = await db.query(
       `SELECT r.id,r.reason,r.status,r.created_at AS "createdAt",p.id AS "postId",p.title,p.category
-      FROM community_reports r JOIN board_posts p ON p.id=r.post_id WHERE r.user_id=$1 ORDER BY r.id DESC LIMIT 100`,
+      FROM community_reports r JOIN board_posts p ON p.id=r.post_id WHERE r.user_id=$1 AND NOT p.deleted ORDER BY r.id DESC LIMIT 100`,
       [req.user.id],
     );
     res.json(rows);
@@ -313,7 +306,7 @@ export function communityRouter({ db, auth }) {
     const { rows } = await db.query(
       `SELECT n.id,n.post_id AS "postId",n.is_read AS "isRead",n.created_at AS "createdAt",p.title,p.category,u.username,n.kind
       FROM community_notifications n JOIN board_posts p ON p.id=n.post_id JOIN users u ON u.id=n.actor_id
-      WHERE n.user_id=$1 ORDER BY n.id DESC LIMIT 100`,
+      WHERE n.user_id=$1 AND NOT p.deleted ORDER BY n.id DESC LIMIT 100`,
       [req.user.id],
     );
     res.json(rows);
@@ -370,9 +363,9 @@ export function communityRouter({ db, auth }) {
   router.get("/members/:id", async (req, res) => {
     const { rows } = await db.query(
       `SELECT u.id,u.username,u.created_at AS "joinedAt",
-       (SELECT COUNT(*)::int FROM board_posts p WHERE p.author_id=u.id) AS "postCount",
-       (SELECT COUNT(*)::int FROM board_comments c WHERE c.author_id=u.id AND NOT c.deleted) AS "commentCount",
-       (SELECT COUNT(*)::int FROM board_likes l JOIN board_posts p ON p.id=l.post_id WHERE p.author_id=u.id) AS "receivedLikes"
+       (SELECT COUNT(*)::int FROM board_posts p WHERE p.author_id=u.id AND NOT p.deleted) AS "postCount",
+       (SELECT COUNT(*)::int FROM board_comments c WHERE c.author_id=u.id AND NOT c.deleted AND EXISTS(SELECT 1 FROM board_posts p WHERE p.id=c.post_id AND NOT p.deleted)) AS "commentCount",
+       (SELECT COUNT(*)::int FROM board_likes l JOIN board_posts p ON p.id=l.post_id WHERE p.author_id=u.id AND NOT p.deleted) AS "receivedLikes"
        FROM users u WHERE u.id=$1`,
       [req.params.id],
     );
@@ -412,7 +405,7 @@ export function communityRouter({ db, auth }) {
         : integer(Number(req.query.limit), 1, 50);
     const { rows } = await db.query(
       `SELECT vehicle, COUNT(*)::int AS "postCount" FROM board_posts
-      WHERE vehicle IS NOT NULL AND vehicle<>'' GROUP BY vehicle
+      WHERE NOT deleted AND vehicle IS NOT NULL AND vehicle<>'' GROUP BY vehicle
       ORDER BY "postCount" DESC, vehicle ASC LIMIT $1`,
       [limit],
     );
@@ -426,7 +419,7 @@ export function communityRouter({ db, auth }) {
        (SELECT COUNT(*)::int FROM users) AS "memberCount",
        (SELECT COUNT(*)::int FROM owner_vehicles) AS "vehicleCount",
        (SELECT COUNT(*)::int FROM parts_listings WHERE status='sold') AS "soldPartsCount",
-       (SELECT COUNT(*)::int FROM board_posts) AS "postCount"`,
+       (SELECT COUNT(*)::int FROM board_posts WHERE NOT deleted) AS "postCount"`,
     );
     res.json(rows[0]);
   });
@@ -439,7 +432,7 @@ export function communityRouter({ db, auth }) {
        COUNT(p.id) FILTER (WHERE p.created_at>=$1)::int AS "recentPostCount",
        COALESCE(SUM(pl.likes),0)::int AS "likeCount"
        FROM (VALUES ('free'),('maintenance'),('parts'),('drive')) AS c(category)
-       LEFT JOIN board_posts p ON p.category=c.category
+       LEFT JOIN board_posts p ON p.category=c.category AND NOT p.deleted
        LEFT JOIN (SELECT post_id, COUNT(*) AS likes FROM board_likes GROUP BY post_id) pl ON pl.post_id=p.id
        GROUP BY c.category
        ORDER BY "recentPostCount" DESC,"likeCount" DESC,"postCount" DESC`,

@@ -171,6 +171,7 @@ async function initialize() {
     loadList("members"),
     loadList("posts"),
     loadList("reports"),
+    loadList("logs"),
     loadBadges(),
     renderVehicleVerifications().catch(() => {
       $("#vehicles-body").replaceChildren(
@@ -201,7 +202,7 @@ const reportStatuses = {
   dismissed: "반려",
 };
 const listState = Object.fromEntries(
-  ["members", "posts", "reports"].map((name) => [
+  ["members", "posts", "reports", "logs"].map((name) => [
     name,
     { page: 1, request: 0 },
   ]),
@@ -242,7 +243,7 @@ function setupOperationalLists() {
       name === "members" ? "아이디 검색" : "제목 / 사용자 검색";
     search.setAttribute("aria-label", search.placeholder);
     controls.append(search);
-    if (name !== "members") {
+    if (name === "posts" || name === "reports") {
       const select = el("select");
       select.name = name === "posts" ? "category" : "status";
       select.setAttribute(
@@ -340,6 +341,18 @@ async function loadList(name) {
             date(item.createdAt),
           ]),
         );
+      else if (name === 'logs') {
+        const source = el('details'), body = el('p', item.original_content, 'detail-text');
+        source.append(el('summary', '삭제 당시 원문'), body);
+        const reason = el('div'); reason.append(el('p', item.reason), source);
+        const action = {POST_DELETE:'게시글', COMMENT_DELETE:'댓글', REPLY_DELETE:'답글'}[item.action_type];
+        root.append(row([
+          date(item.created_at) + ' · ' + item.admin_username,
+          (categories[item.category] || item.category) + ' > ' + item.post_title + ' (#' + item.post_id + ')',
+          action + ' #' + item.target_id + ' 삭제 · ' + item.target_author_username,
+          reason,
+        ]));
+      }
       else {
         const details = el("div");
         details.append(el("span", reportStatuses[item.status] || item.status));

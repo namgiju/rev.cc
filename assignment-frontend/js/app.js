@@ -173,6 +173,42 @@ function confirmDelete(message) {
     d.showModal();
   });
 }
+// Only moderation of another member's content requires a reason.
+async function requestContentDeletion(path, authorId, message) {
+  if (state.user?.id === authorId) {
+    if (!(await confirmDelete(message))) return false;
+    await api(path, {}, 'DELETE');
+    return true;
+  }
+  return new Promise((resolve) => {
+    const dialog = el('dialog', '', 'community-dialog');
+    dialog.setAttribute('aria-labelledby', 'moderation-title');
+    const title = el('h2', '관리자 콘텐츠 삭제'); title.id = 'moderation-title';
+    const form = el('form'), label = el('label', '삭제 사유 (필수)'), input = el('textarea');
+    input.name = 'reason'; input.required = true; input.maxLength = 500; input.rows = 4;
+    label.append(input);
+    const error = el('p', '', 'dialog-notice'); error.setAttribute('role', 'alert'); error.hidden = true;
+    const actions = el('div', '', 'form-bottom'), cancel = el('button', '취소', 'secondary'), submit = el('button', '삭제', 'danger');
+    cancel.type = 'button'; submit.type = 'submit';
+    let busy = false, completed = false;
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(completed); });
+    cancel.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('cancel', (e) => { if (busy) e.preventDefault(); });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault(); if (busy) return;
+      if (!input.value.trim()) { error.hidden = false; error.textContent = '삭제 사유를 입력해주세요.'; input.focus(); return; }
+      busy = true; submit.disabled = cancel.disabled = true;
+      try {
+        await api(path, {reason: input.value.trim()}, 'DELETE');
+        completed = true; dialog.close();
+      } catch (e) { error.hidden = false; error.textContent = e.message; }
+      finally { busy = false; submit.disabled = cancel.disabled = false; }
+    });
+    actions.append(cancel, submit); form.append(label, error, actions);
+    dialog.append(title, el('p', '삭제 사유와 삭제 당시 원문이 운영 로그에 기록됩니다.'), form);
+    document.body.append(dialog); dialog.showModal(); input.focus();
+  });
+}
 async function refreshSession() {
   const request = ++state.sessionRequest;
   const previousId = state.user?.id;
@@ -531,22 +567,21 @@ function renderPostDetail(root, post, comments, id) {
       "",
     ),
   );
-  if (state.user?.id === post.authorId) {
+  if (state.user?.id === post.authorId) actions.append(button("수정", () => beginEdit(post), ""));
+  if (state.user?.id === post.authorId || state.user?.role === "ADMIN") {
     actions.append(
-      button("수정", () => beginEdit(post), ""),
       button(
         "삭제",
         async () => {
-          if (!(await confirmDelete("게시글과 댓글을 함께 삭제합니다.")))
-            return;
-          await api(`/api/board/posts/${id}`, {}, "DELETE");
+          if (!(await requestContentDeletion(`/api/board/posts/${id}`, post.authorId, "게시글과 댓글을 함께 삭제합니다."))) return;
           // 상세는 이제 페이지라 닫을 모달이 없다. 글이 있던 카테고리 목록으로 돌아간다.
           location.href = `/community?category=${encodeURIComponent(post.category)}`;
         },
         "danger-text",
       ),
     );
-  } else actions.append(button("신고", () => openReport(id), ""));
+  }
+  if (state.user?.id !== post.authorId) actions.append(button("신고", () => openReport(id), ""));
   root.append(actions);
   const badges = el("section", "", "author-badges");
   badges.id = "post-author-badges";
@@ -599,13 +634,12 @@ function renderPostDetail(root, post, comments, id) {
     );
     if (!c.deleted && !c.parentId)
       m.append(button("답글", () => replyTo(c), "text-link"));
-    if (!c.deleted && state.user?.id === c.authorId)
+    if (!c.deleted && (state.user?.id === c.authorId || state.user?.role === "ADMIN"))
       m.append(
         button(
           "삭제",
           async () => {
-            if (!(await confirmDelete("이 댓글을 삭제할까요?"))) return;
-            await api(`/api/board/comments/${c.id}`, {}, "DELETE");
+            if (!(await requestContentDeletion(`/api/board/comments/${c.id}`, c.authorId, "이 댓글을 삭제할까요?"))) return;
             await showPostDetailPage(id);
             await refreshPosts();
           },
