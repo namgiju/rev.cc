@@ -147,6 +147,14 @@ on($("#detail-dialog"), "cancel", (e) => {
   e.preventDefault();
   closeDetail();
 });
+on($("#detail-dialog"), "click", (e) => {
+  const dialog = e.currentTarget;
+  const rect = dialog.getBoundingClientRect();
+  const inside =
+    e.clientX >= rect.left && e.clientX <= rect.right &&
+    e.clientY >= rect.top && e.clientY <= rect.bottom;
+  if (!inside) closeDialog(dialog);
+});
 function panel(title) {
   $("#panel-title").textContent = title;
   $("#panel-content").replaceChildren();

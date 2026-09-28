@@ -418,6 +418,13 @@ document.querySelectorAll("dialog:not(#registration-dialog) [data-close]").forEa
   const dialog = button.closest("dialog"); if (dialog.id === "detail-dialog") closeDetail(); else dialog.close();
 }));
 on($("#detail-dialog"), "cancel", event => {event.preventDefault(); closeDetail();});
+on($("#detail-dialog"), "click", event => {
+  const dialog = event.currentTarget;
+  const rect = dialog.getBoundingClientRect();
+  const inside = event.clientX >= rect.left && event.clientX <= rect.right &&
+    event.clientY >= rect.top && event.clientY <= rect.bottom;
+  if (!inside) { if (dialog.id === "detail-dialog") closeDetail(); else dialog.close(); }
+});
 on(window, "hashchange", route);
 on(window, "focus", () => initialize());
 on(window, "pageshow", event => {if (event.persisted) return initialize();});
