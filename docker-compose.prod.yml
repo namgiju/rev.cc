@@ -1,0 +1,16 @@
+# 운영 배포용 오버레이. 로컬 개발 오버레이(override.yml, dev.yml)와 분리해 약한 기본값을
+# 운영에서는 절대 허용하지 않는다: docker-compose.yml에는 POSTGRES_PASSWORD:-revcc 같은 로컬
+# 편의용 기본값이 남아있지만, 이 파일을 얹으면 값이 없을 때 기동 자체가 실패한다.
+#
+# 사용: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 환경변수를 설정해야 배포할 수 있습니다.}
+  core:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 환경변수를 설정해야 배포할 수 있습니다.}
+      SPRING_PROFILES_ACTIVE: prod
+  board:
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 환경변수를 설정해야 배포할 수 있습니다.}

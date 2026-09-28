@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="REV.CC 로그인 및 회원가입. 차로 연결되는 일상을 시작하세요.">
+  <title>REV.CC | 로그인</title>
+  <link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/auth.css">
+  <script src="/js/auth.js" defer></script>
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-panel" aria-labelledby="auth-title">
+      <a href="/" class="auth-logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" width="140"></a>
+      <div class="auth-content">
+        <p class="auth-eyebrow">DRIVE · SHARE · CONNECT</p>
+        <h1 id="auth-title">Welcome back,</h1>
+        <p id="auth-description" class="auth-description">좋은 차는 좋은 사람을 만듭니다.<br>다시 만나서 반가워요.</p>
+        <p id="auth-message" class="auth-message" role="status" tabindex="-1" hidden></p>
+        <form id="auth-form" method="post" action="/api/auth/login">
+          <label for="username">아이디</label><input id="username" name="username" autocomplete="username" maxlength="100" required placeholder="아이디를 입력해주세요" autocapitalize="none" spellcheck="false">
+          <p class="field-help signup-only" hidden>아이디는 커뮤니티에서 표시 이름으로도 사용됩니다. 최대 100자.</p>
+          <label for="password">비밀번호</label>
+          <div class="password-field"><input id="password" name="password" type="password" autocomplete="current-password" maxlength="255" required placeholder="비밀번호를 입력해주세요"><button type="button" class="password-toggle" data-password="password" aria-label="비밀번호 표시" aria-pressed="false">보기</button></div>
+          <p class="field-help signup-only" hidden>영문·숫자 기준 최대 72자입니다. 한글 등은 UTF-8 72바이트까지 사용할 수 있습니다.</p>
+          <div class="signup-only" hidden>
+            <label for="password-confirm">비밀번호 확인</label>
+            <div class="password-field"><input id="password-confirm" type="password" autocomplete="new-password" maxlength="255" placeholder="비밀번호를 다시 입력해주세요" disabled><button type="button" class="password-toggle" data-password="password-confirm" aria-label="비밀번호 확인 표시" aria-pressed="false">보기</button></div>
+            <fieldset class="auth-consents"><legend class="sr-only">가입 동의</legend>
+              <label><input id="terms" type="checkbox" disabled> 이용약관 동의 <span>(필수)</span></label>
+              <label><input id="privacy" type="checkbox" disabled> 개인정보 처리방침 동의 <span>(필수)</span></label>
+              <p class="field-help">현재 개발 중인 프로젝트로 정식 약관과 개인정보 처리방침 전문은 준비 중입니다. 동의 항목은 가입 화면의 확인 절차이며 별도로 저장되지 않습니다.</p>
+            </fieldset>
+          </div>
+          <button id="auth-submit" class="auth-submit" type="submit" disabled>로그인</button>
+        </form>
+        <div class="auth-divider"><span>또는</span></div>
+        <a id="auth-kakao" class="auth-kakao" href="/api/auth/kakao/login"><span aria-hidden="true">●</span> <span id="kakao-label">카카오로 로그인</span></a>
+        <p class="auth-switch"><span id="switch-description">아직 회원이 아니신가요?</span> <a id="auth-switch" href="/signup">회원가입 →</a></p>
+        <noscript>로그인과 회원가입에는 JavaScript가 필요합니다.</noscript>
+      </div>
+      <p class="auth-copyright">© 2026 REV.CC · 차로 연결되는 일상</p>
+    </section>
+  </main>
+</body>
+</html>

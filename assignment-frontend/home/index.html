@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="REV.CC 내 차고. 내 차량과 인증 상태, 커뮤니티 활동을 관리하세요.">
+  <title>REV.CC | 내 차고</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <script src="/js/site-nav.js" defer></script>
+  <script src="/js/member-card.js" defer></script>
+  <script src="/js/post-url.js" defer></script>
+  <script src="/js/guestbook-ui.js" defer></script>
+  <script src="/js/vehicle-ui.js" defer></script>
+  <script src="/js/home.js" defer></script>
+  <link rel="stylesheet" href="/css/footer.css">
+  <script src="/js/footer.js" defer></script>
+</head>
+<body class="personal-garage site-footer-layout">
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
+  <header class="header"><div class="header-inner">
+    <a href="/" class="logo" aria-label="REV.CC 홈"><img src="/img/logo.png" alt="REV.CC" height="28"></a>
+    <nav aria-label="주 메뉴"><a href="/community">커뮤니티</a><a href="/home">내 차고</a><a href="/parts">부품 찾기</a><a id="admin-link" class="admin-link" href="/admin" hidden>관리</a></nav>
+    <div class="header-actions dash-header-actions"><span id="home-user"></span><a id="home-login" class="login" href="/login" hidden>로그인 / 가입</a><button id="logout" class="secondary" hidden>로그아웃</button></div>
+  </div></header>
+  <main id="main" class="container">
+    <p id="notice" role="status" aria-live="polite"></p>
+    <div class="section-heading garage-page-heading"><div><h1>내 차고</h1><p>나의 자동차 생활을 기록하는 공간, REV.CC</p></div><button id="edit-profile" class="secondary" hidden>프로필 수정</button></div>
+    <div class="personal-garage-grid">
+      <aside id="home-profile" hidden></aside>
+      <section id="my-vehicles" class="garage-panel" aria-labelledby="garage-title">
+        <h2 id="garage-title">대표 차량</h2>
+        <div id="home-garage" aria-live="polite" data-state="CHECKING"><p class="empty">로그인 상태를 확인하고 있어요.</p></div>
+      </section>
+      <aside id="owned-panel" class="garage-panel" hidden><h2>보유 차량</h2><div id="owned-vehicles"></div><button id="home-add-vehicle" class="secondary" hidden>차량 등록하기</button></aside>
+      <section id="home-badges" class="garage-panel" hidden><h2>내 인장</h2><div id="home-badge-list" class="author-badge-list"></div></section>
+      <section id="home-guestbook" class="garage-panel" hidden></section>
+      <section id="member-content" class="garage-panel" hidden>
+        <h2 id="feed-title">내 커뮤니티 활동</h2>
+        <div class="activity-tabs" role="group" aria-label="내 커뮤니티 활동 선택">
+          <button data-activity="mine" aria-pressed="true">내가 쓴 글</button>
+          <button data-activity="commented" aria-pressed="false">내가 댓글 단 글</button>
+          <button data-activity="notifications" aria-pressed="false">최근 활동</button>
+        </div>
+        <h3 id="activity-list-title">내가 쓴 글</h3>
+        <div id="home-posts" class="post-list" aria-live="polite"></div>
+        <button id="activity-more" class="secondary" hidden>더 보기</button>
+      </section>
+    </div>
+  </main>
+  <footer id="site-footer" aria-label="REV.CC 서비스 정보"></footer>
+  <dialog id="registration-dialog" class="community-dialog">
+    <div class="dialog-bar"><span>MY GARAGE</span><h2 id="vehicle-dialog-title">내 차 등록</h2><button data-close aria-label="닫기">✕</button></div>
+    <div id="vehicle-step-info">
+      <form id="vehicle-info-form" class="dialog-form">
+        <label>제조사<input name="manufacturer" required maxlength="100" placeholder="예: 현대"></label>
+        <label>모델명<input name="model" required maxlength="100" placeholder="예: 아반떼 N"></label>
+        <label>연식<input name="modelYear" type="number" required min="1900" max="2100" placeholder="예: 2024"></label>
+        <label>차량번호<input name="licensePlate" required maxlength="20" placeholder="예: 123가4567"></label>
+        <div class="form-bottom"><span></span><button class="primary" type="submit">다음: 등록증 업로드</button></div>
+      </form>
+    </div>
+    <div id="vehicle-step-document" hidden>
+      <p class="hint">자동차등록증의 <b>주민등록번호와 주소는 반드시 가리고</b> 업로드해주세요.<br>JPG, JPEG, PNG, WEBP 형식만 지원하며, 자동 판독 없이 관리자가 직접 확인한 뒤 오너 인증을 승인합니다.</p>
+      <form id="vehicle-document-form" class="dialog-form">
+        <label>자동차등록증 이미지<input id="vehicle-document-input" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+        <div class="form-bottom"><button type="button" class="secondary" id="vehicle-skip-document">나중에 하기</button><button class="primary" type="submit">인증 요청 제출</button></div>
+      </form>
+    </div>
+  </dialog>
+  <dialog id="detail-dialog" class="community-dialog"><div class="dialog-bar"><span>REV.CC COMMUNITY</span><button data-close aria-label="상세 화면 닫기">✕</button></div><div id="detail-content"></div></dialog>
+  <dialog id="panel-dialog" class="community-dialog"><div class="dialog-bar"><h2 id="panel-title"></h2><button data-close aria-label="창 닫기">✕</button></div><div id="panel-content"></div></dialog>
+  <dialog id="vehicle-dialog" class="community-dialog"><div class="dialog-bar"><h2 id="vehicle-form-title">내 차 등록</h2><button data-close aria-label="차량 등록 닫기">✕</button></div>
+    <form id="vehicle-form"><label>차종<input name="model" required maxlength="100" placeholder="예: 현대 아반떼 N"></label><div class="form-row"><label>연식<input name="year" type="number" min="1900" max="2100" required></label><label>트림<input name="trim" maxlength="100" placeholder="예: DCT"></label></div><label>차 소개<textarea name="bio" maxlength="1000" rows="3" placeholder="내 차와 함께한 이야기를 소개해주세요."></textarea></label><label>차량 사진<input id="vehicle-image" type="file" accept="image/jpeg,image/png,image/webp"></label><small>JPG · PNG · WebP / 최대 3MB</small><div id="vehicle-preview" class="image-previews"></div><button class="primary" type="submit">차량 저장</button></form>
+  </dialog>
+  <dialog id="confirm-dialog" class="confirm-dialog"><h2>삭제할까요?</h2><p id="confirm-message"></p><div class="form-bottom"><button class="secondary" id="confirm-cancel">취소</button><button class="danger" id="confirm-delete">삭제</button></div></dialog>
+</body>
+</html>

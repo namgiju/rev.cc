@@ -1,0 +1,119 @@
+/* Shared community grid and navigation remain the source of sidebar layout. */
+#write-post[hidden] {
+  display: none !important;
+}
+#main.community-editor-mode > #write-post {
+  grid-column: 2;
+  grid-row: 2;
+  display: block;
+  margin: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.community-editor-mode #community-my-garage,
+.community-editor-mode #community-recent {
+  display: none;
+}
+.community-editor-mode .community-side-section:has(#community-my-garage) {
+  display: none;
+}
+.editor-breadcrumb {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+.editor-breadcrumb a {
+  color: #347ac1;
+}
+#write-post .write-intro h1 {
+  font-size: 26px;
+  margin: 0 0 10px;
+}
+#write-post .write-intro p {
+  font-size: 13px;
+  color: var(--muted);
+}
+#post-form > label,
+#editor-vehicles label {
+  display: block;
+  margin-top: 22px;
+  font-size: 13px;
+  font-weight: 600;
+}
+#post-form input:not([type="file"]),
+#post-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+#post-form textarea {
+  resize: vertical;
+  line-height: 1.8;
+  min-height: 280px;
+}
+.editor-count {
+  display: block;
+  text-align: right;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 6px;
+}
+#editor-vehicles {
+  margin: 22px 0;
+}
+#post-form .form-bottom {
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 28px;
+}
+.editor-help {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.editor-help h2 {
+  color: var(--ink);
+}
+.editor-help ul {
+  padding-left: 18px;
+  margin: 0;
+}
+.editor-help li + li {
+  margin-top: 12px;
+}
+#upload-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (max-width: 760px) {
+  #main.community-editor-mode > #write-post {
+    grid-column: 1;
+    grid-row: auto;
+    padding: 18px;
+  }
+}
+
+#post-form .editor-add-photo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 24px;
+  border: 1px dashed #b4cce9;
+  border-radius: 8px;
+  color: #347ac1;
+  cursor: pointer;
+  background: #f8fbff;
+}
+#post-form .form-bottom #cancel-edit {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+#post-form .form-bottom #submit-post {
+  background: #347ac1;
+  color: white;
+}
+#post-form #post-title {
+  margin-bottom: 0;
+}
