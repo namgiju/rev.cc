@@ -241,7 +241,7 @@ _(아직 없음. 작업 중 발견하면 여기에 "STEP 번호 — 파일:설�
 
 | STEP | 상태 | 완료일 | commit hash | 비고 |
 |---|---|---|---|---|
-| P0-1/P0-2 | 완료 | 2026-09-29 | (이 파일과 함께 커밋됨 — 아래 참고) | Kakao OAuth state, Cloudflare/TLS 대응 |
+| P0-1/P0-2 | 완료 | 2026-09-29 | `07c7d7d` | Kakao OAuth state, Cloudflare/TLS 대응. `mvn test` 77 run/0 fail, `npm test` 9 run/0 fail |
 | STEP 1 | 미착수 | - | - | - |
 | STEP 2 | 미착수 | - | - | - |
 | STEP 3 | 미착수 | - | - | - |
