@@ -79,7 +79,7 @@
 ```
 [x] STEP 1: P1-1 비밀번호 최소 길이 + P1-2 요청 body 크기 제한 + P1-5 운영 배포 문서 수정
 [x] STEP 2: P1-4 부품장터 관리자 모더레이션 + P1-6 admin/market 인가 테스트
-[ ] STEP 3: P1-7 GitHub Actions CI
+[x] STEP 3: P1-7 GitHub Actions CI
 [ ] STEP 4: P1-3 Flyway/Liquibase 기반 DB migration 정리
 [ ] STEP 5+: P2/P3 (P1 전부 완료 후, 이 파일에 STEP을 추가로 정의해서 진행)
 ```
