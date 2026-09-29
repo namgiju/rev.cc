@@ -16,13 +16,17 @@ public class ResetMailService {
     }
     @org.springframework.scheduling.annotation.Async("resetMailExecutor")
     public void send(String email, String code) {
-        SimpleMailMessage mail = new SimpleMailMessage();
-        mail.setFrom(from); mail.setTo(email); mail.setSubject("REV.CC 비밀번호 재설정 인증번호");
-        mail.setText("인증번호: " + code + "\n5분 안에 입력해주세요.\n" + url +
-            "\n직접 요청하지 않았다면 이 메일을 무시하세요.");
-        try { sender.send(mail); }
-        catch (RuntimeException ignored) {
-            org.slf4j.LoggerFactory.getLogger(ResetMailService.class).warn("Password reset email delivery failed; check SMTP configuration.");
+        try {
+            SimpleMailMessage mail = new SimpleMailMessage();
+            mail.setFrom(from); mail.setTo(email); mail.setSubject("REV.CC 비밀번호 재설정 인증번호");
+            mail.setText("인증번호: " + code + "\n5분 안에 입력해주세요.\n" + url +
+                "\n직접 요청하지 않았다면 이 메일을 무시하세요.");
+            sender.send(mail);
+        } catch (RuntimeException failure) {
+            SafeMailFailure.Diagnostic diagnostic = SafeMailFailure.inspect(failure);
+            org.slf4j.LoggerFactory.getLogger(ResetMailService.class).warn(
+                "Password reset email delivery failed: category={}, exceptions={}, smtpStatus={}",
+                diagnostic.category(), diagnostic.exceptionTypes(), diagnostic.smtpStatus());
         }
     }
 }

@@ -48,20 +48,27 @@ public class PasswordResetService {
         Long count = redis.execute(LIMIT, List.of("password-reset-limit:" + digest(bucket)), String.valueOf(seconds));
         if (count == null || count > max) throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "잠시 후 다시 시도해주세요.");
     }
-    public void request(String input, String requester) {
+    public void request(String username, String input, String requester) {
         String email = email(input), key = digest(email);
         limit("request-ip:" + requester, 20, 3600);
         limit("request-email:" + email, 5, 3600);
-        // Unknown and social-only accounts have the same response and rate-limit behavior.
-        if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent("password-reset-cooldown:"+key, "1", Duration.ofSeconds(60)))) return;
-        User user = users.findByEmail(email).orElse(null);
-        if (user == null || user.getKakaoId() != null) return;
+        User user = users.findByUsername(username).orElseThrow(() ->
+            new RequestFailure(HttpStatus.BAD_REQUEST, "USERNAME_NOT_FOUND", "등록되지 않은 아이디입니다."));
+        if (!email.equals(user.getEmail()))
+            throw new RequestFailure(HttpStatus.BAD_REQUEST, "IDENTITY_MISMATCH", "아이디와 이메일 정보가 일치하지 않습니다.");
+        if (user.getKakaoId() != null)
+            throw new RequestFailure(HttpStatus.BAD_REQUEST, "SOCIAL_ACCOUNT", "카카오 계정은 카카오 로그인을 이용해주세요.");
+        if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent("password-reset-cooldown:"+key, "1", Duration.ofSeconds(60))))
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "요청이 많습니다. 잠시 후 다시 시도해주세요.");
         String code = String.format(Locale.ROOT, "%06d", random.nextInt(1000000));
         String payload = user.getId()+":"+user.getAuthVersion()+":"+key;
         redis.opsForValue().set("password-reset:"+key, digest(email+":"+code)+"|"+payload, Duration.ofMinutes(5));
         // Never log mail exceptions: SMTP diagnostics can contain recipients or message bodies.
         try { mail.send(email, code); }
-        catch (RuntimeException e) { redis.delete("password-reset:"+key); }
+        catch (RuntimeException e) {
+            redis.delete("password-reset:"+key);
+            throw new RequestFailure(HttpStatus.SERVICE_UNAVAILABLE, "MAIL_UNAVAILABLE", "메일 발송 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.");
+        }
     }
     public String verify(String input, String code, String requester) {
         String email=email(input), key=digest(email);
@@ -85,6 +92,11 @@ public class PasswordResetService {
         User user=users.lockById(Long.valueOf(parts[0])).orElseThrow(PasswordResetService::invalid);
         if (user.getKakaoId()!=null || user.getEmail()==null || user.getAuthVersion()!=Long.parseLong(parts[1]) || !digest(user.getEmail()).equals(parts[2])) throw invalid();
         user.upgradePassword(passwords.encode(password)); user.invalidateSessions(); users.saveAndFlush(user);
+    }
+    static final class RequestFailure extends ResponseStatusException {
+        private final String code;
+        RequestFailure(HttpStatus status, String code, String message) { super(status, message); this.code=code; }
+        String code() { return code; }
     }
     private static ResponseStatusException invalid() { return new ResponseStatusException(HttpStatus.BAD_REQUEST, "인증 정보가 올바르지 않거나 만료되었습니다. 다시 요청해주세요."); }
 }

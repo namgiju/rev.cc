@@ -31,12 +31,12 @@ class PasswordResetServiceTest {
         service=new PasswordResetService(redis,users,mail,"test-only-secret-at-least-32-characters");
         email=UUID.randomUUID()+"@example.test"; user=new User("tester", "old");
         ReflectionTestUtils.setField(user,"id",42L); user.registerEmail(email);
-        when(users.findByEmail(email)).thenReturn(Optional.of(user)); when(users.lockById(42L)).thenReturn(Optional.of(user));
+        when(users.findByUsername("tester")).thenReturn(Optional.of(user)); when(users.lockById(42L)).thenReturn(Optional.of(user));
         code=new AtomicReference<>(); doAnswer(c -> { code.set(c.getArgument(1)); return null; }).when(mail).send(eq(email),anyString());
     }
     @AfterEach void close() { if(factory!=null) factory.destroy(); }
     String requestAndVerify() {
-        service.request(email,email); assertTrue(code.get().matches("[0-9]{6}"));
+        service.request("tester",email,email); assertTrue(code.get().matches("[0-9]{6}"));
         return service.verify(email,code.get(),email);
     }
     @Test void fullFlowHashesPasswordAndInvalidatesSessionsAndTokens() {
@@ -48,20 +48,21 @@ class PasswordResetServiceTest {
         assertThrows(ResponseStatusException.class,()->service.reset(token,"another","another"));
     }
     @Test void failuresLimitedToFiveEvenWithCorrectSixthAttempt() {
-        service.request(email,email);
+        service.request("tester",email,email);
         String wrong=code.get().equals("000000")?"000001":"000000";
         for(int i=0;i<5;i++) assertThrows(ResponseStatusException.class,()->service.verify(email,wrong,email));
         assertThrows(ResponseStatusException.class,()->service.verify(email,code.get(),email));
     }
     @Test void requestsAreThrottledAndUnknownAccountsNeverSendMail() {
-        for(int i=0;i<5;i++) service.request(email,email);
+        service.request("tester",email,email);
+        for(int i=1;i<5;i++) assertEquals(429,assertThrows(ResponseStatusException.class,()->service.request("tester",email,email)).getStatusCode().value());
         verify(mail,times(1)).send(eq(email),anyString());
-        assertEquals(429,assertThrows(ResponseStatusException.class,()->service.request(email,email)).getStatusCode().value());
-        service.request("missing-"+email,"other-"+email);
+        assertEquals(429,assertThrows(ResponseStatusException.class,()->service.request("tester",email,email)).getStatusCode().value());
+        assertEquals(400,assertThrows(ResponseStatusException.class,()->service.request("missing", "missing-"+email,"other-"+email)).getStatusCode().value());
         verifyNoMoreInteractions(mail);
     }
     @Test void concurrentVerificationIssuesOnlyOneToken() throws Exception {
-        service.request(email,email);
+        service.request("tester",email,email);
         try(var executor=Executors.newFixedThreadPool(2)) {
             Callable<Boolean> attempt=()-> {try {service.verify(email,code.get(),email);return true;}catch(ResponseStatusException e){return false;}};
             var results=executor.invokeAll(List.of(attempt,attempt));
@@ -76,7 +77,7 @@ class PasswordResetServiceTest {
         assertEquals("old",user.getPassword());
     }
     @Test void ttlAndHashedValuesAndExpiry() throws Exception {
-        service.request(email,email);
+        service.request("tester",email,email);
         // Locate only this test's random account by its ID/version payload; never flush Redis.
         String key=redis.keys("password-reset:*").stream().filter(k->redis.opsForValue().get(k).contains("|42:0:") &&
             redis.opsForValue().get(k).endsWith(k.substring("password-reset:".length()))).filter(k -> {

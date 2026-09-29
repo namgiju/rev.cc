@@ -17,7 +17,8 @@
         <p id="auth-description" class="auth-description">좋은 차는 좋은 사람을 만듭니다.<br>다시 만나서 반가워요.</p>
         <p id="auth-message" class="auth-message" role="status" tabindex="-1" hidden></p>
         <form id="auth-form" method="post" action="/api/auth/login">
-          <label for="username">아이디</label><input id="username" name="username" autocomplete="username" maxlength="100" required placeholder="아이디를 입력해주세요" autocapitalize="none" spellcheck="false">
+          <label for="username">아이디</label><div class="username-field"><input id="username" name="username" autocomplete="username" maxlength="100" required placeholder="아이디를 입력해주세요" autocapitalize="none" spellcheck="false" aria-describedby="username-status"><button type="button" id="check-username" class="secondary signup-only" hidden>중복확인</button></div>
+          <p id="username-status" class="field-help signup-only" role="status" hidden></p>
           <p class="field-help signup-only" hidden>아이디는 커뮤니티에서 표시 이름으로도 사용됩니다. 최대 100자.</p>
           <div class="signup-only" hidden><label for="email">이메일 (선택)</label><input id="email" type="email" maxlength="254" autocomplete="email"><p class="field-help">비밀번호 재설정에 사용할 이메일을 정확히 입력해주세요.</p></div>
           <label for="password">비밀번호</label>

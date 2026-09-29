@@ -5,6 +5,8 @@
   async function post(step, body) {
     const r = await fetch('/api/auth/password-reset/' + step, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const data = await r.json().catch(() => ({}));
+    if (!r.ok && step === 'request' && ['USERNAME_NOT_FOUND','IDENTITY_MISMATCH','SOCIAL_ACCOUNT','MAIL_UNAVAILABLE'].includes(data.code))
+      throw new Error(data.message);
     if (!r.ok) throw new Error(r.status === 429 ? '요청이 많습니다. 잠시 후 다시 시도해주세요.' : r.status === 503 ? '메일 인증 설정을 확인 중입니다. 잠시 후 다시 시도해주세요.' : '인증 정보 또는 입력값을 확인해주세요. 만료된 경우 처음부터 다시 인증해주세요.');
     return data;
   }
@@ -16,8 +18,12 @@
   }); }
   bind('#email-form', async () => {
     email = $('#reset-email').value.trim();
-    const r = await post('request', {email}); message(r.message);
-    $('#reset-email').readOnly = true; $('#code-form').hidden = false; $('#reset-code').focus();
+    const username = $('#reset-username').value;
+    if (!username.trim()) throw new Error('아이디를 입력해주세요.');
+    const r = await post('request', {username, email});
+    if (r.code !== 'CODE_SENT') throw new Error('발송 상태를 확인하지 못했습니다. 다시 시도해주세요.');
+    message(r.message);
+    $('#reset-username').readOnly = true; $('#reset-email').readOnly = true; $('#code-form').hidden = false; $('#reset-code').focus();
   });
   bind('#code-form', async () => {
     const r = await post('verify', {email, code:$('#reset-code').value}); token = r.resetToken;

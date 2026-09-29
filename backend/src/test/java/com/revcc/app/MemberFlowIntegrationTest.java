@@ -38,6 +38,17 @@ class MemberFlowIntegrationTest {
         return result.getResponse().getCookie(SharedSessionService.COOKIE);
     }
     String body(Object o) throws Exception {return mapper.writeValueAsString(o);}
+    @Test void concurrentSignupCreatesOnlyOneAccount() throws Exception {
+        String name="signup-race-"+UUID.randomUUID();
+        String request=body(Map.of("username",name,"password","race-password"));
+        try(var executor=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<Integer> signup=()->mvc.perform(post("/api/auth/signup").contentType("application/json").content(request)).andReturn().getResponse().getStatus();
+            var futures=executor.invokeAll(List.of(signup,signup));
+            var statuses=new java.util.HashSet<Integer>();for(var f:futures) statuses.add(f.get());
+            assertEquals(Set.of(201,409),statuses);
+            assertTrue(users.findByUsername(name).isPresent());
+        }
+    }
     @Test void serverPaginationAndSearchRespectFieldAndStatus() throws Exception {
         String prefix="page-"+UUID.randomUUID();
         User admin=new User(prefix+"-admin",new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("admin"));
@@ -74,7 +85,8 @@ class MemberFlowIntegrationTest {
         first=login(name,"before"); second=login(name,"before");
         AtomicReference<String> code=new AtomicReference<>();
         doAnswer(c->{code.set(c.getArgument(1));return null;}).when(mail).send(eq(email),anyString());
-        mvc.perform(post("/api/admin/members/"+member.getId()+"/password-reset").cookie(a).contentType("application/json").content("{}")).andExpect(status().isOk());
+        mvc.perform(post("/api/auth/password-reset/request").contentType("application/json").content(body(Map.of("username",name,"email",email)))).andExpect(status().isOk());
+        mvc.perform(post("/api/admin/members/"+member.getId()+"/password-reset").cookie(a).contentType("application/json").content("{}")).andExpect(status().isTooManyRequests());
         assertNotNull(code.get());
         var token=json(mvc.perform(post("/api/auth/password-reset/verify").contentType("application/json").content(body(Map.of("email",email,"code",code.get())))).andExpect(status().isOk()).andReturn()).get("resetToken").asText();
         String reset=body(Map.of("token",token,"password","after","confirm","after"));
@@ -85,7 +97,7 @@ class MemberFlowIntegrationTest {
         mvc.perform(get("/api/auth/me").cookie(a)).andExpect(status().isOk());
         login(name,"after");
         mvc.perform(post("/api/auth/login").contentType("application/json").content(body(Map.of("username",name,"password","before")))).andExpect(status().isUnauthorized());
-        assertEquals(2,json(mvc.perform(get("/api/admin/members/"+member.getId()+"/actions").cookie(a)).andExpect(status().isOk()).andReturn()).size());
+        assertEquals(1,json(mvc.perform(get("/api/admin/members/"+member.getId()+"/actions").cookie(a)).andExpect(status().isOk()).andReturn()).size());
         Cookie current=login(name,"after");
         mvc.perform(patch("/api/admin/members/"+member.getId()).cookie(a).contentType("application/json").content(body(Map.of("email",email,"status","SUSPENDED","role","USER")))).andExpect(status().isOk());
         mvc.perform(get("/api/auth/me").cookie(current)).andExpect(status().isUnauthorized());

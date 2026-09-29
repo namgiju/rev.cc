@@ -29,6 +29,15 @@ public class AuthController {
         this.kakao = kakao;
     }
 
+    public record UsernameQuery(@NotBlank @Size(max = 100) String username) {}
+
+    @GetMapping("/check-username")
+    public ResponseEntity<?> checkUsername(@Valid @ModelAttribute UsernameQuery query) {
+        // Same exact, case-sensitive value as signup/login; do not trim or lowercase it.
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .body(Map.of("available", !users.existsByUsername(query.username())));
+    }
+
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody Credentials request) {
         // BCrypt는 UTF-8 72바이트 제한이 있어 문자 수와 별도로 검사한다.

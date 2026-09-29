@@ -97,7 +97,7 @@ public class AdminMemberController {
             @CookieValue(name=SharedSessionService.COOKIE,required=false) String token) {
         User actor=admin(token), target=user(id);
         if (target.getEmail()==null || target.getKakaoId()!=null) throw new ResponseStatusException(HttpStatus.CONFLICT,"이메일이 등록된 일반 계정만 재설정할 수 있습니다.");
-        resets.request(target.getEmail(),"admin:"+actor.getId());
+        resets.request(target.getUsername(),target.getEmail(),"admin:"+actor.getId());
         logs.save(new AdminMemberAction(actor.getId(),id,"PASSWORD_RESET_REQUEST"));
         return PasswordResetController.message();
     }

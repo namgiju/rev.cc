@@ -12,7 +12,7 @@ public class RateLimitConfig {
     public FilterRegistrationBean<RateLimitFilter> authRateLimitFilter() {
         FilterRegistrationBean<RateLimitFilter> bean =
             new FilterRegistrationBean<>(new RateLimitFilter(Duration.ofMinutes(1), 10));
-        bean.addUrlPatterns("/api/auth/login", "/api/auth/signup");
+        bean.addUrlPatterns("/api/auth/login", "/api/auth/signup", "/api/auth/check-username");
         bean.setName("authRateLimitFilter");
         bean.setOrder(1);
         return bean;

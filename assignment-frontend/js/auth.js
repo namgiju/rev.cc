@@ -4,6 +4,38 @@
   const $ = (s) => document.querySelector(s);
   const form = $("#auth-form");
   let busy = false;
+  let checkedUsername = null, checkGeneration = 0;
+  const username = $('#username'), checkButton = $('#check-username'), checkStatus = $('#username-status');
+  function invalidateUsername() {
+    checkedUsername = null; checkGeneration++;
+    checkStatus.textContent = ''; checkStatus.dataset.kind = '';
+    checkButton.disabled = false;
+  }
+  username.addEventListener('input', invalidateUsername);
+  username.addEventListener('change', invalidateUsername);
+  checkButton.addEventListener('click', async () => {
+    if (!signup || busy) return;
+    const value = username.value;
+    invalidateUsername();
+    if (!value.trim() || value.length > 100) {
+      checkStatus.textContent = '아이디는 공백만 입력할 수 없으며 최대 100자입니다.';
+      checkStatus.dataset.kind = 'error'; return;
+    }
+    const generation = checkGeneration;
+    checkButton.disabled = true; checkStatus.textContent = '확인 중…';
+    try {
+      const response = await fetch('/api/auth/check-username?' + new URLSearchParams({username:value}), {credentials:'same-origin',cache:'no-store'});
+      if (generation !== checkGeneration || username.value !== value) return;
+      if (!response.ok) throw new Error(response.status === 429 ? '요청이 많습니다. 잠시 후 다시 확인해주세요.' : '중복확인에 실패했습니다. 다시 시도해주세요.');
+      const data = await response.json();
+      if (generation !== checkGeneration || username.value !== value) return;
+      checkedUsername = data.available === true ? value : null;
+      checkStatus.textContent = checkedUsername !== null ? '사용 가능한 아이디입니다.' : '이미 사용 중인 아이디입니다.';
+      checkStatus.dataset.kind = checkedUsername !== null ? 'success' : 'error';
+    } catch (error) {
+      if (generation === checkGeneration) { checkStatus.textContent = error.message; checkStatus.dataset.kind = 'error'; }
+    } finally { if (generation === checkGeneration) checkButton.disabled = false; }
+  });
   function safeReturn(value) {
     if (
       !value ||
@@ -11,7 +43,7 @@
       value.startsWith("//") ||
       /[\\\x00-\x20]/.test(value)
     )
-      return "/home";
+      return "/";
     try {
       const u = new URL(value, location.origin);
       if (
@@ -20,10 +52,10 @@
           u.pathname,
         )
       )
-        return "/home";
+        return "/";
       return u.pathname + u.search + u.hash;
     } catch {
-      return "/home";
+      return "/";
     }
   }
   const next = safeReturn(new URLSearchParams(location.search).get("next"));
@@ -92,6 +124,7 @@
   window.addEventListener("pagehide", clearPasswords);
   window.addEventListener("pageshow", () => {
     busy = false;
+    invalidateUsername();
     form.inert = false;
     $("#auth-submit").disabled = false;
     $("#auth-submit").textContent = signup ? "회원가입" : "로그인";
@@ -99,6 +132,9 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (busy) return;
+    if (signup && checkedUsername !== username.value) {
+      message('아이디 중복확인을 해주세요.'); checkButton.focus(); return;
+    }
     if (signup && $("#password").value !== $("#password-confirm").value) {
       message("비밀번호 확인이 일치하지 않습니다.");
       $("#password-confirm").focus();
@@ -132,8 +168,10 @@
       if (!response.ok) {
         if (!signup && [400, 401].includes(response.status))
           message("아이디 또는 비밀번호가 올바르지 않습니다.");
-        else if (signup && response.status === 409)
-          message("이미 사용 중인 아이디 또는 이메일입니다.");
+        else if (signup && response.status === 409) {
+          invalidateUsername();
+          message("이미 사용 중인 아이디 또는 이메일입니다. 아이디 중복확인을 다시 해주세요.");
+        }
         else if (response.status === 400)
           message(
             "입력 내용을 확인해주세요. 아이디는 최대 100자, 비밀번호는 UTF-8 72바이트까지 가능합니다.",

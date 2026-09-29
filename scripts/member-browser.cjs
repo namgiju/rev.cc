@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '../assignment-frontend');
   const server=http.createServer(async (req,res) => {
     let pathname=new URL(req.url,'http://localhost').pathname;
     if (['/login','/signup'].includes(pathname)) pathname='/auth/index.html';
+    if (pathname==='/') {res.setHeader('Content-Type','text/html');res.end('<main>REV.CC main destination fixture</main>');return;}
     if (pathname==='/password-reset') pathname='/auth/reset.html';
     if (pathname==='/admin') pathname='/admin/index.html';
     const file=path.resolve(root,'.'+pathname);
@@ -22,11 +23,28 @@ const root = path.resolve(__dirname, '../assignment-frontend');
     for (const width of [1440,390]) {
       const page=await browser.newPage({viewport:{width,height:900}});
       const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+      let signupRequests=0;
       let member={id:7,username:'rev-driver',nickname:'드라이버',email:'member@example.test',joinedAt:null,status:'ACTIVE',role:'USER',suspendedUntil:null,kakaoOnly:false};
       await page.route('**/api/**',async route=>{
         const request=route.request(),url=new URL(request.url()),p=url.pathname;
         let data={};
-        if (p==='/api/board/me') data={id:1,username:'admin',role:'ADMIN'};
+        if (p==='/api/auth/check-username') {
+          if(url.searchParams.get('username')==='slow') await new Promise(r=>setTimeout(r,200));
+          data={available:url.searchParams.get('username')!=='taken'};
+        }
+        else if (p==='/api/auth/login' || p==='/api/auth/me') data={id:7,username:'rev-driver',role:'USER'};
+        else if (p==='/api/auth/signup') { signupRequests++; data={id:8}; }
+        else if (p==='/api/auth/password-reset/request') {
+          const username=request.postDataJSON().username;
+          if(username==='missing' || username==='mismatch' || username==='limited') {
+            const limited=username==='limited';
+            await route.fulfill({status:limited?429:400,contentType:'application/json',body:JSON.stringify({code:limited?'RATE_LIMITED':username==='missing'?'USERNAME_NOT_FOUND':'IDENTITY_MISMATCH',message:limited?'요청이 많습니다. 잠시 후 다시 시도해주세요.':username==='missing'?'등록되지 않은 아이디입니다.':'아이디와 이메일 정보가 일치하지 않습니다.'})});return;
+          }
+          assert.equal(username,'rev-driver');
+          assert.equal(request.postDataJSON().email,'member@example.test');
+          data={code:'CODE_SENT',message:'인증번호를 발송했습니다.'};
+        }
+        else if (p==='/api/board/me') data={id:1,username:'admin',role:'ADMIN'};
         else if (p==='/api/admin/members') data={items:[member],total:1,page:1,pageSize:20};
         else if (p==='/api/admin/members/7') {if(request.method()==='PATCH') member={...member,...request.postDataJSON()}; data=member;}
         else if (p.endsWith('/actions')) data=[{adminId:1,action:'UPDATE:NICKNAME',createdAt:new Date().toISOString()}];
@@ -38,8 +56,43 @@ const root = path.resolve(__dirname, '../assignment-frontend');
         else data={items:[],total:0,page:1,pageSize:20};
         await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
       });
+      await page.goto(base+'/signup');
+      await page.locator('#username').fill('new-member');
+      await page.locator('#password').fill('valid-password');
+      await page.locator('#password-confirm').fill('valid-password');
+      await page.locator('#terms').check(); await page.locator('#privacy').check();
+      await page.locator('#auth-submit').click();
+      assert.equal(signupRequests,0);
+      assert.match(await page.locator('#auth-message').textContent(),/중복확인/);
+      await page.locator('#check-username').click();
+      await page.locator('#username-status').filter({hasText:'사용 가능한'}).waitFor();
+      await page.locator('#username').fill('changed-member');
+      assert.equal(await page.locator('#username-status').textContent(),'');
+      await page.locator('#auth-submit').click(); assert.equal(signupRequests,0);
+      await page.locator('#username').fill('slow'); await page.locator('#check-username').click();
+      await page.locator('#username').fill('changed-while-checking');
+      await page.waitForTimeout(300);
+      assert.equal(await page.locator('#username-status').textContent(),'');
+      await page.locator('#username').fill('taken'); await page.locator('#check-username').click();
+      await page.locator('#username-status').filter({hasText:'이미 사용 중인'}).waitFor();
+      await page.locator('#auth-submit').click(); assert.equal(signupRequests,0);
+      await page.locator('#username').fill('new-member'); await page.locator('#check-username').click();
+      await page.locator('#username-status').filter({hasText:'사용 가능한'}).waitFor();
+      await page.locator('#auth-submit').click(); await page.waitForURL('**/login?**joined=1');
+      assert.equal(signupRequests,1);
       await page.goto(base+'/login');
+      assert.equal(await page.locator('#check-username').isVisible(),false);
       await page.getByRole('link',{name:'비밀번호를 잊으셨나요?'}).click();
+      for(const [username,message] of [['missing','등록되지 않은 아이디입니다.'],['mismatch','아이디와 이메일 정보가 일치하지 않습니다.'],['limited','요청이 많습니다. 잠시 후 다시 시도해주세요.']]) {
+        await page.locator('#reset-username').fill(username);
+        await page.locator('#reset-email').fill('member@example.test');
+        await page.locator('#email-form button').click();
+        await page.locator('#auth-message').filter({hasText:message}).waitFor();
+        assert.equal(await page.locator('#code-form').isVisible(),false);
+        assert.equal(await page.locator('#reset-username').evaluate(n=>n.readOnly),false);
+        assert.equal(await page.locator('#reset-email').evaluate(n=>n.readOnly),false);
+      }
+      await page.locator('#reset-username').fill('rev-driver');
       await page.locator('#reset-email').fill('member@example.test');
       await page.locator('#email-form button').click();
       await page.locator('#reset-code').fill('123456');
@@ -50,6 +103,10 @@ const root = path.resolve(__dirname, '../assignment-frontend');
       await page.locator('#password-form button').click();
       await page.waitForURL('**/login?reset=1');
       assert.match(await page.locator('#auth-message').textContent(),/비밀번호가 변경되었습니다/);
+      await page.locator('#username').fill('rev-driver');
+      await page.locator('#password').fill('new-password');
+      await page.locator('#auth-submit').click();
+      await page.waitForURL(base+'/');
       await page.goto(base+'/admin');
       await page.locator('button[data-panel="members"]').click();
       await page.getByRole('button',{name:'rev-driver',exact:true}).click();
@@ -63,6 +120,6 @@ const root = path.resolve(__dirname, '../assignment-frontend');
       assert.deepEqual(errors,[]);
       await page.close();
     }
-    console.log('PASS: desktop/mobile reset flow, member detail/save/email, no JS errors or page overflow');
+    console.log('PASS: desktop/mobile username checks, invalidation, stale response, signup guard, reset flow, member detail/save/email, no JS errors or page overflow');
   } finally {await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

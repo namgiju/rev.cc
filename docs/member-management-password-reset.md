@@ -18,22 +18,23 @@
 
 ## 사용자 재설정 흐름
 
-`/login`의 “비밀번호를 잊으셨나요?” → `/password-reset` → 이메일 입력 → 6자리 코드 발송 → 코드 검증 → 10분짜리 reset token 발급 → 새 비밀번호/확인 입력 → BCrypt 저장 및 세션 무효화 → `/login?reset=1`에서 “비밀번호가 변경되었습니다. 다시 로그인해주세요.” 표시.
+`/login`의 “비밀번호를 잊으셨나요?” → `/password-reset` → 아이디와 이메일 입력 → 6자리 코드 발송 → 코드 검증 → 10분짜리 reset token 발급 → 새 비밀번호/확인 입력 → BCrypt 저장 및 세션 무효화 → `/login?reset=1`에서 “비밀번호가 변경되었습니다. 다시 로그인해주세요.” 표시.
 
 인증번호는 SecureRandom으로 생성한다. Redis에는 이메일 및 코드의 HMAC 검증값을 사용하고, 재설정 토큰은 256비트 난수다. 코드 검증·삭제는 Lua로 원자 처리하고 토큰은 GETDEL로 한 번만 소모한다. DB 반영 전에 토큰을 소모하므로 DB 실패 시 새 인증이 필요하다. 서로 다른 유효 토큰의 동시 사용도 사용자 행 잠금과 auth_version 비교로 한 번만 비밀번호를 바꾼다. 비밀번호 정책은 기존 가입과 동일하게 공백만 입력 불가, 최대 255문자 및 UTF-8 72바이트다.
 
-SMTP 전송은 제한된 작업 큐(2 스레드/100 대기)에서 비동기로 처리하여 이메일 존재 여부에 따라 SMTP 응답 시간이 노출되지 않도록 했다. 공개 응답은 미등록·카카오 계정·일반 계정 모두 동일하다. 발송 요청 응답은 실제 수신 성공을 보장하지 않는다. SMTP 실패 시 수신자/본문/예외 원문 없이 공통 경고만 남긴다. 큐는 영속 큐가 아니므로 재시작 중 요청은 재발송이 필요할 수 있다.
+SMTP 전송은 제한된 작업 큐(2 스레드/100 대기)에서 비동기로 처리하여 이메일 존재 여부에 따라 SMTP 응답 시간이 노출되지 않도록 했다. 계정 확인 결과는 code/message로 구분하며, 실제 메일 전송 구조는 유지한다. 발송 요청 응답은 실제 수신 성공을 보장하지 않는다. SMTP 실패 시 수신자/본문/예외 원문 없이 고정 오류 분류, 예외 클래스명, 숫자 SMTP 상태 코드만 남긴다. 큐는 영속 큐가 아니므로 재시작 중 요청은 재발송이 필요할 수 있다.
 
 ## API
 
 | Method | Path | 내용 |
 |---|---|---|
+| GET | `/api/auth/check-username?username=...` | 실제 DB 중복확인, `{available}` 응답, 캐시 금지 |
 | GET | `/api/admin/members?q=&field=username&status=&page=1` | 검색/목록, field=username/nickname/email, pageSize=20 고정 |
 | GET | `/api/admin/members/{id}` | 회원 DTO, 비밀번호/해시 제외 |
 | PATCH | `/api/admin/members/{id}` | nickname, email, status, role, suspendedUntil(ISO-8601 또는 null) |
 | POST | `/api/admin/members/{id}/password-reset` | 관리자 재설정 메일 요청 |
 | GET | `/api/admin/members/{id}/actions` | 해당 회원 최근 감사 기록 50건 |
-| POST | `/api/auth/password-reset/request` | `{email}` |
+| POST | `/api/auth/password-reset/request` | `{username, email}`; 동일 회원일 때만 발송 |
 | POST | `/api/auth/password-reset/verify` | `{email, code}` → `{resetToken}` |
 | POST | `/api/auth/password-reset/complete` | `{token, password, confirm}` |
 
@@ -123,3 +124,32 @@ PLAYWRIGHT_MODULE=/외부/테스트용/node_modules/playwright node scripts/memb
 - board: src/app.js 및 테스트 fixture/세션 무효화 테스트.
 - Java 테스트: AuthControllerTest, AdminControllerTest, PasswordResetServiceTest, SharedSessionServiceTest, MemberFlowIntegrationTest, ResetMailServiceTest.
 - 브라우저: scripts/member-browser.cjs. 문서: 이 파일.
+
+## 아이디 중복확인 및 재설정 정보 일치 검증
+
+회원가입 화면에서 중복확인을 완료해야 제출할 수 있다. 아이디 입력 변경 시 즉시 무효화하며 조회 중 입력을 바꾸면 이전 응답을 무시한다. 서버는 기존 정책(공백만 입력 불가, 최대 100자, 대소문자 구분, 별도 문자 정규식 없음)을 유지한다. 조회에는 JPA existsByUsername을 사용하며 실제 가입 시의 사전 중복검사와 DB UNIQUE 제약도 유지한다. 중복확인 API는 기존 인증 rate limiter로 IP별 분당 10회 제한한다.
+
+재설정 요청은 username으로 회원을 조회한 후 정규화된 이메일을 대조한다. 없는 아이디는 HTTP 400/USERNAME_NOT_FOUND, 이메일 불일치는 HTTP 400/IDENTITY_MISMATCH, 카카오 전용 계정은 HTTP 400/SOCIAL_ACCOUNT를 반환한다. 일치한 일반 계정만 인증번호를 생성하며 HTTP 200/CODE_SENT와 “인증번호를 발송했습니다.”를 반환한다. 입력 형식 오류와 요청 제한 응답은 계정 존재 여부와 무관하게 적용한다. 관리자 재설정은 선택한 회원의 username과 email을 서버에서 전달한다. 검증/완료 API와 Redis 키·TTL·횟수 제한, SMTP 설정·안전 로그는 유지한다. 60초 재발송 대기 중에는 발송 성공으로 응답하지 않고 HTTP 429/RATE_LIMITED를 반환한다. 잘못된 계정 정보는 요청 횟수 제한에는 반영하지만 인증번호·재발송 대기 키는 생성하지 않는다.
+
+추가 검증 결과: Java 62건(격리 PostgreSQL/Redis 포함) 모두 통과, Node 9건 통과, 1440px/390px 브라우저에서 미확인 제출 차단·입력 변경·늦은 응답 무시·중복 아이디·정상 가입·아이디+이메일 재설정 흐름 통과. 테스트에서 SMTP는 로컬 테스트 서버 또는 mock을 사용했으며 실제 Gmail 수신을 새로 실행하지 않았다. Neon 데이터와 SMTP 환경변수는 이 변경에서 수정하지 않았다.
+
+### 계정 확인 UX 응답
+
+`POST /api/auth/password-reset/request`는 `{code, message}`를 반환한다.
+
+| HTTP | code | message |
+|---|---|---|
+| 400 | USERNAME_NOT_FOUND | 등록되지 않은 아이디입니다. |
+| 400 | IDENTITY_MISMATCH | 아이디와 이메일 정보가 일치하지 않습니다. |
+| 200 | CODE_SENT | 인증번호를 발송했습니다. |
+| 429 | RATE_LIMITED | 요청이 많습니다. 잠시 후 다시 시도해주세요. |
+| 400 | SOCIAL_ACCOUNT | 카카오 계정은 카카오 로그인을 이용해주세요. |
+| 503 | MAIL_UNAVAILABLE | 메일 발송 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요. |
+
+프론트는 CODE_SENT일 때만 입력값을 잠그고 인증번호 입력 단계를 연다. 정보 오류나 요청 제한일 때는 해당 서버 메시지를 표시하고 수정 가능한 계정 입력 단계에 머문다. 이메일만 조회하는 API는 추가하지 않는다. CODE_SENT는 기존 비동기 SMTP 전송 요청이 접수되었다는 뜻이며 최종 수신 성공까지 보장하지 않는다. 실제 SMTP 실패는 기존 안전 로그로 확인한다.
+
+## 로그인 성공 후 목적지
+
+일반 로그인 및 비밀번호 재설정 후 로그인은 기본적으로 `/`로 이동한다. 관리자 일반 로그인에도 같은 기본값을 사용한다. `/home`의 로그인 링크처럼 명시적으로 전달된 `next`가 있으면 기존 허용 목록의 동일 출처 내부 경로로 복귀하고 쿼리/해시를 보존한다. 외부 URL, `//` URL, 역슬래시/제어문자, 허용되지 않은 경로는 `/`로 처리한다. 카카오 OAuth 콜백·세션 생성 구조는 변경하지 않는다.
+
+`scripts/login-redirect-browser.cjs`는 실제 auth/site-nav/home 자산과 격리 API fixture를 사용해 일반·재설정 후·관리자 로그인, 실제 차고의 로그인 링크 복귀, 실패 로그인, 외부 이동 차단을 데스크톱/모바일에서 검증한다. `scripts/member-browser.cjs`도 재설정 완료부터 새 비밀번호 로그인 후 `/` 도착까지 확인한다. 실제 세션 생성·무효화는 별도의 PostgreSQL/Redis 통합 테스트로 검증한다.

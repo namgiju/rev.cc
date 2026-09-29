@@ -1,11 +1,11 @@
-# Gmail SMTP 실제 E2E 진행 상태
+# Gmail SMTP 설정 및 E2E 검증 기록
 
 Neon 마이그레이션 및 기존 회원 32명 보존은 사용자 확인 완료 상태다. 이번 SMTP 점검에서는 DB 변경/마이그레이션/기존 회원 수정 없이 진행했다.
 
-## 현재 확인
+## 초기 설정 점검 기록
 
 - application.yml → Compose core environment → 실행 중 core에 SMTP/재설정 변수 9개가 연결되어 있다. 비밀값을 출력하지 않고 일치 여부만 비교했다.
-- 현재 SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM, PASSWORD_RESET_SECRET은 비어 있다. 실제 Gmail 발송/E2E는 아직 완료되지 않았다.
+- 초기 점검 당시 SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM, PASSWORD_RESET_SECRET이 비어 있었으며, 이후 로컬 설정을 완료했다.
 - core의 DB URL은 Neon을 유지한다. DB/Redis/Kakao/세션 설정은 변경하지 않았다.
 - Docker 7개 컨테이너 healthy 확인.
 - 프론트 정식 경로는 http://localhost:8090/password-reset 이다. /auth/reset.html도 파일 경로지만 설정에는 정식 경로를 사용한다.
@@ -34,7 +34,7 @@ PASSWORD_RESET_URL=http://localhost:8090/password-reset
 - Google 앱 비밀번호: https://support.google.com/accounts/answer/185833
 - Gmail SMTP/STARTTLS 587: https://support.google.com/mail/answer/7104828
 
-입력 후 비밀값을 공유하지 않고 “설정 완료”만 알려주면 된다. 기존 회원을 변경하지 않는 조건을 지키기 위해 다음 단계는 수신 가능한 주소를 사용하는 새 전용 테스트 회원으로 진행한다. 테스트 회원의 비밀번호/상태만 변경하며 회원을 삭제하지 않는다.
+새 환경에서는 입력 후 비밀값을 공유하지 않고 설정 완료 여부만 확인한다. 기존 회원을 변경하지 않는 조건을 지키기 위해 다음 단계는 수신 가능한 주소를 사용하는 새 전용 테스트 회원으로 진행한다. 테스트 회원의 비밀번호/상태만 변경하며 회원을 삭제하지 않는다.
 
 ## 설정 후 검증 순서
 
@@ -49,3 +49,25 @@ PASSWORD_RESET_URL=http://localhost:8090/password-reset
 9. 최종 Git 상태/커밋 대상/제외 파일/결과를 보고한다. 자동 commit/push 하지 않는다.
 
 실제 수신 및 비밀번호 변경 완료 전에는 전체 E2E 성공으로 보고하지 않는다.
+
+## SMTP 실패 진단 보강
+
+후속 점검에서 실행 컨테이너와 Compose 모두 SMTP_HOST=localhost, SMTP_FROM 미설정을 확인했다. 로컬 .env의 두 항목만 Gmail 호스트와 기존 SMTP_USERNAME에 맞춰 보정했다. 앱 비밀번호, 재설정 secret, Neon/Kakao 설정은 변경하지 않았다.
+
+ResetMailService는 이제 예외 원문이나 스택 트레이스를 출력하지 않고 다음 항목만 기록한다.
+
+- category: SMTP_AUTHENTICATION_FAILED, SMTP_CONNECTION_FAILED, SMTP_DNS_FAILED, SMTP_TIMEOUT, SMTP_TLS_FAILED, SENDER_REJECTED, RECIPIENT_REJECTED, SMTP_SEND_FAILED, MESSAGE_CONFIGURATION_INVALID, MAIL_FAILURE, UNEXPECTED_MAIL_FAILURE.
+- exceptions: 발생한 예외 클래스명. cause와 Jakarta Mail nextException, MailSendException의 개별 실패 예외도 확인한다.
+- smtpStatus: SMTP 숫자 코드 및 enhanced status만 추출(예: 535/5.7.8). 확인할 수 없으면 unavailable.
+
+비밀번호 재설정을 다시 요청한 후 다음 명령으로 이 서비스의 진단 줄만 확인할 수 있다.
+
+```sh
+docker compose logs --since=5m core | grep 'Password reset email delivery failed:'
+```
+
+메일 본문, 수신자/발신자 주소, 인증정보, 코드, 토큰, 실패 메시지 객체는 출력하지 않는다. JavaMail debug를 켜서 진단하지 않는다. 설정 보정은 실제 Gmail 인증 성공이나 메일 수신 성공을 의미하지 않으며, 실제 재시도로 확인해야 한다.
+
+## 최종 사용자 확인
+
+사용자가 최신 username + email 계정 확인 흐름에서 실제 Gmail 수신·인증번호 검증·비밀번호 변경까지 성공했다고 확인했다. 이후 변경은 일반 로그인 기본 목적지를 `/`로 바꾸는 작업이며 SMTP 환경변수·발송 구조는 변경하지 않았다. 비밀번호 변경 후 로그인도 기본 목적지는 `/`이고, 명시된 안전한 `next` 경로는 유지한다.
