@@ -82,8 +82,8 @@ public class PasswordResetService {
     }
     @Transactional
     public void reset(String token, String password, String confirm) {
-        if (password == null || password.isBlank() || password.length()>255 || password.getBytes(StandardCharsets.UTF_8).length>72 || !password.equals(confirm))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호 확인과 UTF-8 72바이트 제한을 확인해주세요.");
+        if (password == null || password.isBlank() || password.length()<AuthController.MIN_PASSWORD_LENGTH || password.length()>255 || password.getBytes(StandardCharsets.UTF_8).length>72 || !password.equals(confirm))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호는 8자 이상, UTF-8 72바이트 이하이며 확인 값과 같아야 합니다.");
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) throw invalid();
         // Atomic GETDEL consumes the capability even if the subsequent DB operation fails: fail closed.
         String payload=redis.opsForValue().getAndDelete("password-reset-token:"+digest(token));

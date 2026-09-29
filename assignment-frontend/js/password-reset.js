@@ -32,7 +32,7 @@
   });
   bind('#password-form', async () => {
     const password = $('#new-password').value, confirm = $('#new-confirm').value;
-    if (!password.trim() || password !== confirm || new TextEncoder().encode(password).length > 72) throw new Error('비밀번호 확인과 UTF-8 72바이트 제한을 확인해주세요.');
+    if (!password.trim() || password.length < 8 || password !== confirm || new TextEncoder().encode(password).length > 72) throw new Error('비밀번호는 8자 이상, UTF-8 72바이트 이하이며 확인 값과 같아야 합니다.');
     await post('complete', {token, password, confirm}); token = ''; $('#password-form').reset(); location.replace('/login?reset=1');
   });
   window.addEventListener('pagehide', () => { token = ''; document.querySelectorAll('form').forEach(f => f.reset()); });

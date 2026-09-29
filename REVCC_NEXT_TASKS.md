@@ -77,7 +77,7 @@
 ## 4. 다음 작업 순서
 
 ```
-[ ] STEP 1: P1-1 비밀번호 최소 길이 + P1-2 요청 body 크기 제한 + P1-5 운영 배포 문서 수정
+[x] STEP 1: P1-1 비밀번호 최소 길이 + P1-2 요청 body 크기 제한 + P1-5 운영 배포 문서 수정
 [ ] STEP 2: P1-4 부품장터 관리자 모더레이션 + P1-6 admin/market 인가 테스트
 [ ] STEP 3: P1-7 GitHub Actions CI
 [ ] STEP 4: P1-3 Flyway/Liquibase 기반 DB migration 정리
@@ -233,7 +233,10 @@
 
 ### 발견된 추가 이슈 (STEP 범위 밖에서 발견된 것들 — 기록만, 수정 금지)
 
-_(아직 없음. 작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로 추가할 것.)_
+_(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로 추가할 것.)_
+
+- STEP 1 — `frontend/components/garage/garage-session.tsx`: Next.js "My Garage" 프로토타입 가입 폼에는 8자 최소 길이 클라이언트 검증이 없다(서버가 400으로 거부하지만 안내 문구가 없음). 기본 compose 미포함 프로토타입이라 수정하지 않음.
+- STEP 1 — 테스트 환경: Windows 개발 PC에는 Java/Maven/Node가 설치되어 있지 않아 `maven:3.9.9-eclipse-temurin-23`, `node:22-alpine` 컨테이너로 테스트를 실행했다(Dockerfile과 같은 버전). STEP 3 CI에서도 같은 버전을 쓰면 된다.
 
 ---
 

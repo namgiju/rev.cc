@@ -140,6 +140,11 @@
       $("#password-confirm").focus();
       return;
     }
+    if (signup && $("#password").value.length < 8) {
+      message("비밀번호는 8자 이상으로 입력해주세요.");
+      $("#password").focus();
+      return;
+    }
     if (signup && new TextEncoder().encode($("#password").value).length > 72) {
       message("비밀번호는 UTF-8 72바이트 이하로 입력해주세요.");
       return;
@@ -174,7 +179,7 @@
         }
         else if (response.status === 400)
           message(
-            "입력 내용을 확인해주세요. 아이디는 최대 100자, 비밀번호는 UTF-8 72바이트까지 가능합니다.",
+            "입력 내용을 확인해주세요. 아이디는 최대 100자, 비밀번호는 8자 이상 UTF-8 72바이트까지 가능합니다.",
           );
         else message("요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.");
         return;

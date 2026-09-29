@@ -65,6 +65,21 @@ class PasswordResetRequestTest {
         request("owner","owner@example.test",503,"MAIL_UNAVAILABLE","메일 발송 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.");
         verify(redis).delete(startsWith("password-reset:"));
     }
+    @Test void completeRejectsShortPasswordWithoutConsumingToken() throws Exception {
+        String token="A".repeat(43);
+        mvc.perform(post("/api/auth/password-reset/complete").contentType("application/json")
+            .content("{\"token\":\""+token+"\",\"password\":\"a\",\"confirm\":\"a\"}")).andExpect(status().isBadRequest());
+        verify(values,never()).getAndDelete(anyString());
+        verifyNoInteractions(users);
+    }
+    @Test void oversizedBodyIsRejectedBeforeController() throws Exception {
+        MockMvc limited=MockMvcBuilders.standaloneSetup(new PasswordResetController(mock(PasswordResetService.class)))
+            .addFilter(new BodySizeLimitFilter(64*1024,5*1024*1024),"/api/*").build();
+        String huge="{\"username\":\"owner\",\"email\":\""+"a".repeat(70*1024)+"@example.test\"}";
+        limited.perform(post("/api/auth/password-reset/request").contentType("application/json").content(huge))
+            .andExpect(status().isPayloadTooLarge());
+        verifyNoInteractions(users,mail);
+    }
     void request(String username,String email,int expectedStatus,String code,String message) throws Exception {
         mvc.perform(post("/api/auth/password-reset/request").contentType("application/json").content("{\"username\":\""+username+"\",\"email\":\""+email+"\"}"))
             .andExpect(status().is(expectedStatus)).andExpect(jsonPath("$.code").value(code)).andExpect(jsonPath("$.message").value(message));

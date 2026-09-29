@@ -3,6 +3,9 @@ server:
   # nginx가 X-Forwarded-For로 실제 클라이언트 IP를 전달하므로 request.getRemoteAddr()에 반영한다
   # (rate limit이 프록시 IP 하나로 뭉치지 않고 클라이언트별로 정확히 적용되기 위해 필요하다).
   forward-headers-strategy: framework
+  tomcat:
+    # form 요청 본문 상한. 이 API는 JSON만 받으므로 작게 둔다(JSON 본문은 app.request에서 제한).
+    max-http-form-post-size: 64KB
 spring:
   mail:
     host: ${SMTP_HOST:localhost}
@@ -31,6 +34,11 @@ spring:
       port: 6379
 # Spring Session의 Java 직렬화 대신 Express도 읽을 수 있는 JSON 계약을 사용한다.
 app:
+  request:
+    # JSON 본문 상한(BodySizeLimitFilter). 초과하면 역직렬화 전에 413으로 거부한다.
+    max-body-size: 64KB
+    # 차량 인증서류 업로드 전용 상한: base64 최대 4.2MB + JSON 여유분, nginx client_max_body_size(5m)와 동일.
+    max-upload-size: 5MB
   password-reset:
     secret: ${PASSWORD_RESET_SECRET:}
   mail:

@@ -45,7 +45,7 @@ class PasswordResetServiceTest {
         service.reset(token,"new-password","new-password");
         assertTrue(new BCryptPasswordEncoder().matches("new-password",user.getPassword()));
         assertEquals(1,user.getAuthVersion());
-        assertThrows(ResponseStatusException.class,()->service.reset(token,"another","another"));
+        assertThrows(ResponseStatusException.class,()->service.reset(token,"another-password","another-password"));
     }
     @Test void failuresLimitedToFiveEvenWithCorrectSixthAttempt() {
         service.request("tester",email,email);
@@ -73,7 +73,7 @@ class PasswordResetServiceTest {
         String token=requestAndVerify();
         assertThrows(ResponseStatusException.class,()->service.reset(token,"a","b"));
         user.invalidateSessions();
-        assertThrows(ResponseStatusException.class,()->service.reset(token,"valid","valid"));
+        assertThrows(ResponseStatusException.class,()->service.reset(token,"valid-password","valid-password"));
         assertEquals("old",user.getPassword());
     }
     @Test void ttlAndHashedValuesAndExpiry() throws Exception {
@@ -90,7 +90,7 @@ class PasswordResetServiceTest {
         String tokenKey="password-reset-token:"+HexFormat.of().formatHex(mac.doFinal(token.getBytes()));
         assertTrue(redis.getExpire(tokenKey)>590 && redis.getExpire(tokenKey)<=600);
         redis.expire(tokenKey,Duration.ofMillis(1)); Thread.sleep(20);
-        assertThrows(ResponseStatusException.class,()->service.reset(token,"valid","valid"));
+        assertThrows(ResponseStatusException.class,()->service.reset(token,"valid-password","valid-password"));
         redis.opsForValue().set(key,"expired",Duration.ofMillis(1)); Thread.sleep(20);
         assertThrows(ResponseStatusException.class,()->service.verify(email,code.get(),email));
     }

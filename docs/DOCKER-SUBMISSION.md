@@ -48,6 +48,32 @@ docker compose up -d --wait
 
 접속: http://localhost:8090. 다른 포트는 `REVCC_PORT=8091`로 지정한다.
 
+### 운영 배포 (docker-compose.prod.yml)
+
+위의 `docker compose up -d --build --wait`는 **로컬 개발용**이다. `-f` 없이 실행하면 Compose가
+`docker-compose.override.yml`(로컬 HTML 직접 마운트)을 자동으로 병합하고,
+`docker-compose.prod.yml`의 운영 하드닝은 전혀 적용되지 않는다.
+운영 서버에서는 반드시 파일을 명시해 override가 병합되지 않게 한다:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
+```
+
+prod 오버레이가 적용하는 것:
+
+- `POSTGRES_PASSWORD`, `KAKAO_REDIRECT_URI`가 없으면 기동 자체가 실패한다(로컬 기본값 `revcc`, `localhost:8090` 콜백 차단).
+- core가 `SPRING_PROFILES_ACTIVE=prod`로 실행되어 세션 쿠키가 항상 `Secure`로 나간다.
+  따라서 앞단(Cloudflare 등)에서 HTTPS로 종단해야 로그인이 동작한다.
+
+적용 여부는 실행 전에 병합 결과로 확인할 수 있다:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config | grep -E 'SPRING_PROFILES_ACTIVE|KAKAO_REDIRECT_URI'
+```
+
+`-f docker-compose.yml -f docker-compose.prod.yml`로 올렸다면 이후 `ps`, `logs`, `down` 등도
+같은 `-f` 조합으로 실행해야 같은 설정을 대상으로 한다.
+
 ## 3. 컨테이너·네트워크·내부 확인
 
 ```sh

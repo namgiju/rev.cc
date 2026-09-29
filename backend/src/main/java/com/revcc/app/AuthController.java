@@ -18,6 +18,7 @@ import java.util.UUID;
 @RequestMapping("/api/auth")
 public class AuthController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthController.class);
+    static final int MIN_PASSWORD_LENGTH = 8;
     private final UserRepository users;
     private final SharedSessionService sessions;
     private final KakaoOAuthService kakao;
@@ -42,6 +43,10 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody Credentials request) {
+        // 최소 길이는 새 비밀번호에만 적용한다. Credentials는 로그인과 공유하므로 @Size(min)을 걸면
+        // 짧은 비밀번호를 쓰는 기존(레거시 평문 포함) 계정이 로그인하지 못하게 된다.
+        if (request.password().length() < MIN_PASSWORD_LENGTH)
+            return ResponseEntity.badRequest().body(Map.of("message", "비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 합니다."));
         // BCrypt는 UTF-8 72바이트 제한이 있어 문자 수와 별도로 검사한다.
         if (request.password().getBytes(StandardCharsets.UTF_8).length > 72)
             return ResponseEntity.badRequest().body(Map.of("message", "비밀번호는 UTF-8 72바이트 이하여야 합니다."));

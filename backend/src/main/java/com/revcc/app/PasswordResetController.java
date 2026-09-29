@@ -13,7 +13,7 @@ public class PasswordResetController {
     public PasswordResetController(PasswordResetService resets) { this.resets=resets; }
     public record EmailRequest(@NotBlank @Size(max=100) String username, @NotBlank @Email @Size(max=254) String email) {}
     public record VerifyRequest(@NotBlank @Email @Size(max=254) String email, @NotNull @Pattern(regexp="[0-9]{6}") String code) { @Override public String toString() { return "VerifyRequest[redacted]"; } }
-    public record ResetRequest(@NotBlank @Size(max=43) String token, @NotBlank @Size(max=255) String password, @NotBlank @Size(max=255) String confirm) { @Override public String toString() { return "ResetRequest[redacted]"; } }
+    public record ResetRequest(@NotBlank @Size(max=43) String token, @NotBlank @Size(min=AuthController.MIN_PASSWORD_LENGTH, max=255) String password, @NotBlank @Size(max=255) String confirm) { @Override public String toString() { return "ResetRequest[redacted]"; } }
     @PostMapping("/request") public Map<String,String> request(@Valid @RequestBody EmailRequest body, HttpServletRequest request) {
         resets.request(body.username(), body.email(), request.getRemoteAddr()); return message();
     }

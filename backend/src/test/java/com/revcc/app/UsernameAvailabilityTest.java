@@ -28,11 +28,11 @@ class UsernameAvailabilityTest {
     }
     @Test void signupStillRejectsExistingUsername() throws Exception {
         when(users.existsByUsername("taken")).thenReturn(true);
-        mvc.perform(post("/api/auth/signup").contentType("application/json").content("{\"username\":\"taken\",\"password\":\"test\"}")).andExpect(status().isConflict());
+        mvc.perform(post("/api/auth/signup").contentType("application/json").content("{\"username\":\"taken\",\"password\":\"test-password\"}")).andExpect(status().isConflict());
         verify(users,never()).saveAndFlush(any());
     }
     @Test void uniqueConstraintRaceRemainsConflict() throws Exception {
         when(users.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("unique constraint"));
-        mvc.perform(post("/api/auth/signup").contentType("application/json").content("{\"username\":\"race\",\"password\":\"test\"}")).andExpect(status().isConflict());
+        mvc.perform(post("/api/auth/signup").contentType("application/json").content("{\"username\":\"race\",\"password\":\"test-password\"}")).andExpect(status().isConflict());
     }
 }

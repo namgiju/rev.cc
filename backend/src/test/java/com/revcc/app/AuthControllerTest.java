@@ -18,13 +18,30 @@ class AuthControllerTest {
     @Test void signupStoresHash() {
         when(users.saveAndFlush(any())).thenAnswer(call -> {
             User user = call.getArgument(0);
-            assertTrue(new BCryptPasswordEncoder().matches("secret", user.getPassword()));
+            assertTrue(new BCryptPasswordEncoder().matches("secret-pass", user.getPassword()));
             User saved = mock(User.class);
             when(saved.getId()).thenReturn(1L);
             when(saved.getUsername()).thenReturn(user.getUsername());
             return saved;
         });
-        assertEquals(201, controller.signup(new AuthController.Credentials("test", "secret")).getStatusCode().value());
+        assertEquals(201, controller.signup(new AuthController.Credentials("test", "secret-pass")).getStatusCode().value());
+    }
+
+    @Test void signupRejectsShortPasswordBeforeTouchingDb() {
+        var response = controller.signup(new AuthController.Credentials("test", "a"));
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(400, controller.signup(new AuthController.Credentials("test", "1234567")).getStatusCode().value());
+        verifyNoInteractions(users);
+    }
+
+    @Test void shortLegacyPasswordCanStillLogIn() {
+        // 최소 길이는 가입/재설정에만 적용한다. 짧은 기존 평문 비밀번호도 로그인 후 BCrypt로 이전된다.
+        User user = new User("test", "abc");
+        when(users.lockByUsername("test")).thenReturn(Optional.of(user));
+        when(sessions.create(user)).thenReturn("new-token");
+        when(sessions.cookie("new-token", false)).thenReturn("REVCC_SESSION=new-token");
+        assertEquals(200, controller.login(new AuthController.Credentials("test", "abc"), null).getStatusCode().value());
+        assertTrue(new BCryptPasswordEncoder().matches("abc", user.getPassword()));
     }
 
     @Test void legacyLoginUpgradesPasswordAndRotatesSession() {
