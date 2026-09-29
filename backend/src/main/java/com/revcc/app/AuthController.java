@@ -21,12 +21,14 @@ public class AuthController {
     private final UserRepository users;
     private final SharedSessionService sessions;
     private final KakaoOAuthService kakao;
+    private final KakaoStateService kakaoState;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder();
 
-    public AuthController(UserRepository users, SharedSessionService sessions, KakaoOAuthService kakao) {
+    public AuthController(UserRepository users, SharedSessionService sessions, KakaoOAuthService kakao, KakaoStateService kakaoState) {
         this.users = users;
         this.sessions = sessions;
         this.kakao = kakao;
+        this.kakaoState = kakaoState;
     }
 
     public record UsernameQuery(@NotBlank @Size(max = 100) String username) {}
@@ -89,26 +91,37 @@ public class AuthController {
 
     @GetMapping("/kakao/login")
     public ResponseEntity<?> kakaoLogin() {
-        return ResponseEntity.status(302).location(URI.create(kakao.authorizeUrl())).build();
+        String state = kakaoState.issue();
+        return ResponseEntity.status(302).location(URI.create(kakao.authorizeUrl(state)))
+            .header(HttpHeaders.SET_COOKIE, kakaoState.cookie(state)).build();
     }
 
     @org.springframework.transaction.annotation.Transactional
     @GetMapping("/kakao/callback")
-    public ResponseEntity<?> kakaoCallback(@RequestParam String code) {
+    public ResponseEntity<?> kakaoCallback(@RequestParam String code,
+            @RequestParam(required = false) String state,
+            @CookieValue(name = KakaoStateService.COOKIE, required = false) String stateCookie) {
+        // state 검증 실패(없음/불일치/만료/재사용)는 원인을 구분해 응답하지 않는다 — 토큰 재시도 힌트를 주지 않기 위함.
+        if (!kakaoState.verify(state, stateCookie))
+            return ResponseEntity.status(400).header(HttpHeaders.SET_COOKIE, kakaoState.clearCookie())
+                .body(Map.of("message", "로그인 요청이 만료되었거나 올바르지 않습니다. 다시 시도해 주세요."));
         try {
             KakaoOAuthService.KakaoUser info = kakao.exchange(code);
             // 닉네임은 바뀔 수 있으므로 카카오 ID로 같은 계정을 찾고, 처음이면 새로 만든다.
             User user = users.lockByKakaoId(info.id())
                 .map(existing -> refreshKakaoNickname(existing, info))
                 .orElseGet(() -> createKakaoUser(info));
-            if (user.isBlocked()) return ResponseEntity.status(403).body(Map.of("message", "이용할 수 없는 계정입니다."));
+            if (user.isBlocked()) return ResponseEntity.status(403).header(HttpHeaders.SET_COOKIE, kakaoState.clearCookie())
+                .body(Map.of("message", "이용할 수 없는 계정입니다."));
             String token = sessions.create(user);
             return ResponseEntity.status(302).location(URI.create("ADMIN".equals(user.getRole()) ? "/admin" : "/"))
-                .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false)).build();
+                .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false))
+                .header(HttpHeaders.SET_COOKIE, kakaoState.clearCookie()).build();
         } catch (Exception e) {
             log.warn("Kakao login failed: {}", e instanceof KakaoOAuthService.OAuthFailure
                 ? e.getMessage() : e.getClass().getSimpleName());
-            return ResponseEntity.status(502).body(Map.of("message", "카카오 로그인에 실패했습니다."));
+            return ResponseEntity.status(502).header(HttpHeaders.SET_COOKIE, kakaoState.clearCookie())
+                .body(Map.of("message", "카카오 로그인에 실패했습니다."));
         }
     }
 
