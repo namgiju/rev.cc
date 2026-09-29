@@ -1092,6 +1092,11 @@ textarea {
 .container.post-detail-wide{width:min(1500px,calc(100% - 64px))}
 .post-detail-layout{display:grid;grid-template-columns:270px minmax(0,1fr) 310px;gap:22px;align-items:start}
 .post-detail-layout>article{min-width:0}
+@media(max-width:900px){
+  .container.post-detail-wide{width:calc(100% - 40px)}
+  .post-detail-layout{grid-template-columns:1fr}
+  .post-detail-layout>article{order:-1}
+}
 .post-sidebar{display:grid;gap:16px;min-width:0;overflow-wrap:anywhere}
 .context-card{border:1px solid var(--line);border-radius:14px;padding:20px;background:#fff}
 .context-card h3,.author-badges h3{font-size:14px;margin:0 0 16px;color:var(--ink)}
