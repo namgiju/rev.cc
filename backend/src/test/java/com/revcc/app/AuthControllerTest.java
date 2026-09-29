@@ -42,7 +42,7 @@ class AuthControllerTest {
         verifyNoInteractions(sessions);
     }
 
-    @Test void kakaoUsesExistingSessionAndReturnsHomeForAdmin() throws Exception {
+    @Test void kakaoUsesExistingSessionAndReturnsAdminForAdmin() throws Exception {
         User admin = mock(User.class);
         when(admin.getRole()).thenReturn("ADMIN");
         when(admin.getUsername()).thenReturn("kakao-owner");
@@ -52,9 +52,21 @@ class AuthControllerTest {
         when(sessions.cookie("oauth-session", false)).thenReturn("REVCC_SESSION=oauth-session; HttpOnly");
         var response = controller.kakaoCallback("test-code");
         assertEquals(302, response.getStatusCode().value());
-        assertEquals("/home", response.getHeaders().getLocation().toString());
+        assertEquals("/admin", response.getHeaders().getLocation().toString());
         assertTrue(response.getHeaders().getFirst("Set-Cookie").contains("HttpOnly"));
         verify(sessions).create(admin);
+    }
+
+    @Test void kakaoRegularUserReturnsMainWithExistingSession() throws Exception {
+        User user=new User("kakao-member","hash",78L);
+        when(kakao.exchange("test-code")).thenReturn(new KakaoOAuthService.KakaoUser(78L,"kakao-member"));
+        when(users.lockByKakaoId(78L)).thenReturn(Optional.of(user));
+        when(sessions.create(user)).thenReturn("user-session");
+        when(sessions.cookie("user-session",false)).thenReturn("REVCC_SESSION=user-session; HttpOnly");
+        var response=controller.kakaoCallback("test-code");
+        assertEquals(302,response.getStatusCode().value());
+        assertEquals("/",response.getHeaders().getLocation().toString());
+        verify(sessions).create(user);
     }
 
     @Test void kakaoEntryReusesConfiguredAuthorizeUrl() {

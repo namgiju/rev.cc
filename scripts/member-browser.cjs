@@ -45,7 +45,8 @@ const root = path.resolve(__dirname, '../assignment-frontend');
           data={code:'CODE_SENT',message:'인증번호를 발송했습니다.'};
         }
         else if (p==='/api/board/me') data={id:1,username:'admin',role:'ADMIN'};
-        else if (p==='/api/admin/members') data={items:[member],total:1,page:1,pageSize:20};
+        else if (p==='/api/admin/members') data={items:[member,{...member,id:8,username:'rev-second'}],total:2,page:1,pageSize:20};
+        else if (p==='/api/admin/members/8') data={...member,id:8,username:'rev-second'};
         else if (p==='/api/admin/members/7') {if(request.method()==='PATCH') member={...member,...request.postDataJSON()}; data=member;}
         else if (p.endsWith('/actions')) data=[{adminId:1,action:'UPDATE:NICKNAME',createdAt:new Date().toISOString()}];
         else if (p.endsWith('/password-reset') || p.endsWith('/request')) data={message:'재설정 가능한 계정이면 인증번호를 발송했습니다.'};
@@ -117,6 +118,28 @@ const root = path.resolve(__dirname, '../assignment-frontend');
       await page.locator('#member-message').filter({hasText:'인증번호를 발송'}).waitFor();
       await page.screenshot({path:`/tmp/revcc-members-${width}.png`,fullPage:true});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'page should not overflow');
+      assert.equal(await page.locator('#member-form input[type="password"], #member-form input[name*="password" i]').count(),0);
+      assert.equal(await page.locator('#member-dialog').getAttribute('aria-modal'),'true');
+      assert.equal(await page.locator('#member-dialog').getAttribute('aria-labelledby'),'member-title');
+      await page.locator('#member-close').click();
+      await page.waitForFunction(()=>!document.querySelector('#member-dialog').open && selectedMember===null);
+      assert.equal(await page.locator('[data-member-id="7"]').evaluate(n=>document.activeElement===n),true);
+      for(const [id,method] of [[8,'overlay'],[7,'escape'],[8,'button']]) {
+        await page.locator(`[data-member-id="${id}"]`).click();
+        await page.locator('#member-dialog').waitFor({state:'visible'});
+        assert.match(await page.locator('#member-title').textContent(),new RegExp('#'+id));
+        await page.locator('#member-form [name="nickname"]').click();
+        assert.equal(await page.locator('#member-dialog').evaluate(n=>n.open),true);
+        const box=await page.locator('#member-dialog').boundingBox();
+        await page.mouse.click(box.x+box.width/2,box.y+10);
+        assert.equal(await page.locator('#member-dialog').evaluate(n=>n.open),true);
+        if(method==='overlay') await page.mouse.click(2,2);
+        else if(method==='escape') await page.keyboard.press('Escape');
+        else await page.locator('#member-close').click();
+        await page.waitForFunction(()=>!document.querySelector('#member-dialog').open && selectedMember===null);
+        assert.equal(await page.locator(`[data-member-id="${id}"]`).evaluate(n=>document.activeElement===n),true);
+        assert.equal(await page.locator('#member-form [name="nickname"]').inputValue(),'');
+      }
       assert.deepEqual(errors,[]);
       await page.close();
     }

@@ -42,10 +42,10 @@ const root=path.resolve(__dirname,'../assignment-frontend');
       const login=async(password='valid')=>{
         await page.locator('#username').fill('test-member');await page.locator('#password').fill(password);await page.locator('#auth-submit').click();
       };
-      const scenarios=[['/login','/','USER'],['/login?reset=1','/','USER'],['/login','/','ADMIN'],
+      const scenarios=[['/login','/','USER'],['/login?reset=1','/','USER'],['/login','/admin','ADMIN'],['/login?reset=1','/admin','ADMIN'],['/login?next=%2F','/','ADMIN'],['/login?next=%2Fadmin','/admin','ADMIN'],
         ['/login?next=%2Fhome','/home','USER'],['/login?next=%2Fhome','/home','ADMIN'],
         ['/login?next='+encodeURIComponent('/community?category=drive#write-post'),'/community?category=drive#write-post','USER']];
-      for(const unsafe of ['https://example.com','//example.com','/\\example.com','javascript:alert(1)','/%2Fexample.com','/unknown','/home\n']) scenarios.push(['/login?next='+encodeURIComponent(unsafe),'/','USER']);
+      for(const unsafe of ['https://example.com','//example.com','/\\example.com','javascript:alert(1)','/%2Fexample.com','/unknown','/home\n']) for(const r of ['USER','ADMIN']) scenarios.push(['/login?next='+encodeURIComponent(unsafe),r==='ADMIN'?'/admin':'/',r]);
       for(const [entry,destination,accountRole] of scenarios) {
         authenticated=false;role=accountRole;const before=sessionChecks;
         await page.goto(base+entry);await login();await page.waitForURL(base+destination);

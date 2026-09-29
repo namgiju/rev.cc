@@ -331,7 +331,7 @@ async function loadList(name) {
     root.replaceChildren();
     for (const item of result.items) {
       if (name === "members") {
-        const open = el('button', item.username, 'secondary'); open.addEventListener('click', () => openMember(item.id));
+        const open = el('button', item.username, 'secondary'); open.dataset.memberId = item.id; open.addEventListener('click', () => openMember(item.id, open));
         root.append(row([String(item.id),open,item.nickname || '—',item.email || '미등록',date(item.joinedAt),({ACTIVE:'정상',SUSPENDED:'이용 정지',DISABLED:'비활성'})[item.status] || item.status,item.role]));
       }
       else if (name === "posts")
@@ -422,42 +422,69 @@ window.addEventListener("focus", () => {
 
 let selectedMember = null;
 let memberBusy = false;
-async function memberActions(id) {
+let memberView = 0, memberOpener = null;
+async function memberActions(id, view = memberView) {
   const logs = await api(`/api/admin/members/${id}/actions`);
+  if (view !== memberView || !$('#member-dialog').open) return;
   $('#member-actions').replaceChildren(...logs.map(l => el('li', `${date(l.createdAt)} · 관리자 #${l.adminId} · ${l.action === 'PASSWORD_RESET_REQUEST' ? '비밀번호 재설정 메일 요청' : l.action.replace('UPDATE:', '회원 정보 변경: ').replace('NICKNAME', '닉네임').replace('EMAIL', '이메일').replace('ROLE', '권한').replace('STATUS', '상태')}`)));
 }
-async function openMember(id) {
+async function openMember(id, opener) {
+  const view = ++memberView; memberOpener = opener;
   try {
-    const item = await api(`/api/admin/members/${id}`); selectedMember = item;
+    const item = await api(`/api/admin/members/${id}`);
+    if (view !== memberView) return;
+    selectedMember = item;
     const f = $('#member-form'); f.reset(); f.elements.nickname.value = item.nickname || ''; f.elements.email.value = item.email || '';
     f.elements.status.value = item.status; f.elements.role.value = item.role;
     if (item.suspendedUntil) { const d = new Date(item.suspendedUntil); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); f.elements.suspendedUntil.value=d.toISOString().slice(0,16); }
     $('#member-title').textContent = `회원 #${item.id} · ${item.username}`;
     $('#member-message').textContent = item.kakaoOnly ? '카카오 전용 계정입니다.' : '';
     $('#member-reset').disabled = !item.email || item.kakaoOnly;
-    $('#member-dialog').showModal(); await memberActions(id);
-  } catch (e) { $('#notice').textContent=e.message; }
+    $('#member-dialog').showModal(); await memberActions(id, view);
+  } catch (e) { if (view === memberView) $('#notice').textContent=e.message; }
 }
 function setupMembers() {
-  $('#member-close').addEventListener('click', () => $('#member-dialog').close());
+  const dialog = $('#member-dialog');
+  let pointerOutside = false;
+  const outside = event => {
+    const r = dialog.getBoundingClientRect();
+    return event.target === dialog && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom);
+  };
+  $('#member-close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('pointerdown', event => { pointerOutside = outside(event); });
+  dialog.addEventListener('pointercancel', () => { pointerOutside = false; });
+  dialog.addEventListener('click', event => { if (pointerOutside && outside(event)) dialog.close(); pointerOutside = false; });
+  // Native dialog handles ESC, focus trapping, and backdrop. One close handler cleans every path.
+  dialog.addEventListener('close', () => {
+    const id = selectedMember?.id;
+    const opener = memberOpener?.isConnected ? memberOpener : document.querySelector(`[data-member-id="${id}"]`);
+    memberView++; selectedMember = null; memberBusy = false; memberOpener = null; pointerOutside = false;
+    $('#member-form').reset(); $('#member-message').textContent = ''; $('#member-actions').replaceChildren();
+    dialog.querySelectorAll('button').forEach(b => b.disabled = false); $('#member-reset').disabled = true;
+    if (opener?.getClientRects().length) opener.focus();
+  });
   const work = async action => {
     if (memberBusy || !selectedMember) return;
-    memberBusy=true; const id=selectedMember.id;
-    $('#member-dialog').querySelectorAll('button').forEach(b => b.disabled=true);
-    try { await action(id); } catch (e) { $('#member-message').textContent=e.message; }
-    finally { memberBusy=false; $('#member-dialog').querySelectorAll('button').forEach(b => b.disabled=false); $('#member-reset').disabled=!selectedMember.email || selectedMember.kakaoOnly; }
+    memberBusy=true; const id=selectedMember.id, view=memberView;
+    $('#member-dialog').querySelectorAll('button:not(#member-close)').forEach(b => b.disabled=true);
+    try { await action(id, view); } catch (e) { if (view === memberView) $('#member-message').textContent=e.message; }
+    finally { if (view === memberView) { memberBusy=false; $('#member-dialog').querySelectorAll('button').forEach(b => b.disabled=false); $('#member-reset').disabled=!selectedMember?.email || selectedMember?.kakaoOnly; } }
   };
   $('#member-form').addEventListener('submit', e => {
-    e.preventDefault(); void work(async id => {
+    e.preventDefault(); void work(async (id, view) => {
       const body=Object.fromEntries(new FormData(e.target));
       body.suspendedUntil=body.status === 'SUSPENDED' && body.suspendedUntil ? new Date(body.suspendedUntil).toISOString() : null;
-      selectedMember=await api(`/api/admin/members/${id}`,body,'PATCH');
+      const updated=await api(`/api/admin/members/${id}`,body,'PATCH');
+      await loadList('members');
+      if (view !== memberView) return;
+      selectedMember=updated;
       $('#member-message').textContent='저장했습니다. 기존 로그인 세션이 만료되었습니다.';
-      await Promise.all([loadList('members'),memberActions(id)]);
+      await memberActions(id, view);
     });
   });
-  $('#member-reset').addEventListener('click', () => void work(async id => {
+  $('#member-reset').addEventListener('click', () => void work(async (id, view) => {
     const result=await api(`/api/admin/members/${id}/password-reset`,{},'POST');
-    $('#member-message').textContent=result.message; await memberActions(id);
+    if (view !== memberView) return;
+    $('#member-message').textContent=result.message; await memberActions(id, view);
   }));
 }

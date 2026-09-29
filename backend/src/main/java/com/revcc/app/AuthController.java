@@ -103,7 +103,7 @@ public class AuthController {
                 .orElseGet(() -> createKakaoUser(info));
             if (user.isBlocked()) return ResponseEntity.status(403).body(Map.of("message", "이용할 수 없는 계정입니다."));
             String token = sessions.create(user);
-            return ResponseEntity.status(302).location(URI.create("/home"))
+            return ResponseEntity.status(302).location(URI.create("ADMIN".equals(user.getRole()) ? "/admin" : "/"))
                 .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false)).build();
         } catch (Exception e) {
             log.warn("Kakao login failed: {}", e instanceof KakaoOAuthService.OAuthFailure

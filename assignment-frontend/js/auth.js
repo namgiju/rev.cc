@@ -43,23 +43,23 @@
       value.startsWith("//") ||
       /[\\\x00-\x20]/.test(value)
     )
-      return "/";
+      return null;
     try {
       const u = new URL(value, location.origin);
       if (
         u.origin !== location.origin ||
-        !/^(?:\/|\/home\/?|\/parts\/?|\/garage\/?|\/community\/?|\/community\/(?:free|maintenance|parts|drive)\/[0-9]+)$/.test(
+        !/^(?:\/|\/home\/?|\/admin\/?|\/parts\/?|\/garage\/?|\/community\/?|\/community\/(?:free|maintenance|parts|drive)\/[0-9]+)$/.test(
           u.pathname,
         )
       )
-        return "/";
+        return null;
       return u.pathname + u.search + u.hash;
     } catch {
-      return "/";
+      return null;
     }
   }
   const next = safeReturn(new URLSearchParams(location.search).get("next"));
-  const route = (path) => path + "?" + new URLSearchParams({ next });
+  const route = (path) => next === null ? path : path + "?" + new URLSearchParams({ next });
   document.title = `REV.CC | ${signup ? "회원가입" : "로그인"}`;
   document
     .querySelectorAll(".signup-only")
@@ -181,7 +181,7 @@
       }
       await response.json();
       clearPasswords();
-      if (signup) location.replace(route("/login") + "&joined=1");
+      if (signup) location.replace(route("/login") + (next === null ? "?" : "&") + "joined=1");
       else {
         const me = await fetch("/api/auth/me", {
           credentials: "same-origin",
@@ -193,7 +193,8 @@
           );
           return;
         }
-        location.replace(next);
+        const user = await me.json();
+        location.replace(next ?? (user.role === "ADMIN" ? "/admin" : "/"));
       }
     } catch {
       message(

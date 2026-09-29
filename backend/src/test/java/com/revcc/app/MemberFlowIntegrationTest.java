@@ -78,9 +78,16 @@ class MemberFlowIntegrationTest {
         mvc.perform(get("/api/admin/members").cookie(first)).andExpect(status().isForbidden());
         var listed=json(mvc.perform(get("/api/admin/members").cookie(a).param("q",email).param("field","email")).andExpect(status().isOk()).andReturn());
         assertEquals(1,listed.get("total").asInt()); assertFalse(listed.toString().contains("password"));
+        String originalHash=member.getPassword();
+        var details=json(mvc.perform(get("/api/admin/members/"+member.getId()).cookie(a)).andExpect(status().isOk()).andReturn());
+        assertFalse(details.toString().contains(originalHash));
+        Set<String> memberFields=new HashSet<>();details.fieldNames().forEachRemaining(memberFields::add);
+        assertEquals(Set.of("id","username","nickname","email","joinedAt","status","role","suspendedUntil","kakaoOnly"),memberFields);
+        assertFalse(listed.toString().contains(originalHash));
         mvc.perform(patch("/api/admin/members/"+member.getId()).cookie(first).contentType("application/json").content(body(Map.of("status","ACTIVE","role","ADMIN")))).andExpect(status().isForbidden());
         mvc.perform(patch("/api/admin/members/"+admin.getId()).cookie(a).contentType("application/json").content(body(Map.of("status","ACTIVE","role","USER")))).andExpect(status().isConflict());
-        mvc.perform(patch("/api/admin/members/"+member.getId()).cookie(a).contentType("application/json").content(body(Map.of("nickname","닉네임","email",email,"status","ACTIVE","role","USER")))).andExpect(status().isOk());
+        mvc.perform(patch("/api/admin/members/"+member.getId()).cookie(a).contentType("application/json").content(body(Map.of("nickname","닉네임","email",email,"status","ACTIVE","role","USER","password","admin-cannot-set-this","passwordHash","admin-cannot-set-hash")))).andExpect(status().isOk());
+        assertEquals(originalHash,users.findById(member.getId()).orElseThrow().getPassword());
         mvc.perform(get("/api/auth/me").cookie(first)).andExpect(status().isUnauthorized());
         first=login(name,"before"); second=login(name,"before");
         AtomicReference<String> code=new AtomicReference<>();

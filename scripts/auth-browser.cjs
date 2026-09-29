@@ -64,7 +64,7 @@ let browser;
     fullPage: true,
   });
   await page.getByRole("link", { name: "회원가입 →", exact: true }).click();
-  await page.waitForURL("**/signup?next=*");
+  await page.waitForURL("**/signup*");
   await page.reload();
   await page.getByRole("heading", { name: "Join REV.CC" }).waitFor();
   await page.getByRole("link", { name: "로그인 →", exact: true }).click();
@@ -152,7 +152,7 @@ let browser;
       f.requestSubmit();
       f.requestSubmit();
     });
-    await page.waitForURL(base + "/");
+    await page.waitForURL(base + (role === "ADMIN" ? "/admin" : "/"));
     page.off("request", count);
     assert.equal(logins, 1);
     const me = await (await context.request.get(base + "/api/auth/me")).json();
@@ -218,7 +218,7 @@ let browser;
     await page.locator("#username").fill(username);
     await page.locator("#password").fill(password);
     await page.getByRole("button", { name: "로그인", exact: true }).click();
-    await page.waitForURL(base + "/");
+    await page.waitForURL(base + (role === "ADMIN" ? "/admin" : "/"));
     await request("/api/auth/logout", {});
   }
   for (const data of [
@@ -263,7 +263,7 @@ let browser;
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS auth: signup/duplicate/server validation/BCrypt, generic failures, USER/ADMIN default login -> main, /me parity, HttpOnly cookie, Redis TTL/rotation/revocation/isolation, logout, local return/editor resume/open redirect protection, navigation/reload/back, password toggle, duplicate submit, desktop/mobile, Kakao authorize endpoint.",
+    "PASS auth: signup/duplicate/server validation/BCrypt, generic failures, USER -> main / ADMIN -> admin, /me parity, HttpOnly cookie, Redis TTL/rotation/revocation/isolation, logout, local return/editor resume/open redirect protection, navigation/reload/back, password toggle, duplicate submit, desktop/mobile, Kakao authorize endpoint.",
   );
 })()
   .catch((e) => {

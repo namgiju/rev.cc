@@ -103,6 +103,8 @@ public class User {
         this.username = username;
     }
 
+    // Authentication can read the hash, but JSON serialization must never expose it.
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public String getPassword() {
         return password;
     }
