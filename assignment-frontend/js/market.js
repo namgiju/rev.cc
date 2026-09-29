@@ -375,6 +375,24 @@ window.partsMarket = (() => {
         link("로그인하기", "/login", "text-link"),
       );
     root.append(contact);
+    if (state.user?.role === "ADMIN" && state.user.id !== item.sellerId) {
+      // 커뮤니티 관리자 삭제와 같은 사유 입력 대화상자(app.js)를 쓴다.
+      const controls = el("div", "", "market-owner-actions");
+      controls.append(
+        button(
+          "관리자 삭제",
+          async () => {
+            if (!(await requestContentDeletion(`/api/parts/listings/${item.id}`, item.sellerId, "")))
+              return;
+            forget(item.id);
+            closeDetail();
+            await Promise.all([load(), popular()]);
+          },
+          "danger-text",
+        ),
+      );
+      root.append(controls);
+    }
     if (state.user?.id === item.sellerId) {
       const controls = el("div", "", "market-owner-actions");
       controls.append(

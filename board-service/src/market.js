@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { fail, text, positive, integer } from "./validation.js";
 import { validateOwnedImages } from "./owned-images.js";
+import { requireCurrentAdmin } from "./admin-access.js";
 const categories = [
   "wheels",
   "suspension",
@@ -28,6 +29,40 @@ const status = (value) => {
   return value;
 };
 const pattern = (value) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
+// 판매자 본인은 그대로 삭제하고, 타인의 매물은 현재 관리자만 사유를 남기고 삭제한다.
+// moderation.js의 커뮤니티 삭제와 같은 방식: 행 잠금 후 삭제 직전 원문을 moderation_logs에 남긴다.
+export async function deleteListing(db, user, id, reason) {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `SELECT l.id,l.seller_id,u.username,l.title,l.description,l.category
+       FROM parts_listings l JOIN users u ON u.id=l.seller_id WHERE l.id=$1 FOR UPDATE OF l`,
+      [id],
+    );
+    const target = rows[0];
+    if (!target) fail(404, "삭제되었거나 없는 매물입니다.");
+    if (Number(target.seller_id) !== user.id) {
+      if (user.role !== "ADMIN") fail(403, "본인 판매글만 삭제할 수 있어요.");
+      const admin = await requireCurrentAdmin(client, user);
+      const note = text(reason, 500);
+      await client.query(
+        `INSERT INTO moderation_logs
+        (action_type,category,post_id,post_title,target_id,target_author_id,target_author_username,original_content,reason,admin_id,admin_username)
+        VALUES('LISTING_DELETE',$1,$2,$3,$2,$4,$5,$6,$7,$8,$9)`,
+        [target.category, target.id, target.title, target.seller_id, target.username,
+         target.description, note, admin.id, admin.username],
+      );
+    }
+    await client.query("DELETE FROM parts_listings WHERE id=$1", [id]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 export function marketRouter({ db, auth }) {
   const router = Router();
   router.param("id", (req, res, next, id) => {
@@ -160,11 +195,7 @@ export function marketRouter({ db, auth }) {
     res.json({ ok: true });
   });
   router.delete("/:id", auth, async (req, res) => {
-    const { rowCount } = await db.query(
-      "DELETE FROM parts_listings WHERE id=$1 AND seller_id=$2",
-      [req.params.id, req.user.id],
-    );
-    if (!rowCount) fail(403, "본인 판매글만 삭제할 수 있어요.");
+    await deleteListing(db, req.user, req.params.id, req.body?.reason);
     res.json({ ok: true });
   });
   router.put("/:id/favorite", auth, async (req, res) => {

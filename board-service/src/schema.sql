@@ -132,10 +132,20 @@ CREATE INDEX IF NOT EXISTS parts_favorites_user ON parts_favorites(user_id,listi
 ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT false;
 CREATE TABLE IF NOT EXISTS moderation_logs (
  id BIGSERIAL PRIMARY KEY,
- action_type VARCHAR(20) NOT NULL CHECK(action_type IN ('POST_DELETE','COMMENT_DELETE','REPLY_DELETE')),
+ action_type VARCHAR(20) NOT NULL CHECK(action_type IN ('POST_DELETE','COMMENT_DELETE','REPLY_DELETE','LISTING_DELETE')),
  category VARCHAR(20) NOT NULL, post_id INTEGER NOT NULL, post_title VARCHAR(150) NOT NULL,
  target_id INTEGER NOT NULL, target_author_id BIGINT NOT NULL, target_author_username TEXT NOT NULL,
  original_content TEXT NOT NULL, reason VARCHAR(500) NOT NULL CHECK(length(btrim(reason))>0),
  admin_id BIGINT NOT NULL, admin_username TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- 부품 매물 관리자 삭제(LISTING_DELETE): post_id/target_id는 매물 id, post_title은 매물 제목,
+-- category는 부품 카테고리, original_content는 매물 설명이다. 기존 DB는 제약을 한 번만 교체한다.
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='moderation_logs'::regclass
+   AND conname='moderation_logs_action_type_check' AND pg_get_constraintdef(oid) LIKE '%LISTING_DELETE%') THEN
+  ALTER TABLE moderation_logs DROP CONSTRAINT IF EXISTS moderation_logs_action_type_check;
+  ALTER TABLE moderation_logs ADD CONSTRAINT moderation_logs_action_type_check
+   CHECK(action_type IN ('POST_DELETE','COMMENT_DELETE','REPLY_DELETE','LISTING_DELETE'));
+ END IF;
+END $$;
 COMMIT;

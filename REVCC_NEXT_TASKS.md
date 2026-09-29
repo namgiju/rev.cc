@@ -78,7 +78,7 @@
 
 ```
 [x] STEP 1: P1-1 비밀번호 최소 길이 + P1-2 요청 body 크기 제한 + P1-5 운영 배포 문서 수정
-[ ] STEP 2: P1-4 부품장터 관리자 모더레이션 + P1-6 admin/market 인가 테스트
+[x] STEP 2: P1-4 부품장터 관리자 모더레이션 + P1-6 admin/market 인가 테스트
 [ ] STEP 3: P1-7 GitHub Actions CI
 [ ] STEP 4: P1-3 Flyway/Liquibase 기반 DB migration 정리
 [ ] STEP 5+: P2/P3 (P1 전부 완료 후, 이 파일에 STEP을 추가로 정의해서 진행)
@@ -237,6 +237,9 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 
 - STEP 1 — `frontend/components/garage/garage-session.tsx`: Next.js "My Garage" 프로토타입 가입 폼에는 8자 최소 길이 클라이언트 검증이 없다(서버가 400으로 거부하지만 안내 문구가 없음). 기본 compose 미포함 프로토타입이라 수정하지 않음.
 - STEP 1 — 테스트 환경: Windows 개발 PC에는 Java/Maven/Node가 설치되어 있지 않아 `maven:3.9.9-eclipse-temurin-23`, `node:22-alpine` 컨테이너로 테스트를 실행했다(Dockerfile과 같은 버전). STEP 3 CI에서도 같은 버전을 쓰면 된다.
+- STEP 2 — `board-service/src/schema.sql`: `moderation_logs.action_type` CHECK 제약에 `LISTING_DELETE`를 추가했다(기존 DB는 board-service 기동 시 1회 교체, 임시 PostgreSQL에서 기존 로그 보존·재적용 무변화·잘못된 값 거부 확인). 공유 Neon DB에는 board-service가 새 코드로 처음 재기동될 때 적용된다. 이전 코드와도 호환된다(허용 값만 늘어남).
+- STEP 2 — `assignment-frontend/js/admin.js` 운영 로그 탭: 매물 삭제 로그의 카테고리는 부품 카테고리 키(`brakes` 등)가 그대로 표시된다(커뮤니티 카테고리 이름표만 있음). 기능 영향 없음, 표시 개선만 필요.
+- STEP 2 — `board-service/src/market.js`: 관리자 매물 삭제는 소프트 삭제가 아니라 실제 삭제다(관심 목록은 CASCADE로 함께 삭제). 원문(제목·설명·판매자)은 `moderation_logs`에 스냅샷으로 남는다. 이미지(`image_ids`)는 로그에 남지 않는다.
 
 ---
 

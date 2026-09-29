@@ -348,7 +348,7 @@ async function loadList(name) {
         const source = el('details'), body = el('p', item.original_content, 'detail-text');
         source.append(el('summary', '삭제 당시 원문'), body);
         const reason = el('div'); reason.append(el('p', item.reason), source);
-        const action = {POST_DELETE:'게시글', COMMENT_DELETE:'댓글', REPLY_DELETE:'답글'}[item.action_type];
+        const action = {POST_DELETE:'게시글', COMMENT_DELETE:'댓글', REPLY_DELETE:'답글', LISTING_DELETE:'부품 매물'}[item.action_type];
         root.append(row([
           date(item.created_at) + ' · ' + item.admin_username,
           (categories[item.category] || item.category) + ' > ' + item.post_title + ' (#' + item.post_id + ')',
