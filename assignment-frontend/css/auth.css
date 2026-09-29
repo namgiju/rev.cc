@@ -50,20 +50,20 @@
   line-height: 1.85;
   margin: 0 0 34px;
 }
-#auth-form > label,
+.auth-content form > label,
 .signup-only > label {
   display: block;
   font-size: 12px;
   font-weight: 650;
   margin: 22px 0 8px;
 }
-#auth-form input:not([type="checkbox"]) {
+.auth-content form input:not([type="checkbox"]) {
   height: 48px;
   background: #fafbfc;
   border-color: #e4e8ed;
   font-size: 13px;
 }
-#auth-form input:focus-visible {
+.auth-content form input:focus-visible {
   outline: 2px solid #347ac1;
   outline-offset: 2px;
 }

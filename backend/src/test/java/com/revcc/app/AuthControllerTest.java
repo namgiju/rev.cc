@@ -27,7 +27,7 @@ class AuthControllerTest {
 
     @Test void legacyLoginUpgradesPasswordAndRotatesSession() {
         User user = new User("test", "legacy");
-        when(users.findByUsername("test")).thenReturn(Optional.of(user));
+        when(users.lockByUsername("test")).thenReturn(Optional.of(user));
         when(sessions.create(user)).thenReturn("new-token");
         when(sessions.cookie("new-token", false)).thenReturn("REVCC_SESSION=new-token");
         assertEquals(200, controller.login(new AuthController.Credentials("test", "legacy"), "old-token").getStatusCode().value());
@@ -37,7 +37,7 @@ class AuthControllerTest {
     }
 
     @Test void wrongPasswordNeverCreatesSession() {
-        when(users.findByUsername("test")).thenReturn(Optional.of(new User("test", "secret")));
+        when(users.lockByUsername("test")).thenReturn(Optional.of(new User("test", "secret")));
         assertEquals(401, controller.login(new AuthController.Credentials("test", "wrong"), null).getStatusCode().value());
         verifyNoInteractions(sessions);
     }
@@ -47,7 +47,7 @@ class AuthControllerTest {
         when(admin.getRole()).thenReturn("ADMIN");
         when(admin.getUsername()).thenReturn("kakao-owner");
         when(kakao.exchange("test-code")).thenReturn(new KakaoOAuthService.KakaoUser(77L, "kakao-owner"));
-        when(users.findByKakaoId(77L)).thenReturn(Optional.of(admin));
+        when(users.lockByKakaoId(77L)).thenReturn(Optional.of(admin));
         when(sessions.create(admin)).thenReturn("oauth-session");
         when(sessions.cookie("oauth-session", false)).thenReturn("REVCC_SESSION=oauth-session; HttpOnly");
         var response = controller.kakaoCallback("test-code");
@@ -65,7 +65,7 @@ class AuthControllerTest {
     }
 
     @Test void unknownAccountAndWrongPasswordHaveSameMessage() {
-        when(users.findByUsername("known")).thenReturn(Optional.of(new User("known", "secret")));
+        when(users.lockByUsername("known")).thenReturn(Optional.of(new User("known", "secret")));
         assertEquals(controller.login(new AuthController.Credentials("known", "wrong"), null).getBody(),
             controller.login(new AuthController.Credentials("unknown", "wrong"), null).getBody());
         verifyNoInteractions(sessions);

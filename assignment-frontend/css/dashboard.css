@@ -612,3 +612,12 @@
 .admin-panel .feed-controls > .rev-dd { flex: 0 1 180px; }
 .admin-panel .activity-actions { margin-top: 18px; }
 .admin-table td { overflow-wrap: anywhere; }
+
+/* Keep the existing admin cards and table usable on narrow screens. */
+.admin-shell > div { min-width: 0; }
+.admin-panel { overflow-x: auto; }
+#member-dialog { width: min(560px, calc(100% - 32px)); max-height: 90vh; overflow-y: auto; border: 1px solid var(--border, #ddd); border-radius: 16px; padding: 24px; }
+#member-form { display: grid; gap: 12px; }
+#member-form input, #member-form select { width: 100%; box-sizing: border-box; }
+#member-reset { margin-top: 20px; }
+#member-actions { padding-left: 20px; font-size: 13px; }

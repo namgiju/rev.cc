@@ -16,6 +16,7 @@ async function api(path, body, method = "GET") {
     $("#admin-app").hidden = true;
     $("#admin-denied").hidden = false;
     $("#review-dialog").close();
+    $("#member-dialog").close();
     $("#admin-user").textContent = "";
     renderManagementNav(null);
   }
@@ -163,6 +164,7 @@ async function initialize() {
     }
   });
 
+  setupMembers();
   setupTabs();
   setupOperationalLists();
   $("#admin-app").hidden = false;
@@ -240,9 +242,16 @@ function setupOperationalLists() {
     search.name = "q";
     search.maxLength = 100;
     search.placeholder =
-      name === "members" ? "아이디 검색" : "제목 / 사용자 검색";
+      name === "members" ? "회원 검색" : "제목 / 사용자 검색";
     search.setAttribute("aria-label", search.placeholder);
     controls.append(search);
+    if (name === "members") {
+      for (const [name, options] of [['field', {username:'아이디',nickname:'닉네임',email:'이메일'}], ['status', {'':'전체 상태',ACTIVE:'정상',SUSPENDED:'정지',DISABLED:'비활성'}]]) {
+        const select = el('select'); select.name = name; select.setAttribute('aria-label', name === 'field' ? '검색 항목' : '계정 상태');
+        for (const [value,label] of Object.entries(options)) { const option = el('option',label); option.value=value; select.append(option); }
+        controls.append(select);
+      }
+    }
     if (name === "posts" || name === "reports") {
       const select = el("select");
       select.name = name === "posts" ? "category" : "status";
@@ -317,20 +326,14 @@ async function loadList(name) {
   root.replaceChildren(row(["불러오는 중…"]));
   pager.querySelectorAll("button").forEach((b) => (b.disabled = true));
   try {
-    const result = await api(`/api/board/admin/${name}?${params}`);
+    const result = await api(`${name === "members" ? "/api/admin/members" : `/api/board/admin/${name}`}?${params}`);
     if (request !== state.request) return;
     root.replaceChildren();
     for (const item of result.items) {
-      if (name === "members")
-        root.append(
-          row([
-            item.username,
-            item.role,
-            date(item.joinedAt),
-            String(item.postCount),
-            String(item.vehicleCount),
-          ]),
-        );
+      if (name === "members") {
+        const open = el('button', item.username, 'secondary'); open.addEventListener('click', () => openMember(item.id));
+        root.append(row([String(item.id),open,item.nickname || '—',item.email || '미등록',date(item.joinedAt),({ACTIVE:'정상',SUSPENDED:'이용 정지',DISABLED:'비활성'})[item.status] || item.status,item.role]));
+      }
       else if (name === "posts")
         root.append(
           row([
@@ -416,3 +419,45 @@ window.addEventListener("focus", () => {
   if (!$("#admin-app").hidden)
     void api("/api/board/admin/overview").catch(() => {});
 });
+
+let selectedMember = null;
+let memberBusy = false;
+async function memberActions(id) {
+  const logs = await api(`/api/admin/members/${id}/actions`);
+  $('#member-actions').replaceChildren(...logs.map(l => el('li', `${date(l.createdAt)} · 관리자 #${l.adminId} · ${l.action === 'PASSWORD_RESET_REQUEST' ? '비밀번호 재설정 메일 요청' : l.action.replace('UPDATE:', '회원 정보 변경: ').replace('NICKNAME', '닉네임').replace('EMAIL', '이메일').replace('ROLE', '권한').replace('STATUS', '상태')}`)));
+}
+async function openMember(id) {
+  try {
+    const item = await api(`/api/admin/members/${id}`); selectedMember = item;
+    const f = $('#member-form'); f.reset(); f.elements.nickname.value = item.nickname || ''; f.elements.email.value = item.email || '';
+    f.elements.status.value = item.status; f.elements.role.value = item.role;
+    if (item.suspendedUntil) { const d = new Date(item.suspendedUntil); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); f.elements.suspendedUntil.value=d.toISOString().slice(0,16); }
+    $('#member-title').textContent = `회원 #${item.id} · ${item.username}`;
+    $('#member-message').textContent = item.kakaoOnly ? '카카오 전용 계정입니다.' : '';
+    $('#member-reset').disabled = !item.email || item.kakaoOnly;
+    $('#member-dialog').showModal(); await memberActions(id);
+  } catch (e) { $('#notice').textContent=e.message; }
+}
+function setupMembers() {
+  $('#member-close').addEventListener('click', () => $('#member-dialog').close());
+  const work = async action => {
+    if (memberBusy || !selectedMember) return;
+    memberBusy=true; const id=selectedMember.id;
+    $('#member-dialog').querySelectorAll('button').forEach(b => b.disabled=true);
+    try { await action(id); } catch (e) { $('#member-message').textContent=e.message; }
+    finally { memberBusy=false; $('#member-dialog').querySelectorAll('button').forEach(b => b.disabled=false); $('#member-reset').disabled=!selectedMember.email || selectedMember.kakaoOnly; }
+  };
+  $('#member-form').addEventListener('submit', e => {
+    e.preventDefault(); void work(async id => {
+      const body=Object.fromEntries(new FormData(e.target));
+      body.suspendedUntil=body.status === 'SUSPENDED' && body.suspendedUntil ? new Date(body.suspendedUntil).toISOString() : null;
+      selectedMember=await api(`/api/admin/members/${id}`,body,'PATCH');
+      $('#member-message').textContent='저장했습니다. 기존 로그인 세션이 만료되었습니다.';
+      await Promise.all([loadList('members'),memberActions(id)]);
+    });
+  });
+  $('#member-reset').addEventListener('click', () => void work(async id => {
+    const result=await api(`/api/admin/members/${id}/password-reset`,{},'POST');
+    $('#member-message').textContent=result.message; await memberActions(id);
+  }));
+}

@@ -8,7 +8,18 @@ import java.util.Optional;
  * users 테이블에 접근하기 위한 JPA Repository.
  * 기본적인 저장, 조회, 삭제 기능은 JpaRepository가 자동으로 제공한다.
  */
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<User> {
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select u from User u where u.username = :username")
+    Optional<User> lockByUsername(@org.springframework.data.repository.query.Param("username") String username);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select u from User u where u.kakaoId = :kakaoId")
+    Optional<User> lockByKakaoId(@org.springframework.data.repository.query.Param("kakaoId") Long kakaoId);
+    Optional<User> findByEmail(String email);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select u from User u where u.id = :id")
+    Optional<User> lockById(@org.springframework.data.repository.query.Param("id") Long id);
 
     /**
      * 로그인 아이디(username)를 이용하여 회원을 조회한다.

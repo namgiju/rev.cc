@@ -22,6 +22,7 @@ class AdminControllerTest {
     private final User admin = new User("owner", "hash", 14L);
 
     @BeforeEach void setup() {
+        admin.manage(null,null,"ACTIVE","ADMIN",null);
         mvc = MockMvcBuilders.standaloneSetup(new AdminController(sessions, users, vehicles, verifications)).build();
         when(sessions.require(null)).thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
         when(sessions.require("user-token")).thenReturn(new SharedSessionService.SessionUser(1L, "member", "USER"));
@@ -36,6 +37,11 @@ class AdminControllerTest {
         when(user.getId()).thenReturn(2L);
         when(user.getUsername()).thenReturn("driver");
         return user;
+    }
+
+    @Test void demotedAdminIsForbidden() throws Exception {
+        admin.manage(null,null,"ACTIVE","USER",null);
+        mvc.perform(get("/api/admin/overview").cookie(new Cookie(SharedSessionService.COOKIE,"admin-token"))).andExpect(status().isForbidden());
     }
 
     @Test void anonymousIsUnauthorized() throws Exception {

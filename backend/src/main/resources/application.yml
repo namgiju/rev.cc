@@ -4,6 +4,18 @@ server:
   # (rate limit이 프록시 IP 하나로 뭉치지 않고 클라이언트별로 정확히 적용되기 위해 필요하다).
   forward-headers-strategy: framework
 spring:
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.starttls.required: ${SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   datasource:
     # 로컬 개발 기본값. Compose에서는 컨테이너 DNS 이름으로 덮어쓴다.
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/revcc}
@@ -19,9 +31,21 @@ spring:
       port: 6379
 # Spring Session의 Java 직렬화 대신 Express도 읽을 수 있는 JSON 계약을 사용한다.
 app:
+  password-reset:
+    secret: ${PASSWORD_RESET_SECRET:}
+  mail:
+    from: ${SMTP_FROM:}
+    reset-url: ${PASSWORD_RESET_URL:http://localhost:8090/password-reset}
   session:
     secure: ${SESSION_COOKIE_SECURE:false}
   kakao:
     client-id: ${KAKAO_CLIENT_ID:}
     client-secret: ${KAKAO_CLIENT_SECRET:}
     redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8090/api/auth/kakao/callback}
+
+# Request/response bodies can contain passwords and one-time reset credentials.
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.mail: INFO
+    org.hibernate.orm.jdbc.bind: OFF

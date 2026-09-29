@@ -44,6 +44,27 @@ public class User {
 
     public Instant getCreatedAt() { return createdAt; }
 
+    private String nickname;
+    @Column(unique = true, length = 254)
+    private String email;
+    private String accountStatus;
+    private Instant suspendedUntil;
+    private Long authVersion;
+    public String getNickname() { return nickname; }
+    public void registerEmail(String email) { this.email = email; }
+    public String getEmail() { return email; }
+    public String getAccountStatus() { return accountStatus == null ? "ACTIVE" : accountStatus; }
+    public Instant getSuspendedUntil() { return suspendedUntil; }
+    public long getAuthVersion() { return authVersion == null ? 0 : authVersion; }
+    public boolean isBlocked() { return "DISABLED".equals(getAccountStatus()) ||
+        ("SUSPENDED".equals(getAccountStatus()) && (suspendedUntil == null || suspendedUntil.isAfter(Instant.now()))); }
+    public void invalidateSessions() { authVersion = getAuthVersion() + 1; }
+    public void manage(String nickname, String email, String status, String role, Instant until) {
+        this.nickname = nickname; this.email = email; this.accountStatus = status;
+        this.role = role; this.suspendedUntil = until;
+        invalidateSessions();
+    }
+
     // 한 회원이 여러 소유 차량을 가질 수 있다. 차량 API는 별도의 DTO로 응답한다.
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<Vehicle> vehicles = new ArrayList<>();

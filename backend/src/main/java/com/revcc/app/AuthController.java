@@ -36,7 +36,9 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "비밀번호는 UTF-8 72바이트 이하여야 합니다."));
         if (users.existsByUsername(request.username())) return duplicate();
         try {
-            User saved = users.saveAndFlush(new User(request.username(), passwords.encode(request.password())));
+            User fresh = new User(request.username(), passwords.encode(request.password()));
+            if (request.email()!=null && !request.email().isBlank()) fresh.registerEmail(PasswordResetService.email(request.email()));
+            User saved = users.saveAndFlush(fresh);
             return ResponseEntity.status(201).body(Map.of("id", saved.getId(), "username", saved.getUsername(), "message", "회원가입 성공"));
         } catch (DataIntegrityViolationException e) {
             // 동시에 같은 아이디로 가입해도 DB unique 제약을 409 응답으로 처리한다.
@@ -44,11 +46,12 @@ public class AuthController {
         }
     }
 
+    @org.springframework.transaction.annotation.Transactional
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody Credentials request,
             @CookieValue(name = SharedSessionService.COOKIE, required = false) String previous) {
-        User user = users.findByUsername(request.username()).orElse(null);
-        if (user == null || !matches(request.password(), user.getPassword()))
+        User user = users.lockByUsername(request.username()).orElse(null);
+        if (user == null || user.isBlocked() || !matches(request.password(), user.getPassword()))
             return ResponseEntity.status(401).body(Map.of("message", "아이디 또는 비밀번호가 올바르지 않습니다."));
         // 이미 저장된 평문 계정을 보존하면서 첫 로그인에 BCrypt로 마이그레이션한다.
         if (!isHash(user.getPassword())) {
@@ -60,7 +63,7 @@ public class AuthController {
         sessions.revoke(previous); // 재로그인 시 토큰을 회전해 세션 고정을 방지한다.
         String token = sessions.create(user);
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false))
-            .body(new SharedSessionService.SessionUser(user.getId(), user.getUsername(), user.getRole()));
+            .body(new SharedSessionService.SessionUser(user.getId(), user.getUsername(), user.getRole(), user.getAuthVersion()));
     }
 
     @GetMapping("/me")
@@ -80,14 +83,16 @@ public class AuthController {
         return ResponseEntity.status(302).location(URI.create(kakao.authorizeUrl())).build();
     }
 
+    @org.springframework.transaction.annotation.Transactional
     @GetMapping("/kakao/callback")
     public ResponseEntity<?> kakaoCallback(@RequestParam String code) {
         try {
             KakaoOAuthService.KakaoUser info = kakao.exchange(code);
             // 닉네임은 바뀔 수 있으므로 카카오 ID로 같은 계정을 찾고, 처음이면 새로 만든다.
-            User user = users.findByKakaoId(info.id())
+            User user = users.lockByKakaoId(info.id())
                 .map(existing -> refreshKakaoNickname(existing, info))
                 .orElseGet(() -> createKakaoUser(info));
+            if (user.isBlocked()) return ResponseEntity.status(403).body(Map.of("message", "이용할 수 없는 계정입니다."));
             String token = sessions.create(user);
             return ResponseEntity.status(302).location(URI.create("/home"))
                 .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false)).build();
@@ -123,8 +128,12 @@ public class AuthController {
         return MessageDigest.isEqual(raw.getBytes(StandardCharsets.UTF_8), stored.getBytes(StandardCharsets.UTF_8));
     }
     private ResponseEntity<?> duplicate() {
-        return ResponseEntity.status(409).body(Map.of("message", "이미 존재하는 아이디입니다."));
+        return ResponseEntity.status(409).body(Map.of("message", "이미 존재하는 아이디 또는 이메일입니다."));
     }
     public record Credentials(@NotBlank @Size(max = 100) String username,
-                              @NotBlank @Size(max = 255) String password) {}
+                              @NotBlank @Size(max = 255) String password,
+                              @jakarta.validation.constraints.Email @Size(max=254) String email) {
+        @Override public String toString() { return "Credentials[redacted]"; }
+        public Credentials(String username, String password) { this(username,password,null); }
+    }
 }

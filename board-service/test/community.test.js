@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { decodeImage } from "../src/community.js";
-import { createApp } from "../src/app.js";
+import { createApp as baseCreateApp } from "../src/app.js";
 const png =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4FoAAAAASUVORK5CYII=";
 test("image validation rejects SVG, disguised content and oversized uploads", () => {
@@ -112,3 +112,10 @@ test("mutations enforce session ownership and validate filters before SQL", asyn
   assert.equal((await request("/garage/1", "DELETE", {})).status, 403);
   assert.equal((await request("/comments/1", "DELETE", {})).status, 403);
 });
+
+// Existing fixtures represent active legacy accounts (session version zero).
+function createApp({db,redis}) {
+  const query=db.query.bind(db);
+  return baseCreateApp({redis,db:{...db,query:(sql,values) => sql.startsWith('SELECT COALESCE(auth_version')
+    ? Promise.resolve({rows:[{version:0,status:'ACTIVE',suspended_until:null}]}) : query(sql,values)}});
+}

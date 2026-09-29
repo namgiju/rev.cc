@@ -60,6 +60,8 @@
       "회원가입이 완료되었습니다. 새 계정으로 로그인해주세요.",
       "success",
     );
+  if (!signup && new URLSearchParams(location.search).get("reset") === "1")
+    message("비밀번호가 변경되었습니다. 다시 로그인해주세요.", "success");
   document.querySelectorAll("[data-password]").forEach((button) =>
     button.addEventListener("click", () => {
       const input = $("#" + button.dataset.password),
@@ -124,13 +126,14 @@
         body: JSON.stringify({
           username: $("#username").value,
           password: $("#password").value,
+          ...(signup && $("#email").value.trim() ? {email: $("#email").value.trim()} : {}),
         }),
       });
       if (!response.ok) {
         if (!signup && [400, 401].includes(response.status))
           message("아이디 또는 비밀번호가 올바르지 않습니다.");
         else if (signup && response.status === 409)
-          message("이미 사용 중인 아이디입니다. 다른 아이디를 입력해주세요.");
+          message("이미 사용 중인 아이디 또는 이메일입니다.");
         else if (response.status === 400)
           message(
             "입력 내용을 확인해주세요. 아이디는 최대 100자, 비밀번호는 UTF-8 72바이트까지 가능합니다.",

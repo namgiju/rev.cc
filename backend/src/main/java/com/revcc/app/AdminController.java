@@ -83,7 +83,10 @@ public class AdminController {
         SharedSessionService.SessionUser session = sessions.require(token);
         if (!"ADMIN".equals(session.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자만 접근할 수 있습니다.");
-        return users.findById(session.id()).orElseThrow(() ->
+        User admin = users.findById(session.id()).orElseThrow(() ->
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "다시 로그인해주세요."));
+        if (!"ADMIN".equals(admin.getRole()) || admin.isBlocked())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자만 접근할 수 있습니다.");
+        return admin;
     }
 }
