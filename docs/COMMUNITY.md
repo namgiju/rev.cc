@@ -60,7 +60,7 @@ Next.js `frontend/`와 대문 영역은 이 작업에서 수정하지 않았습�
 ```sh
 docker compose up -d --build --wait
 npm test --prefix board-service
-docker compose exec -T board node --input-type=module < scripts/community-system.mjs
+scripts/run-board-system.sh scripts/community-system.mjs
 ```
 
 통합 검사는 별도 PostgreSQL 스키마에서 실제 SQL·HTTP 동작을 검사하고 `finally`에서

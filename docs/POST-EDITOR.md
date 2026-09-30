@@ -26,7 +26,7 @@ Title limit remains 150 characters, body 5,000. No new rich-text format, server 
 
 ## Validation
 
-Real isolated PostgreSQL API checks: `docker compose exec -T board node --input-type=module < scripts/community-system.mjs`.
+Real isolated PostgreSQL API checks: `scripts/run-board-system.sh scripts/community-system.mjs`.
 
 Real browser/session checks: `scripts/post-editor-browser.cjs` creates unique temporary USER and ADMIN accounts and cleans them and their data up. It covers all four categories, optional own vehicles, forged links, unauthorized edits, uploads/removal, existing images on edit, canonical navigation, reload, duplicate submission, dirty cancellation, vehicle-fetch retry, session revocation and shared NAV/Footer.
 

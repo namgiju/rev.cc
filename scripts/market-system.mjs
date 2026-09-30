@@ -1,20 +1,20 @@
 // Real PostgreSQL isolation; no production listings or users.
+// Run: scripts/run-board-system.sh scripts/market-system.mjs (임시 PostgreSQL, Neon 미사용)
 import assert from "node:assert/strict";
 import pg from "pg";
-import { readFile } from "node:fs/promises";
 import { createApp } from "./src/app.js";
+import { applyFlywayMigrations, assertIsolatedDatabase } from "./scripts/lib/flyway-migrations.mjs";
+assertIsolatedDatabase();
 const pool = new pg.Pool(),
   schema = `market_test_${Date.now()}`;
 let db, server;
 try {
   await pool.query(`CREATE SCHEMA ${schema}`);
   db = new pg.Pool({ options: `-c search_path=${schema}` });
+  await applyFlywayMigrations(db);
   await db.query(
-    "CREATE TABLE users(id BIGINT PRIMARY KEY,username TEXT NOT NULL); INSERT INTO users VALUES(1,'seller'),(2,'buyer'),(3,'admin')",
+    "INSERT INTO users(id,username,password) VALUES(1,'seller','test-only'),(2,'buyer','test-only'),(3,'admin','test-only')",
   );
-  const sql = await readFile("./src/schema.sql", "utf8");
-  await db.query(sql);
-  await db.query(sql);
   const redis = {
     get: async (key) => {
       const id = { a: 1, b: 2, c: 3 }[key.at(-1)];
@@ -161,7 +161,7 @@ try {
     0,
   );
   console.log(
-    "PASS market SQL/HTTP: shared session, owner/admin permissions, contact visibility, owned images, validation, filters/ranking/pagination, favorites idempotency, view/status/edit/delete/cascade, community separation, schema idempotency",
+    "PASS market SQL/HTTP: shared session, owner/admin permissions, contact visibility, owned images, validation, filters/ranking/pagination, favorites idempotency, view/status/edit/delete/cascade, community separation, Flyway migrations",
   );
 } finally {
   if (server) {

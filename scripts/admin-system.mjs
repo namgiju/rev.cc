@@ -1,20 +1,19 @@
-// docker compose exec -T board node --input-type=module < scripts/admin-system.mjs
+// scripts/run-board-system.sh scripts/admin-system.mjs (임시 PostgreSQL, Neon 미사용)
 import assert from "node:assert/strict";
 import pg from "pg";
-import { readFile } from "node:fs/promises";
 import { createApp } from "./src/app.js";
+import { applyFlywayMigrations, assertIsolatedDatabase } from "./scripts/lib/flyway-migrations.mjs";
+assertIsolatedDatabase();
 const pool = new pg.Pool(),
   schema = `admin_test_${Date.now()}`;
 let db, server;
 try {
   await pool.query(`CREATE SCHEMA ${schema}`);
   db = new pg.Pool({ options: `-c search_path=${schema}` });
+  await applyFlywayMigrations(db);
   await db.query(
-    "CREATE TABLE users(id BIGINT PRIMARY KEY,username TEXT NOT NULL,role TEXT NOT NULL,password TEXT); INSERT INTO users VALUES(1,'owner','USER','PRIVATE-HASH'),(2,'reader','USER','PRIVATE-HASH'),(3,'manager','ADMIN','PRIVATE-HASH')",
+    "INSERT INTO users(id,username,role,password) VALUES(1,'owner','USER','PRIVATE-HASH'),(2,'reader','USER','PRIVATE-HASH'),(3,'manager','ADMIN','PRIVATE-HASH')",
   );
-  const sql = await readFile("./src/schema.sql", "utf8");
-  await db.query(sql);
-  await db.query(sql);
   const redis = {
     get: async (key) => {
       const id = { a: 1, b: 2, c: 3 }[key.at(-1)];
@@ -177,7 +176,7 @@ try {
   await db.query("UPDATE users SET role='USER' WHERE id=3");
   await req("/admin/overview", "GET", undefined, "c", 403);
   console.log(
-    "PASS admin: real counts/lists, pagination/search/filters, no credentials, USER/guest denial, stale ADMIN revocation, report resolve/dismiss/audit/conflict/author visibility, derived badge counts, migration twice, unchanged post ownership.",
+    "PASS admin: real counts/lists, pagination/search/filters, no credentials, USER/guest denial, stale ADMIN revocation, report resolve/dismiss/audit/conflict/author visibility, derived badge counts, Flyway migrations, unchanged post ownership.",
   );
 } finally {
   if (server) {

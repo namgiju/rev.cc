@@ -1,16 +1,16 @@
-// Run inside board container; isolated schema only, no real member content is changed.
+// Run: scripts/run-board-system.sh scripts/moderation-system.mjs; isolated schema only, no real member content is changed.
 import assert from 'node:assert/strict';
 import pg from 'pg';
-import { readFile } from 'node:fs/promises';
 import { createApp } from './src/app.js';
+import { applyFlywayMigrations, assertIsolatedDatabase } from './scripts/lib/flyway-migrations.mjs';
+assertIsolatedDatabase();
 const pool = new pg.Pool(), schema = `moderation_test_${Date.now()}`;
 let db, server;
 try {
   await pool.query(`CREATE SCHEMA ${schema}`);
   db = new pg.Pool({options:`-c search_path=${schema}`});
-  await db.query("CREATE TABLE users(id BIGINT PRIMARY KEY,username TEXT NOT NULL,role TEXT NOT NULL); INSERT INTO users VALUES(1,'owner','USER'),(2,'reader','USER'),(3,'manager','ADMIN')");
-  const sql = await readFile('./src/schema.sql','utf8');
-  await db.query(sql); await db.query(sql);
+  await applyFlywayMigrations(db);
+  await db.query("INSERT INTO users(id,username,role,password) VALUES(1,'owner','USER','test-only'),(2,'reader','USER','test-only'),(3,'manager','ADMIN','test-only')");
   const redis = {get: async key => {
     const id = {a:1,b:2,c:3}[key.at(-1)];
     return id ? JSON.stringify({id,username:'session-name',role:id===3?'ADMIN':'USER'}) : null;
