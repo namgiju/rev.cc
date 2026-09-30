@@ -97,7 +97,7 @@ export function marketRouter({ db, auth }) {
   }
   async function exists(id) {
     const { rows } = await db.query(
-      "SELECT id FROM parts_listings WHERE id=$1",
+      "SELECT id FROM parts_listings WHERE id=$1 AND status<>'closed'",
       [id],
     );
     if (!rows.length) fail(404, "삭제되었거나 없는 매물입니다.");
@@ -134,7 +134,8 @@ export function marketRouter({ db, auth }) {
       pattern(text(region, 100, false)),
       pattern(text(vehicle, 200, false)),
     ];
-    let where = ` WHERE (l.title ILIKE $2 OR l.description ILIKE $2 OR l.vehicle ILIKE $2) AND ($3='' OR l.category=$3) AND ($4='' OR l.status=$4) AND l.region ILIKE $5 AND l.vehicle ILIKE $6`;
+    // 닫힌(closed) 매물은 탈퇴 회원의 판매중 매물이다. 공개 목록·검색·내 매물·찜 목록 어디에도 나오지 않는다.
+    let where = ` WHERE l.status<>'closed' AND (l.title ILIKE $2 OR l.description ILIKE $2 OR l.vehicle ILIKE $2) AND ($3='' OR l.category=$3) AND ($4='' OR l.status=$4) AND l.region ILIKE $5 AND l.vehicle ILIKE $6`;
     if (scope === "mine") where += " AND l.seller_id=$1";
     if (scope === "favorites")
       where +=
@@ -169,7 +170,8 @@ export function marketRouter({ db, auth }) {
     res.status(201).json(rows[0]);
   });
   router.get("/:id", async (req, res) => {
-    const { rows } = await db.query(select + " WHERE l.id=$2", [
+    // 닫힌 매물은 관리자(DB 기준 역할)만 상세를 볼 수 있다(운영 확인용).
+    const { rows } = await db.query(select + " WHERE l.id=$2 AND (l.status<>'closed' OR EXISTS(SELECT 1 FROM users a WHERE a.id=$1 AND a.role='ADMIN'))", [
       req.user?.id ?? null,
       req.params.id,
     ]);
@@ -188,7 +190,7 @@ export function marketRouter({ db, auth }) {
   router.put("/:id", auth, async (req, res) => {
     const values = await input(req.body, req.user.id);
     const { rowCount } = await db.query(
-      `UPDATE parts_listings SET title=$3,description=$4,price=$5,category=$6,status=$7,image_ids=$8,vehicle=$9,region=$10,contact=$11,updated_at=NOW() WHERE id=$1 AND seller_id=$2`,
+      `UPDATE parts_listings SET title=$3,description=$4,price=$5,category=$6,status=$7,image_ids=$8,vehicle=$9,region=$10,contact=$11,updated_at=NOW() WHERE id=$1 AND seller_id=$2 AND status<>'closed'`,
       [req.params.id, req.user.id, ...values],
     );
     if (!rowCount) fail(403, "본인 판매글만 수정할 수 있어요.");
@@ -197,7 +199,7 @@ export function marketRouter({ db, auth }) {
   router.patch("/:id/status", auth, async (req, res) => {
     const value = status(req.body?.status);
     const { rowCount } = await db.query(
-      "UPDATE parts_listings SET status=$3,updated_at=NOW() WHERE id=$1 AND seller_id=$2",
+      "UPDATE parts_listings SET status=$3,updated_at=NOW() WHERE id=$1 AND seller_id=$2 AND status<>'closed'",
       [req.params.id, req.user.id, value],
     );
     if (!rowCount) fail(403, "본인 판매글만 변경할 수 있어요.");
@@ -225,7 +227,7 @@ export function marketRouter({ db, auth }) {
   });
   router.post("/:id/view", viewLimiter, async (req, res) => {
     const { rows } = await db.query(
-      "UPDATE parts_listings SET views=views+1 WHERE id=$1 RETURNING views",
+      "UPDATE parts_listings SET views=views+1 WHERE id=$1 AND status<>'closed' RETURNING views",
       [req.params.id],
     );
     if (!rows.length) fail(404, "삭제되었거나 없는 매물입니다.");

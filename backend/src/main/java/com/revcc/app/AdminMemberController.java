@@ -36,9 +36,11 @@ public class AdminMemberController {
     private final SharedSessionService sessions;
     private final PasswordResetService resets;
     private final AdminMemberActionRepository logs;
+    private final WithdrawalBlocks blocks;
     @PersistenceContext private EntityManager entityManager;
-    public AdminMemberController(UserRepository users, SharedSessionService sessions, PasswordResetService resets, AdminMemberActionRepository logs) {
-        this.users=users; this.sessions=sessions; this.resets=resets; this.logs=logs;
+    public AdminMemberController(UserRepository users, SharedSessionService sessions, PasswordResetService resets, AdminMemberActionRepository logs,
+            WithdrawalBlocks blocks) {
+        this.users=users; this.sessions=sessions; this.resets=resets; this.logs=logs; this.blocks=blocks;
     }
     private User admin(String token) {
         var session=sessions.require(token);
@@ -101,6 +103,9 @@ public class AdminMemberController {
         String email=body.email()==null || body.email().isBlank() ? null : PasswordResetService.email(body.email());
         if (email!=null && users.findByEmail(email).filter(u -> !u.getId().equals(id)).isPresent())
             throw new ResponseStatusException(HttpStatus.CONFLICT,"이미 등록된 이메일입니다.");
+        // 탈퇴 회원의 이메일은 재가입 제한 기간 동안 다른 계정에 새로 등록할 수 없다(가입과 같은 규칙).
+        if (email!=null && !email.equals(target.getEmail()) && blocks.blocked(WithdrawalBlocks.Type.EMAIL,email))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,WithdrawalBlocks.MESSAGE);
         List<String> changes=new ArrayList<>();
         if (!Objects.equals(target.getNickname(),body.nickname())) changes.add("NICKNAME");
         if (!Objects.equals(target.getEmail(),email)) changes.add("EMAIL");
@@ -125,8 +130,12 @@ public class AdminMemberController {
     @GetMapping("/{id}/actions") public List<Map<String,Object>> actions(@PathVariable Long id,
             @CookieValue(name=SharedSessionService.COOKIE,required=false) String token) {
         admin(token); user(id);
-        return logs.findByUserIdOrderByIdDesc(id,PageRequest.of(0,50)).map(l -> Map.<String,Object>of(
-            "adminId",l.adminId,"action",l.action,"createdAt",l.createdAt)).getContent();
+        // 본인 탈퇴 기록(SELF_WITHDRAW)은 관리자 없이 남으므로 adminId가 null일 수 있다(Map.of는 null을 받지 않는다).
+        return logs.findByUserIdOrderByIdDesc(id,PageRequest.of(0,50)).map(l -> {
+            Map<String,Object> row=new LinkedHashMap<>();
+            row.put("adminId",l.adminId); row.put("action",l.action); row.put("createdAt",l.createdAt);
+            return row;
+        }).getContent();
     }
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT) public Map<String,String> conflict() { return Map.of("message","이미 등록된 이메일이거나 다른 변경과 충돌했습니다."); }

@@ -61,6 +61,9 @@ app:
     max-upload-size: 5MB
   password-reset:
     secret: ${PASSWORD_RESET_SECRET:}
+  # 회원 탈퇴 재가입 제한 HMAC 키(WithdrawalBlocks). 비어 있으면 탈퇴를 받지 않는다(503). prod 프로파일은 필수다.
+  withdrawal:
+    hmac-secret: ${WITHDRAWAL_HMAC_SECRET:}
   mail:
     from: ${SMTP_FROM:}
     reset-url: ${PASSWORD_RESET_URL:http://localhost:8090/password-reset}

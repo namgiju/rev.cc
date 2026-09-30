@@ -2,7 +2,7 @@
 # board 수동 시스템 테스트(*-system.mjs)를 임시 PostgreSQL에서 실행한다. 운영/Neon DB에는 연결하지 않는다.
 # 각 스크립트는 격리 스키마를 만들고 core의 Flyway 마이그레이션(V*.sql)을 버전 순서대로 적용한 뒤 끝나면 지운다.
 #
-# 사용: scripts/run-board-system.sh                          # 6개 전부
+# 사용: scripts/run-board-system.sh                          # 7개 전부
 #       scripts/run-board-system.sh scripts/market-system.mjs  # 일부만
 set -euo pipefail
 export MSYS_NO_PATHCONV=1 # Windows Git Bash가 컨테이너 경로를 바꾸지 않게 한다.
@@ -10,7 +10,7 @@ export MSYS_NO_PATHCONV=1 # Windows Git Bash가 컨테이너 경로를 바꾸지
 cd "$(dirname "$0")/.."
 ROOT=$(pwd -W 2>/dev/null || pwd) # docker -v에는 Windows에서 C:/... 형식이 필요하다.
 SCRIPTS=("$@")
-[ ${#SCRIPTS[@]} -gt 0 ] || SCRIPTS=(scripts/admin-system.mjs scripts/community-system.mjs scripts/market-system.mjs scripts/moderation-system.mjs scripts/withdrawn-member-system.mjs scripts/post-soft-delete-system.mjs)
+[ ${#SCRIPTS[@]} -gt 0 ] || SCRIPTS=(scripts/admin-system.mjs scripts/community-system.mjs scripts/market-system.mjs scripts/moderation-system.mjs scripts/withdrawn-member-system.mjs scripts/post-soft-delete-system.mjs scripts/withdrawal-system.mjs)
 
 ID="revcc-systest-$$"
 cleanup() {

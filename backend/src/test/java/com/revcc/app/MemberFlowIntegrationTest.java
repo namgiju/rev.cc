@@ -27,6 +27,8 @@ class MemberFlowIntegrationTest {
         r.add("spring.datasource.username",()->"postgres"); r.add("spring.datasource.password",()->"test");
         r.add("spring.data.redis.host",()->"127.0.0.1"); r.add("spring.data.redis.port",()->System.getenv("REVCC_TEST_REDIS_PORT"));
         r.add("app.password-reset.secret",()->"integration-test-secret-at-least-32-characters");
+        // 같은 테스트 DB에 탈퇴 제한 행이 있으면 비밀값 없는 가입은 503으로 막힌다(WithdrawalBlocks). 설정된 환경으로 둔다.
+        r.add("app.withdrawal.hmac-secret",()->"integration-test-withdrawal-secret-32-characters");
     }
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;

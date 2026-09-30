@@ -74,6 +74,13 @@ public class User {
         accountStatus = WITHDRAWN; withdrawnAt = at;
         invalidateSessions();
     }
+    // 탈퇴 처리(WithdrawalService)에서만 부른다. 직접 식별값(아이디·이메일·카카오 id·닉네임)과 비밀번호를 지운다.
+    // 아이디는 가입 예약어 접두어(withdrawn:)라 다른 사람이 쓸 수 없다. 정지 종료일(suspended_until)은 제재 기록으로 남긴다.
+    public void anonymizeForWithdrawal(String unusablePasswordHash) {
+        username = ReservedUsernames.WITHDRAWN_USERNAME_PREFIX + id;
+        password = unusablePasswordHash;
+        email = null; kakaoId = null; nickname = null;
+    }
     public void manage(String nickname, String email, String status, String role, Instant until) {
         this.nickname = nickname; this.email = email; this.accountStatus = status;
         this.role = role; this.suspendedUntil = until;

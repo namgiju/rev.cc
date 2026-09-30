@@ -435,7 +435,8 @@ let memberView = 0, memberOpener = null;
 async function memberActions(id, view = memberView) {
   const logs = await api(`/api/admin/members/${id}/actions`);
   if (view !== memberView || !$('#member-dialog').open) return;
-  $('#member-actions').replaceChildren(...logs.map(l => el('li', `${date(l.createdAt)} · 관리자 #${l.adminId} · ${l.action === 'PASSWORD_RESET_REQUEST' ? '비밀번호 재설정 메일 요청' : l.action.replace('UPDATE:', '회원 정보 변경: ').replace('NICKNAME', '닉네임').replace('EMAIL', '이메일').replace('ROLE', '권한').replace('STATUS', '상태')}`)));
+  // 본인 탈퇴 기록(SELF_WITHDRAW:<직전 상태>)은 관리자 없이 남는다.
+  $('#member-actions').replaceChildren(...logs.map(l => el('li', l.action.startsWith('SELF_WITHDRAW') ? `${date(l.createdAt)} · 본인 탈퇴 (탈퇴 전 상태: ${l.action.split(':')[1] || '-'})` : `${date(l.createdAt)} · 관리자 #${l.adminId} · ${l.action === 'PASSWORD_RESET_REQUEST' ? '비밀번호 재설정 메일 요청' : l.action.replace('UPDATE:', '회원 정보 변경: ').replace('NICKNAME', '닉네임').replace('EMAIL', '이메일').replace('ROLE', '권한').replace('STATUS', '상태')}`)));
 }
 async function openMember(id, opener) {
   const view = ++memberView; memberOpener = opener;

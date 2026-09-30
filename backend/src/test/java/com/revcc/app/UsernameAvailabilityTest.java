@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class UsernameAvailabilityTest {
     UserRepository users=mock(UserRepository.class);
-    MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(users,mock(SharedSessionService.class),mock(KakaoOAuthService.class),mock(KakaoStateService.class),mock(LoginAttemptLimiter.class))).build();
+    MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(users,mock(SharedSessionService.class),mock(KakaoOAuthService.class),mock(KakaoStateService.class),mock(LoginAttemptLimiter.class),mock(WithdrawalService.class),mock(WithdrawalBlocks.class))).build();
     @Test void checksExactUsernameAndDoesNotCache() throws Exception {
         when(users.existsByUsername("Taken")).thenReturn(true);
         mvc.perform(get("/api/auth/check-username").param("username","Taken")).andExpect(status().isOk()).andExpect(jsonPath("$.available").value(false));

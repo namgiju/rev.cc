@@ -28,16 +28,26 @@ public class LoginAttemptLimiter {
     public LoginAttemptLimiter(StringRedisTemplate redis) { this.redis = redis; }
 
     /** 막혀 있으면 남은 초(1 이상), 아니면 0. */
-    public long lockedSeconds(String username) {
-        String key = key(username);
+    public long lockedSeconds(String username) { return lockedSecondsFor(key(username)); }
+
+    public void recordFailure(String username) { recordFailureFor(key(username)); }
+
+    // 회원 탈퇴 비밀번호 확인(STEP 10-impl-C)도 같은 한도(5회/15분)를 쓰되 로그인과 다른 키(withdraw-fail:<회원 id>)로 센다.
+    public long withdrawLockedSeconds(long userId) { return lockedSecondsFor(withdrawKey(userId)); }
+
+    public void recordWithdrawFailure(long userId) { recordFailureFor(withdrawKey(userId)); }
+
+    static String withdrawKey(long userId) { return "withdraw-fail:" + userId; }
+
+    private long lockedSecondsFor(String key) {
         String count = redis.opsForValue().get(key);
         if (count == null || Long.parseLong(count) < MAX_FAILURES) return 0;
         Long ttl = redis.getExpire(key);
         return ttl == null || ttl < 1 ? 1 : ttl;
     }
 
-    public void recordFailure(String username) {
-        redis.execute(RECORD, List.of(key(username)), String.valueOf(LOCK_SECONDS), String.valueOf(MAX_FAILURES));
+    private void recordFailureFor(String key) {
+        redis.execute(RECORD, List.of(key), String.valueOf(LOCK_SECONDS), String.valueOf(MAX_FAILURES));
     }
 
     // 로그인과 같은 값을 쓴다: 아이디는 대소문자를 구분하고 trim하지 않는다(AuthController.checkUsername 참고).

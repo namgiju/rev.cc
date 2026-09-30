@@ -14,7 +14,8 @@ class AuthControllerTest {
     private final KakaoOAuthService kakao = mock(KakaoOAuthService.class);
     private final KakaoStateService kakaoState = mock(KakaoStateService.class);
     private final LoginAttemptLimiter attempts = mock(LoginAttemptLimiter.class);
-    private final AuthController controller = new AuthController(users, sessions, kakao, kakaoState, attempts);
+    private final AuthController controller = new AuthController(users, sessions, kakao, kakaoState, attempts,
+        org.mockito.Mockito.mock(WithdrawalService.class), org.mockito.Mockito.mock(WithdrawalBlocks.class));
 
     @Test void signupStoresHash() {
         when(users.saveAndFlush(any())).thenAnswer(call -> {

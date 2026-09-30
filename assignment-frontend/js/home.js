@@ -133,7 +133,7 @@ function clearPrivateUI() {
   for (const id of ["detail-content", "panel-content", "vehicle-preview", "home-posts", "home-profile", "owned-vehicles", "home-badge-list", "home-guestbook"])
     $("#" + id).replaceChildren();
   $("#member-content").hidden = true;
-  for(const id of ["home-profile","owned-panel","home-badges","home-guestbook","edit-profile"]) $("#"+id).hidden=true;
+  for(const id of ["home-profile","owned-panel","home-badges","home-guestbook","edit-profile","withdraw-account"]) $("#"+id).hidden=true;
   $("#home-user").textContent = "";
   $("#admin-link").hidden = true;
   $("#logout").hidden = true;
@@ -209,7 +209,7 @@ async function editVehicle(id) {
 }
 function renderMyProfile(member,vehicles) {
   $("#home-profile").replaceChildren(memberProfileCard(member));
-  for(const id of ["home-profile","owned-panel","home-badges","edit-profile"])$("#"+id).hidden=false;
+  for(const id of ["home-profile","owned-panel","home-badges","edit-profile","withdraw-account"])$("#"+id).hidden=false;
   const owned=$("#owned-vehicles");owned.replaceChildren();
   for(const vehicle of vehicles){
     const row=el("article","","owned-vehicle");row.dataset.vehicleId=vehicle.id;
@@ -249,6 +249,45 @@ function editProfile() {
       await api("/api/board/profile",body,"PUT");$("#panel-dialog").close();await refreshGarage();
     }finally{submit.disabled=false;}
   });root.append(form);openDialog($("#panel-dialog"));
+}
+// 회원 탈퇴(STEP 10-impl-C). 서버가 비밀번호를 다시 확인하고 한 번에 처리한다. 카카오 계정은 카카오 재인증 탈퇴(STEP 10-impl-D)가
+// 준비될 때까지 안내만 보여 준다(버튼 없음). 예약중 매물·관리자 권한 등 서버의 거부 사유는 그대로 보여 준다.
+async function withdrawAccount() {
+  if(!requireLogin())return;
+  const userId=state.user.id;
+  const root=$("#panel-content");root.replaceChildren();$("#panel-title").textContent="회원 탈퇴";
+  let info;
+  try{info=await api("/api/auth/withdraw");}catch(e){notify(e.message);return;}
+  if(state.user?.id!==userId)return;
+  const notice=el("div","","withdraw-notice");
+  for(const line of["탈퇴하면 되돌릴 수 없고, 같은 아이디·이메일로는 30일 동안 다시 가입할 수 없습니다.",
+    "작성한 글과 댓글은 남고 작성자는 \"탈퇴한 회원\"으로 표시됩니다.",
+    "내 차고(차량·정비기록·자동차등록증)와 프로필, 좋아요·북마크·찜·알림은 삭제됩니다.",
+    "판매중 매물은 비공개로 닫히고, 판매완료 매물은 연락처만 지워진 채 남습니다."])notice.append(el("p",line));
+  root.append(notice);
+  const message=el("p","","danger-text");
+  if(info.admin)message.textContent="관리자 권한을 먼저 해제해야 탈퇴할 수 있습니다.";
+  else if(info.reservedListings>0)message.textContent=`예약중인 매물이 ${info.reservedListings}개 있습니다. 거래를 마치거나 판매중으로 바꾼 뒤 탈퇴해주세요.`;
+  else if(info.method==="KAKAO")message.textContent="카카오 계정은 카카오 재인증으로 탈퇴해야 합니다. 이 기능은 아직 준비 중입니다.";
+  else if(!info.available)message.textContent="지금은 회원 탈퇴를 처리할 수 없습니다. 관리자에게 문의해주세요.";
+  if(message.textContent){root.append(message);openDialog($("#panel-dialog"));return;}
+  const form=el("form","","dialog-form"),password=document.createElement("input");
+  password.type="password";password.name="password";password.autocomplete="current-password";password.required=true;password.maxLength=255;
+  const passwordLabel=el("label","현재 비밀번호");passwordLabel.append(password);
+  const confirm=document.createElement("input");confirm.type="checkbox";confirm.required=true;
+  const confirmLabel=el("label","위 내용을 확인했고 탈퇴에 동의합니다.");confirmLabel.prepend(confirm);
+  const submit=el("button","회원 탈퇴","danger");submit.type="submit";
+  form.append(passwordLabel,confirmLabel,message,submit);
+  on(form,"submit",async event=>{
+    event.preventDefault();submit.disabled=true;message.textContent="";
+    try{
+      await api("/api/auth/withdraw",{password:password.value,confirm:confirm.checked});
+      password.value="";$("#panel-dialog").close();signedOut();
+      notify("회원 탈퇴가 완료되었습니다.");location.assign("/");
+    }catch(e){message.textContent=e.message;password.value="";}
+    finally{submit.disabled=false;}
+  });
+  root.append(form);openDialog($("#panel-dialog"));password.focus();
 }
 const {vehicleForm, openCar} = createVehicleUI({$, state, api, el, on, button, photo, memberLink,
   requireLogin, openDialog, closeDetail, confirmDelete, uploadFile, renderPreviews, refreshGarage,
@@ -386,7 +425,7 @@ async function initialize() {
   state.authStatus = "CHECKING";
   renderGarageState("CHECKING");
   $("#member-content").hidden = true;
-  for(const id of ["home-profile","owned-panel","home-badges","home-guestbook","edit-profile"]) $("#"+id).hidden=true;
+  for(const id of ["home-profile","owned-panel","home-badges","home-guestbook","edit-profile","withdraw-account"]) $("#"+id).hidden=true;
   let user;
   try { user = await api("/api/auth/me"); }
   catch (error) {
@@ -409,6 +448,7 @@ async function initialize() {
   if (request === state.sessionRequest) await route();
 }
 on($("#edit-profile"), "click", editProfile);
+on($("#withdraw-account"), "click", withdrawAccount);
 on($("#home-add-vehicle"), "click", openRegistration);
 on($("#activity-more"), "click", () => refreshActivity(true));
 document.querySelectorAll("[data-activity]").forEach(button => on(button, "click", () => {
