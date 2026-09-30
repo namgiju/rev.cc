@@ -258,7 +258,7 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 | STEP 1 | 완료 | 2026-09-30 | `688e990` | 비밀번호 8자 이상(가입/재설정만), `/api` 본문 64KB·인증서류 업로드 5MB 상한(413), prod 배포 문서. `mvn test` 86 run/0 fail/0 skip(통합테스트 포함), `npm test` 9 run/0 fail |
 | STEP 2 | 완료 | 2026-09-30 | `a7ed438` | 관리자 매물 삭제(사유 필수, `LISTING_DELETE` 로그), admin/market 인가·IDOR 테스트 5건. `npm test` 14 run/0 fail, `mvn test` 86 run/0 fail(통합 9 skip) |
 | STEP 3 | 완료 | 2026-09-30 | `a74eb33` | `.github/workflows/ci.yml`(backend: Java 23 + Postgres/Redis 서비스로 통합테스트 포함, board: Node 22). GitHub Actions 첫 실행 성공: `mvn test` 86 run/0 fail/0 skip, `npm test` 14 pass. 1차 시도는 러너가 서비스 컨테이너 초기화 단계에서 멈춰 취소됐고(로그 없음, 일시 장애로 판단) 재실행에서 통과 |
-| STEP 4 | 완료 | 2026-09-30 | (push 후 기록) | Flyway 도입(`V1__baseline`=Neon 스키마, `V2`=`LISTING_DELETE` CHECK), `baseline-on-migrate`, `ddl-auto: validate`. board `schema.sql`, `backend/migrations/`, `VehicleRepository` DDL 제거. 검증: 빈 PG16/PG18 적용 후 Neon 덤프와 비교(예상한 차이만 있음), Neon 스키마 복제본+데이터에서 baseline→V2 적용·데이터 보존·재기동 멱등·API 200, 이전 코드로 만든 DB에서 baseline 통과. `mvn test` 86 run/0 fail/0 skip(통합 포함), `npm test` 14 pass |
+| STEP 4 | 완료 | 2026-09-30 | `e68e81f` | Flyway 도입(`V1__baseline`=Neon 스키마, `V2`=`LISTING_DELETE` CHECK), `baseline-on-migrate`, `ddl-auto: validate`. board `schema.sql`, `backend/migrations/`, `VehicleRepository` DDL 제거. 검증: 빈 PG16/PG18 적용 후 Neon 덤프와 비교(예상한 차이만 있음), Neon 스키마 복제본+데이터에서 baseline→V2 적용·데이터 보존·재기동 멱등·API 200, 이전 코드로 만든 DB에서 baseline 통과. `mvn test` 86 run/0 fail/0 skip(통합 포함), `npm test` 14 pass |
 
 ---
 
