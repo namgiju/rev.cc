@@ -594,6 +594,10 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 - STEP 9 — 신뢰 경계는 "172.16.238.2에서 온 TCP 연결"이다. 이 주소를 쓰려면 호스트나 Docker 권한이 필요하다. Linux 호스트의 root는 컨테이너 IP로 proxy에 직접 닿을 수 있으므로 호스트 자체는 신뢰 범위다. `TUNNEL_TOKEN`은 다른 비밀값처럼 `docker inspect`로 보인다.
 - STEP 9 — 로컬 과제 구성에서는 Docker 포트 매핑 때문에 모든 브라우저가 게이트웨이 IP 하나로 보이고(5-A 기록과 같음) nginx rate limit 버킷도 공유한다. 과제 시연에서 한 PC로 1분에 로그인·가입 등을 30회 넘게(순간 30) 하거나 API를 초당 20회 넘게(순간 200) 보내면 nginx 429가 날 수 있다. `docker-compose.garage.yml`의 Next.js garage-ui는 서버에서 proxy를 호출하므로 모든 사용자가 garage-ui 컨테이너 IP 하나로 묶인다(로컬 전용 프로토타입).
 - STEP 9 — `scripts/nginx-forwarded-check.sh`는 여전히 수동 검사다(CI에 넣지 않음, 5-A 기록과 같음). `cloudflared` 이미지는 2026.9.3으로 고정했다(자동 업데이트 없음). 보안 업데이트는 태그를 바꿔 재배포한다.
+- STEP 9 — **운영 배포 후 후속 검증 항목**(Kakao HttpClient timeout 부재는 위 항목에 별도 기록):
+  1. 실제 Named Tunnel(rev.cc) 경유로 IP spoofing을 다시 확인한다. `X-Forwarded-For`·`Forwarded`·`True-Client-IP`를 요청마다 바꿔도 Spring 로그인 IP 제한은 10회, board 조회수 제한은 60회 뒤에 429가 나야 한다. 위조한 `CF-Connecting-IP`는 엣지가 거부하거나 덮어써야 하고, proxy 로그의 첫 칸은 실제 사용자 IP여야 한다. STEP 9 e2e(Quick Tunnel)와 같은 절차로 확인한다.
+  2. `docker inspect`로 cloudflared가 `tunnel` 네트워크에서 172.16.238.2를 쓰는지 확인한다. 최초 기동, `docker compose up -d` 재생성, 호스트 재부팅 뒤에 각각 확인한다. 주소가 다르면 실제 IP 복원과 HSTS가 조용히 꺼진다(모든 사용자가 cloudflared 주소 bucket 하나를 공유). 운영 서버의 `ip route`·VPC 대역이 172.16.238.0/28과 겹치지 않는지도 확인한다.
+  3. `scripts/nginx-forwarded-check.sh`를 GitHub Actions에 넣을지 검토한다. 이 스크립트는 Docker와 고정 대역 네트워크(172.16.238.0/28)만 있으면 되므로 ubuntu 러너에서 실행할 수 있을 것으로 보이지만 확인하지 않았다. 넣으면 nginx 설정 회귀(신뢰 주소 불일치, 전달 헤더 제거 누락, rate limit·HSTS 조건 변경)를 자동으로 막을 수 있다.
 - STEP 9 — HSTS 확대(`max-age` 604800 → 2592000, `includeSubDomains`, `preload`)는 사용자 결정 사항이다. `preload`는 되돌리기 어렵다.
 - STEP 8 — core는 DB가 멈췄을 때 board보다 늦게 503이 된다(단건 약 10초, 쿼리 진행 중이면 최대 약 20초). Hikari가 오래 쉰 연결을 빌려줄 때 유효성 검사(`validation-timeout` 기본 5초)를 먼저 하고, 실패하면 새 연결을 기다리기(5초) 때문이다. 제한 시간이 있어 무한 대기는 아니며, 더 줄이려면 `validation-timeout`·`socketTimeout`을 낮춘다.
 - STEP 8 — Neon은 compute 크기(자동 확장 범위)에 따라 max_connections가 달라진다. 2026-09-30 값(901)은 현재 설정 기준이다. 플랜이나 compute 크기를 바꾸면 다시 확인해야 한다. 지금은 Neon 풀러(`-pooler` 호스트)가 아닌 직접 연결을 쓴다.
