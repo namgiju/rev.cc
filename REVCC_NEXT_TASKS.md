@@ -83,7 +83,7 @@
 [x] STEP 4: P1-3 Flyway/Liquibase 기반 DB migration 정리
 [x] STEP 5-A: P2-2 외부 X-Forwarded-For 신뢰 문제 해결 + limiter 만료 버킷 정리
 [x] STEP 5-B: P2-2 계정 단위 로그인 제한 + P2-4 board 누락 엔드포인트 rate limit (+ admin-system.mjs 정합화)
-[ ] STEP 6: P2-3 서버측 XSS 방어 (B안: 입력 시 HTML 태그 제거)
+[x] STEP 6: P2-3 서버측 XSS 방어 (B안: 입력 시 HTML 태그 제거)
 [ ] STEP 7-A: P2-5 Redis 인증 + P2-6 DB credential 정리
 [ ] STEP 7-B: P2-5 Docker 네트워크 분리 (prod 오버레이에만 적용)
 [ ] STEP 8: P2-7 + P2-8 + P2-9 운영 안정성 (커넥션 풀, restart 정책, .env.example)
@@ -577,6 +577,10 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 - STEP 5~11 계획 중 발견 — Spring이 저장하는 자유 텍스트(차고 차량 `nickname`/`description` 등 `GarageVehicleRequest` 필드, 관리자가 수정하는 `users.nickname`)도 서버측 정리가 없다. STEP 6은 board-service만 다룬다.
 - STEP 5~11 계획 중 발견 — core와 board가 Neon에 같은 DB 사용자(`DB_USER`)로 접속한다. 이 사용자는 Flyway DDL 권한까지 가진다. 앱용/마이그레이션용 역할 분리(최소 권한)는 어느 STEP에도 포함되지 않았다.
 - STEP 5~11 계획 중 발견 — Docker는 healthcheck가 unhealthy여도 컨테이너를 재시작하지 않는다. STEP 8의 restart 정책은 프로세스 종료만 복구한다. hang 상태 복구가 필요하면 별도 감시가 필요하다.
+- STEP 6 — B안의 알려진 변형(테스트로 고정): 붙여 쓴 `a<b`는 `<b` 태그 시작으로 해석되어 `a`만 남는다(`a < b`처럼 띄우면 유지). 사용자가 엔티티 글자를 직접 입력하면(`&amp;` 등) HTML로 해석되어 `&`로 저장된다. 검색어(`q`)와 관리자 필터도 `text()`를 거치므로 같은 규칙이 적용된다(필터는 이후 allow-list로 다시 검사).
+- STEP 6 — 기존 데이터 백필 없음(결정대로). 이미 저장된 글에 태그 문자열이 있어도 그대로 남는다. Neon에 해당 데이터가 있는지는 조회하지 않았다. 필요하면 읽기 전용 점검 후 별도 STEP으로 백필을 제안한다.
+- STEP 6 — Spring이 저장하는 자유 텍스트(차고 차량 `nickname`/`description` 등, `users.nickname`)는 여전히 sanitize되지 않는다(앞의 "STEP 5~11 계획 중 발견" 항목과 같은 문제, 이번 범위 밖).
+- STEP 6 — `sanitize-html` 2.17.7은 Node ≥ 22.12를 요구한다(`engines`). Dockerfile과 CI는 `node:22`(현재 22.23)라 문제없지만, Mac에서 로컬 Node로 board를 직접 실행한다면 버전을 확인해야 한다.
 - STEP 5-B — 로그인 응답 시간: 없는 아이디는 BCrypt 비교를 건너뛰므로(`AuthController.login()`의 `user == null ||` 단락 평가) 응답이 더 빠르다. 응답 본문은 같지만 시간 차이로 계정 존재 여부를 추정할 수 있다. 기존 동작이며 이번 STEP에서 바꾸지 않았다(더미 해시 비교로 해결 가능). 다만 아이디는 게시글 작성자·`check-username`으로 이미 공개된 정보다(STEP 11 참고).
 - STEP 5-B — 계정 잠금은 "검사 후 실패 기록" 순서라, 잠기기 직전에 동시에 들어온 요청 몇 개는 5회를 넘겨 비밀번호 검사를 받을 수 있다. 추가 시도는 IP당 10/분 제한으로 묶인다. 원자적 예약 방식으로 바꾸려면 별도 작업이 필요하다.
 - STEP 5-B — 아이디 단위 잠금의 본질적 트레이드오프: 아이디를 아는 누구나 틀린 비밀번호 5회로 그 계정을 15분 잠글 수 있다(피해자 DoS). 영구 잠금은 없고 카카오 로그인·비밀번호 재설정은 영향받지 않는다. 사용자 승인 수치(5회/15분)대로 구현했다.
@@ -598,7 +602,7 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 | STEP 4 follow-up | 완료 | 2026-09-30 | `47dbd69` | 수동 시스템 테스트 5개를 Flyway 단일 스키마 소유 구조로 전환(`scripts/lib/flyway-migrations.mjs`, `scripts/run-board-system.sh`, `garage-schema-check.py` 임시 스택화, 문서 4곳의 실행 명령 수정). 임시 PostgreSQL 16에서 실행: community/market/moderation PASS, garage-schema-check PASS(V1→V2 + core validate), admin은 기존 rate limit 충돌로 실패(사본으로 나머지 검증 PASS, 추가 이슈 참고). `mvn test` 86 run/0 fail/0 skip(통합 포함), `npm test` 14 pass. Neon 미접속. GitHub Actions run 36661042141 성공(Spring tests, Node tests 모두 success) |
 | STEP 5-A | 완료 | 2026-09-30 | `1aae376` | 재현: Spring(`forward-headers-strategy: framework`)은 X-Forwarded-For 첫 값을 IP로 쓰고 nginx는 클라이언트 값 뒤에 덧붙이고 있어, 위조 헤더로 core 로그인 IP 버킷을 매번 바꿀 수 있었다(`ForwardedClientIpTest`, `scripts/nginx-forwarded-check.sh`로 수정 전 실패 확인). 수정: nginx 두 `/api` location에서 X-Forwarded-For를 `$remote_addr`로 덮어씀, Spring/board limiter에 만료 윈도 정리(윈도 길이마다 sweep, 시계 주입). 검증: `mvn test` 91 run/0 fail/0 skip(통합 포함, 신규 5), `npm test` 16 pass(신규 2), nginx 검사 PASS, 현재 소스로 빌드한 전체 임시 스택에서 가입·로그인·글쓰기·프론트 정상 + 위조 XFF를 바꿔 가며 로그인해도 10회 초과 시 429. Cloudflare 실제 IP 복원은 STEP 9. Neon 미접속 |
 | STEP 5-B | 완료 | 2026-09-30 | `83c79f1` | 계정 단위 로그인 제한 `LoginAttemptLimiter`(Redis, 키 `login-fail:<SHA-256(로그인과 같은 정확한 아이디)>`, 실패 5회 → 그 시점부터 15분 429 + `Retry-After`, 막힌 동안은 DB·비밀번호 검사 없음, 없는 아이디·정지 계정도 같은 401/429, 성공 시 초기화하지 않고 TTL로만 만료 — `PasswordResetService`와 같은 패턴). 기존 IP 필터와 병행. board: 매물 등록 사용자당 10/분, 신고 사용자당 10/분, 조회수 2곳 IP당 60/분(`rateLimiter`에 `by: "ip"` 추가, 로그인 여부 무관). `admin-system.mjs` 작성자 분산으로 rate limit 충돌 해소. 검증: `mvn test` 99 run/0 fail/0 skip(통합 포함, 신규 8), `npm test` 20 pass(신규 4), 수동 시스템 테스트 5개 PASS, 임시 전체 스택 e2e(동시에 띄운 별도 IP 클라이언트로 계정 잠금·없는 아이디 동일 응답·잠금 중 올바른 비밀번호도 429·다른 아이디 영향 없음·IP 제한 병행 확인). Neon 미접속 |
-| STEP 6 | 미착수 | - | - | 서버측 XSS 방어 (B안 채택: 입력 시 HTML 태그 제거) |
+| STEP 6 | 완료 | 2026-09-30 | (push 후 기록) | `validation.js`의 `text()` 한 곳에서 `sanitize-html`(2.17.7, `allowedTags: []`)로 태그 제거 → sanitize-html이 만든 엔티티 4종(`&lt; &gt; &quot; &amp;`)만 평문으로 되돌림 → 값이 바뀌지 않을 때까지 반복(최대 5회, 수렴하지 않으면 400; 엔티티로 숨긴 태그 차단). 제어·bidi·폭 없는 문자 제거(이모지용 ZWJ는 유지). 길이는 정리 전 원문 기준으로 먼저 검사, 정리 후 빈 필수 값은 400. 백필 없음. 검증: `npm test` 41 pass(신규 21), `mvn test` 99 run/0 fail/0 skip(회귀), 수동 시스템 테스트 5개 PASS, 실제 PostgreSQL에서 작성→조회 왕복(태그 제거, `<3`·`1<2 & 3>2`·이모지 평문 유지, 엔티티 없음). 참고: STEP 6 본문의 "`community-system.mjs`는 깨져 있어 사용 불가"는 STEP 4 follow-up(`47dbd69`)으로 해결된 옛 문구다. Neon 미접속 |
 | STEP 7-A | 미착수 | - | - | Redis 인증 + DB credential 정리 |
 | STEP 7-B | 미착수 | - | - | 네트워크 분리 (prod 오버레이에만 적용, 기본 compose 유지) |
 | STEP 8 | 미착수 | - | - | 커넥션 풀 / restart / .env.example |
