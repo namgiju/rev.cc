@@ -22,7 +22,12 @@ public class GarageVehicleService {
     }
 
     // 인증 없이 누구나 호출 가능한 공개 엔드포인트이므로 번호판(PII)은 내려주지 않는다.
-    public GarageVehicleResponse profile(Integer id) { return GarageVehicleResponse.from(find(id)).withoutLicensePlate(); }
+    // 탈퇴 회원의 차고는 공개하지 않는다(차고는 탈퇴 처리에서 삭제되는 개인 데이터다. STEP 10 결정 7·8).
+    public GarageVehicleResponse profile(Integer id) {
+        Vehicle vehicle = find(id);
+        if (vehicle.getUser().isWithdrawn()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "차량을 찾을 수 없습니다.");
+        return GarageVehicleResponse.from(vehicle).withoutLicensePlate();
+    }
 
     @Transactional
     public GarageVehicleResponse create(Long userId, GarageVehicleRequest request) {

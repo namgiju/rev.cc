@@ -7,11 +7,17 @@ source and runs them on a throwaway Docker network with its own postgres/redis.
 import subprocess
 import time
 import uuid
+import json
+import pathlib
+import re
 
 suffix = uuid.uuid4().hex[:8]
 network = 'revcc-garage-check-' + suffix
 pg, redis, core = network + '-pg', network + '-redis', network + '-core'
 schema = 'garage_bootstrap_' + uuid.uuid4().hex[:10]
+# 저장소의 Flyway 파일(V1, V2, ...)이 전부, 버전 순서대로 적용돼야 한다. 새 마이그레이션이 생겨도 고칠 필요가 없다.
+versions = [m.group(1) for m in sorted((re.match(r'V(\d+)__', p.name) for p in pathlib.Path('backend/src/main/resources/db/migration').glob('V*__*.sql')), key=lambda m: int(m.group(1)))]
+if not versions: raise AssertionError('Flyway migration files not found')
 core_image, board_image = 'revcc-core:garage-check', 'revcc-board:garage-check'
 
 def run(args, text=None, check=True):
@@ -33,7 +39,7 @@ try:
     else:
         raise AssertionError('Temporary PostgreSQL failed to start')
     sql(f'CREATE SCHEMA {schema}')
-    # core의 Flyway가 빈 스키마에 V1 → V2를 적용하고 Hibernate validate를 통과해야 기동된다.
+    # core의 Flyway가 빈 스키마에 V1부터 마지막 버전까지 적용하고 Hibernate validate를 통과해야 기동된다.
     run(['docker','run','-d','--name',core,'--network',network,
         '-e',f'SPRING_DATASOURCE_URL=jdbc:postgresql://{pg}:5432/revcc?currentSchema={schema}',
         '-e','POSTGRES_USER=revcc','-e','POSTGRES_PASSWORD=revcc','-e',f'REDIS_HOST={redis}',core_image])
@@ -44,13 +50,13 @@ try:
         time.sleep(1)
     else:
         raise AssertionError('Fresh Flyway schema failed to start core:\n' + run(['docker','logs',core],check=False).stderr[-3000:])
-    code = """
+    code = "const expectedVersions=" + json.dumps(versions) + ";" + """
 import pg from 'pg';
 import assert from 'node:assert/strict';
 const db=new pg.Pool();
 try {
  const history=(await db.query('SELECT version,success FROM flyway_schema_history ORDER BY installed_rank')).rows;
- assert.deepEqual(history.map(r=>r.version),['1','2']);assert.ok(history.every(r=>r.success));
+ assert.deepEqual(history.map(r=>r.version),expectedVersions);assert.ok(history.every(r=>r.success));
  const user=(await db.query("INSERT INTO users(username,password) VALUES('bootstrap','test-only') RETURNING id")).rows[0];
  const image=(await db.query("INSERT INTO community_images(owner_id,mime,data) VALUES($1,'image/png',$2) RETURNING id",[user.id,Buffer.from('test')])).rows[0];
  const vehicle=(await db.query("INSERT INTO owner_vehicles(owner_id,model,year,image_id) VALUES($1,'Legacy model',2024,$2) RETURNING *",[user.id,image.id])).rows[0];
@@ -60,7 +66,7 @@ try {
  await db.query('DELETE FROM users WHERE id=$1',[user.id]);
  assert.equal((await db.query('SELECT * FROM owner_vehicles')).rows.length,0);
  assert.equal((await db.query('SELECT * FROM vehicle_records')).rows.length,0);
- console.log('PASS: fresh Flyway schema (V1 -> V2) with core startup/validate, legacy inserts, owner/photo/record foreign keys and cascade cleanup.');
+ console.log('PASS: fresh Flyway schema (V'+expectedVersions.join(' -> V')+') with core startup/validate, legacy inserts, owner/photo/record foreign keys and cascade cleanup.');
 } finally {await db.end();}
 """
     result = run(['docker','run','--rm','-i','--network',network,

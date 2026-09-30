@@ -1,4 +1,9 @@
 window.partsMarket = (() => {
+  // 탈퇴 판매자는 id가 없다("탈퇴한 회원"). 프로필이 없으므로 링크 없이 이름만 보여 준다.
+  const sellerLink = (item) =>
+    item.sellerId == null
+      ? el("span", item.username, "member-withdrawn")
+      : link(item.username, `/community#member-${item.sellerId}`);
   const categories = {
     wheels: "휠 / 타이어",
     suspension: "서스펜션",
@@ -187,7 +192,7 @@ window.partsMarket = (() => {
     );
     const bottom = el("div", "", "market-card-bottom");
     bottom.append(
-      link(item.username, `/community#member-${item.sellerId}`),
+      sellerLink(item),
       favoriteButton(item),
     );
     root.append(bottom);
@@ -323,7 +328,7 @@ window.partsMarket = (() => {
     );
     const meta = el("p", "", "context-muted");
     meta.append(
-      link(item.username, `/community#member-${item.sellerId}`),
+      sellerLink(item),
       document.createTextNode(
         ` · ${dateText(item.createdAt)} · 조회 ${item.views}`,
       ),

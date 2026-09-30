@@ -30,7 +30,8 @@ public class AdminController {
     public Map<String, Object> overview(
             @CookieValue(name = SharedSessionService.COOKIE, required = false) String token) {
         requireAdmin(token);
-        return Map.of("totalUsers", users.count(), "totalVehicles", vehicles.count());
+        // 탈퇴 계정은 행이 남지만 회원 수에는 넣지 않는다.
+        return Map.of("totalUsers", users.countByAccountStatusIsNullOrAccountStatusNot(User.WITHDRAWN), "totalVehicles", vehicles.count());
     }
 
     public record VerificationSummary(Integer id, Integer vehicleId, String username, String licensePlate,

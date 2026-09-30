@@ -2,6 +2,7 @@ import { Router } from "express";
 import { fail, text, positive, integer } from "./validation.js";
 import { validateOwnedImages } from "./owned-images.js";
 import { requireCurrentAdmin } from "./admin-access.js";
+import { displayNameSql, isWithdrawnSql, publicMemberId, unlessWithdrawnSql } from "./member-display.js";
 import { rateLimiter } from "./rate-limit.js";
 const categories = [
   "wheels",
@@ -15,14 +16,16 @@ const categories = [
   "other",
 ];
 const statuses = ["selling", "reserved", "sold"];
-const select = `SELECT l.id,l.seller_id AS "sellerId",u.username,l.title,l.description,l.price,l.category,l.status,
+// 탈퇴 판매자의 매물은 "탈퇴한 회원"으로 보이고 판매자 id는 공개하지 않는다(member-display.js).
+const select = `SELECT l.id,${unlessWithdrawnSql("u", "l.seller_id")} AS "sellerId",${displayNameSql("u")} AS username,
+ ${isWithdrawnSql("u")} AS "sellerWithdrawn",l.title,l.description,l.price,l.category,l.status,
  l.image_ids AS "imageIds",l.vehicle,l.region,l.views,l.created_at AS "createdAt",l.updated_at AS "updatedAt",
  (SELECT COUNT(*)::int FROM parts_favorites f WHERE f.listing_id=l.id) AS "favoriteCount",
  EXISTS(SELECT 1 FROM parts_favorites f WHERE f.listing_id=l.id AND f.user_id=$1) AS favorited
  FROM parts_listings l JOIN users u ON u.id=l.seller_id`;
 const listing = (row) => ({
   ...row,
-  sellerId: Number(row.sellerId),
+  sellerId: publicMemberId(row.sellerId),
   price: Number(row.price),
 });
 const status = (value) => {
@@ -171,7 +174,8 @@ export function marketRouter({ db, auth }) {
     ]);
     if (!rows.length) fail(404, "삭제되었거나 없는 매물입니다.");
     const result = listing(rows[0]);
-    if (req.user) {
+    // 탈퇴 판매자에게는 연락할 수 없으므로 연락처(개인정보)를 내려주지 않는다. 값 자체의 정리는 탈퇴 처리가 한다.
+    if (req.user && !result.sellerWithdrawn) {
       const contact = await db.query(
         "SELECT contact FROM parts_listings WHERE id=$1",
         [req.params.id],

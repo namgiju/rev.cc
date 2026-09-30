@@ -56,7 +56,7 @@ class AdminControllerTest {
     }
 
     @Test void adminSeesRealCounts() throws Exception {
-        when(users.count()).thenReturn(11L);
+        when(users.countByAccountStatusIsNullOrAccountStatusNot(User.WITHDRAWN)).thenReturn(11L); // 탈퇴 계정 제외
         when(vehicles.count()).thenReturn(3L);
         mvc.perform(get("/api/admin/overview").cookie(new Cookie(SharedSessionService.COOKIE, "admin-token")))
             .andExpect(status().isOk())

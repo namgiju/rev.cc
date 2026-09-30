@@ -41,7 +41,7 @@ public class AuthController {
     public ResponseEntity<?> checkUsername(@Valid @ModelAttribute UsernameQuery query) {
         // Same exact, case-sensitive value as signup/login; do not trim or lowercase it.
         return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
-            .body(Map.of("available", !users.existsByUsername(query.username())));
+            .body(Map.of("available", !ReservedUsernames.isReserved(query.username()) && !users.existsByUsername(query.username())));
     }
 
     @PostMapping("/signup")
@@ -53,6 +53,9 @@ public class AuthController {
         // BCrypt는 UTF-8 72바이트 제한이 있어 문자 수와 별도로 검사한다.
         if (request.password().getBytes(StandardCharsets.UTF_8).length > 72)
             return ResponseEntity.badRequest().body(Map.of("message", "비밀번호는 UTF-8 72바이트 이하여야 합니다."));
+        // "탈퇴한 회원", "관리자" 등 시스템 표시명으로 오인될 아이디는 새로 만들 수 없다.
+        if (ReservedUsernames.isReserved(request.username()))
+            return ResponseEntity.badRequest().body(Map.of("message", "사용할 수 없는 아이디입니다."));
         if (users.existsByUsername(request.username())) return duplicate();
         try {
             User fresh = new User(request.username(), passwords.encode(request.password()));
@@ -123,11 +126,11 @@ public class AuthController {
         try {
             KakaoOAuthService.KakaoUser info = kakao.exchange(code);
             // 닉네임은 바뀔 수 있으므로 카카오 ID로 같은 계정을 찾고, 처음이면 새로 만든다.
-            User user = users.lockByKakaoId(info.id())
-                .map(existing -> refreshKakaoNickname(existing, info))
-                .orElseGet(() -> createKakaoUser(info));
-            if (user.isBlocked()) return ResponseEntity.status(403).header(HttpHeaders.SET_COOKIE, kakaoState.clearCookie())
+            // 이용할 수 없는 계정(정지·비활성화·탈퇴)은 아이디 갱신 등 아무것도 바꾸지 않고 먼저 거부한다.
+            User user = users.lockByKakaoId(info.id()).orElse(null);
+            if (user != null && user.isBlocked()) return ResponseEntity.status(403).header(HttpHeaders.SET_COOKIE, kakaoState.clearCookie())
                 .body(Map.of("message", "이용할 수 없는 계정입니다."));
+            user = user == null ? createKakaoUser(info) : refreshKakaoNickname(user, info);
             String token = sessions.create(user);
             return ResponseEntity.status(302).location(URI.create("ADMIN".equals(user.getRole()) ? "/admin" : "/"))
                 .header(HttpHeaders.SET_COOKIE, sessions.cookie(token, false))
@@ -144,7 +147,7 @@ public class AuthController {
         String nickname = info.nickname();
         // 카카오 동의항목이 나중에 켜져 실제 닉네임을 받게 되면 다음 로그인 때 자동으로 반영한다.
         // 다른 계정이 이미 그 이름을 쓰고 있으면 충돌을 피해 그대로 둔다.
-        if (!nickname.equals(user.getUsername()) && !users.existsByUsername(nickname)) {
+        if (!nickname.equals(user.getUsername()) && !ReservedUsernames.isReserved(nickname) && !users.existsByUsername(nickname)) {
             user.updateUsername(nickname);
             users.saveAndFlush(user);
         }
@@ -153,6 +156,8 @@ public class AuthController {
 
     private User createKakaoUser(KakaoOAuthService.KakaoUser info) {
         String username = info.nickname();
+        // 카카오 닉네임이 시스템 표시명과 겹치면 기본 이름을 쓴다(뒷자리 구분은 아래 규칙과 같다).
+        if (ReservedUsernames.isReserved(username)) username = "카카오사용자";
         // 닉네임이 이미 다른 계정에서 쓰이는 중이면 카카오 ID 뒷자리를 붙여 구분한다.
         if (users.existsByUsername(username)) username = username + "_" + (info.id() % 10000);
         // 카카오 로그인 전용 계정은 비밀번호로 직접 로그인하지 않으므로 무작위 해시만 채워둔다.

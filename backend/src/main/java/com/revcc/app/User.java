@@ -50,15 +50,30 @@ public class User {
     private String accountStatus;
     private Instant suspendedUntil;
     private Long authVersion;
+    // soft withdrawal(STEP 10). WITHDRAWN은 되돌릴 수 없는 최종 상태이며, 행은 게시글·신고 등의 참조를 위해 남긴다.
+    public static final String WITHDRAWN = "WITHDRAWN";
+    @Column(name = "withdrawn_at")
+    private Instant withdrawnAt;
     public String getNickname() { return nickname; }
     public void registerEmail(String email) { this.email = email; }
     public String getEmail() { return email; }
     public String getAccountStatus() { return accountStatus == null ? "ACTIVE" : accountStatus; }
     public Instant getSuspendedUntil() { return suspendedUntil; }
     public long getAuthVersion() { return authVersion == null ? 0 : authVersion; }
-    public boolean isBlocked() { return "DISABLED".equals(getAccountStatus()) ||
+    public Instant getWithdrawnAt() { return withdrawnAt; }
+    public boolean isWithdrawn() { return WITHDRAWN.equals(getAccountStatus()); }
+    // 로그인·세션·관리자 인가가 모두 이 값으로 막는다. 탈퇴 계정은 어떤 경로로도 다시 인증되지 않는다.
+    public boolean isBlocked() { return isWithdrawn() || "DISABLED".equals(getAccountStatus()) ||
         ("SUSPENDED".equals(getAccountStatus()) && (suspendedUntil == null || suspendedUntil.isAfter(Instant.now()))); }
+    // 관리자 기능을 실제로 쓸 수 있는 관리자: ADMIN이면서 정지·비활성화·탈퇴 상태가 아니다.
+    public boolean isEffectiveAdmin() { return "ADMIN".equals(role) && !isBlocked(); }
     public void invalidateSessions() { authVersion = getAuthVersion() + 1; }
+    // 상태 전이만 한다(모든 세션 무효화 포함). 개인정보 익명화·데이터 처리는 탈퇴 처리(STEP 10-impl-C)가 함께 한다.
+    public void markWithdrawn(Instant at) {
+        if (isWithdrawn()) return;
+        accountStatus = WITHDRAWN; withdrawnAt = at;
+        invalidateSessions();
+    }
     public void manage(String nickname, String email, String status, String role, Instant until) {
         this.nickname = nickname; this.email = email; this.accountStatus = status;
         this.role = role; this.suspendedUntil = until;

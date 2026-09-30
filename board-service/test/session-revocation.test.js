@@ -22,6 +22,11 @@ test('DB session version and suspension apply to board and garage including lega
   assert.equal((await get('/api/board/me')).status,200);
   current.status='DISABLED';
   assert.equal((await get('/api/board/me')).status,401);
+  // 탈퇴(WITHDRAWN)는 세션 버전이 같아도(상태만 바뀐 경우) 거부한다. 탈퇴 처리는 버전도 올린다.
+  current={ version: 1, status: 'WITHDRAWN' };
+  assert.equal((await get('/api/board/me')).status,401);
+  assert.equal((await get('/api/board/garage/mine')).status,401);
+  assert.equal((await get('/api/parts/listings?scope=mine')).status,401);
   current=null;
   assert.equal((await get('/api/board/me')).status,401);
 });

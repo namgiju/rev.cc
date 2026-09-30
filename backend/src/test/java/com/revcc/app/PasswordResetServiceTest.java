@@ -47,6 +47,16 @@ class PasswordResetServiceTest {
         assertEquals(1,user.getAuthVersion());
         assertThrows(ResponseStatusException.class,()->service.reset(token,"another-password","another-password"));
     }
+    @Test void withdrawnAccountCannotRequestOrCompleteAReset() {
+        // 탈퇴 전에 받아 둔 재설정 토큰도 탈퇴 후에는 쓸 수 없다(비밀번호가 바뀌지 않는다).
+        String token=requestAndVerify(); String before=user.getPassword();
+        user.markWithdrawn(java.time.Instant.now());
+        assertThrows(ResponseStatusException.class,()->service.reset(token,"new-password","new-password"));
+        assertEquals(before,user.getPassword());
+        // 요청은 없는 아이디와 같은 응답이다(쿨다운 60초를 피하려고 새 이메일로 요청한다).
+        var failure=assertThrows(PasswordResetService.RequestFailure.class,()->service.request("tester","other-"+email,"other-"+email));
+        assertEquals("USERNAME_NOT_FOUND",failure.code());
+    }
     @Test void failuresLimitedToFiveEvenWithCorrectSixthAttempt() {
         service.request("tester",email,email);
         String wrong=code.get().equals("000000")?"000001":"000000";

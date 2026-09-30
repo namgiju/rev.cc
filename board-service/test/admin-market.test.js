@@ -23,9 +23,9 @@ function fakeDb() {
     log.push({ sql, values });
     if (sql.startsWith("SELECT COALESCE(auth_version"))
       return { rows: [{ version: 0, status: "ACTIVE", suspended_until: null }] };
-    if (sql.startsWith("SELECT id,username,role FROM users")) {
+    if (sql.startsWith("SELECT id,username,role")) {
       const id = values[0];
-      return { rows: dbRoles[id] ? [{ id, username: "db-user", role: dbRoles[id] }] : [] };
+      return { rows: dbRoles[id] ? [{ id, username: "db-user", role: dbRoles[id], status: "ACTIVE", suspended_until: null }] : [] };
     }
     if (/FOR UPDATE OF l/.test(sql))
       return { rows: values[0] === listing.id ? [listing] : [] };

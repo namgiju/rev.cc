@@ -274,6 +274,8 @@ async function refreshNotificationCount() {
   $("#notification-count").textContent = n ? String(n) : "";
 }
 function memberLink(id, name) {
+  // 탈퇴 회원은 서버가 id를 내려주지 않는다("탈퇴한 회원"). 프로필이 없으므로 링크 없이 이름만 보여 준다.
+  if (id == null) return el("span", name, "owner-link member-withdrawn");
   return link(name, `#member-${id}`, "owner-link");
 }
 function renderPost(post) {

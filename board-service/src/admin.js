@@ -2,6 +2,7 @@ import { requireCurrentAdmin } from './admin-access.js';
 import { Router } from "express";
 import { fail, text, positive } from "./validation.js";
 import { VERIFIED_OWNER_BADGE } from "./badges.js";
+import { displayNameSql, isWithdrawnSql } from "./member-display.js";
 
 // Operational queries live beside the board tables; Spring retains vehicle verification.
 export function adminRouter({ db, auth }) {
@@ -46,7 +47,8 @@ export function adminRouter({ db, auth }) {
       (SELECT count(*)::int FROM board_posts WHERE author_id=u.id) AS "postCount",
       (SELECT count(*)::int FROM owner_vehicles WHERE owner_id=u.id) AS "vehicleCount"
       FROM users u`,
-      "WHERE u.username ILIKE $1",
+      // 탈퇴 계정은 회원 목록에 넣지 않는다(Spring 회원 관리의 WITHDRAWN 필터로 조회한다).
+      `WHERE u.username ILIKE $1 AND NOT ${isWithdrawnSql("u")}`,
       [q],
       page,
     );
@@ -58,10 +60,11 @@ export function adminRouter({ db, auth }) {
       fail(400, "게시판을 확인해주세요.");
     await list(
       res,
-      `SELECT p.id,p.title,p.category,p.author_id AS "authorId",u.username,p.created_at AS "createdAt",
+      // 관리자 목록도 탈퇴 작성자는 "탈퇴한 회원"으로 보인다. 운영에 필요한 내부 id는 그대로 둔다.
+      `SELECT p.id,p.title,p.category,p.author_id AS "authorId",${displayNameSql("u")} AS username,p.created_at AS "createdAt",
       (SELECT count(*)::int FROM community_reports WHERE post_id=p.id) AS "reportCount"
       FROM board_posts p JOIN users u ON u.id=p.author_id`,
-      "WHERE (p.title ILIKE $1 OR u.username ILIKE $1) AND ($2='' OR p.category=$2)",
+      `WHERE (p.title ILIKE $1 OR ${displayNameSql("u")} ILIKE $1) AND ($2='' OR p.category=$2)`,
       [q, category],
       page,
     );
@@ -73,11 +76,11 @@ export function adminRouter({ db, auth }) {
       fail(400, "신고 상태를 확인해주세요.");
     await list(
       res,
-      `SELECT r.id,r.post_id AS "postId",p.title,p.category,u.username AS reporter,r.reason,r.status,
-      r.created_at AS "createdAt",r.reviewed_at AS "reviewedAt",a.username AS reviewer,r.resolution_note AS "resolutionNote"
+      `SELECT r.id,r.post_id AS "postId",p.title,p.category,${displayNameSql("u")} AS reporter,r.reason,r.status,
+      r.created_at AS "createdAt",r.reviewed_at AS "reviewedAt",CASE WHEN a.id IS NULL THEN NULL ELSE ${displayNameSql("a")} END AS reviewer,r.resolution_note AS "resolutionNote"
       FROM community_reports r JOIN board_posts p ON p.id=r.post_id JOIN users u ON u.id=r.user_id
       LEFT JOIN users a ON a.id=r.reviewed_by`,
-      "WHERE (p.title ILIKE $1 OR u.username ILIKE $1 OR r.reason ILIKE $1) AND ($2='' OR r.status=$2)",
+      `WHERE (p.title ILIKE $1 OR ${displayNameSql("u")} ILIKE $1 OR r.reason ILIKE $1) AND ($2='' OR r.status=$2)`,
       [q, status],
       page,
     );

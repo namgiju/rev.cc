@@ -246,7 +246,7 @@ function setupOperationalLists() {
     search.setAttribute("aria-label", search.placeholder);
     controls.append(search);
     if (name === "members") {
-      for (const [name, options] of [['field', {username:'아이디',nickname:'닉네임',email:'이메일'}], ['status', {'':'전체 상태',ACTIVE:'정상',SUSPENDED:'정지',DISABLED:'비활성'}]]) {
+      for (const [name, options] of [['field', {username:'아이디',nickname:'닉네임',email:'이메일'}], ['status', {'':'전체 상태',ACTIVE:'정상',SUSPENDED:'정지',DISABLED:'비활성',WITHDRAWN:'탈퇴'}]]) {
         const select = el('select'); select.name = name; select.setAttribute('aria-label', name === 'field' ? '검색 항목' : '계정 상태');
         for (const [value,label] of Object.entries(options)) { const option = el('option',label); option.value=value; select.append(option); }
         controls.append(select);
@@ -332,7 +332,7 @@ async function loadList(name) {
     for (const item of result.items) {
       if (name === "members") {
         const open = el('button', item.username, 'secondary'); open.dataset.memberId = item.id; open.addEventListener('click', () => openMember(item.id, open));
-        root.append(row([String(item.id),open,item.nickname || '—',item.email || '미등록',date(item.joinedAt),({ACTIVE:'정상',SUSPENDED:'이용 정지',DISABLED:'비활성'})[item.status] || item.status,item.role]));
+        root.append(row([String(item.id),open,item.nickname || '—',item.email || '미등록',date(item.joinedAt),({ACTIVE:'정상',SUSPENDED:'이용 정지',DISABLED:'비활성',WITHDRAWN:'탈퇴'})[item.status] || item.status,item.role]));
       }
       else if (name === "posts")
         root.append(
@@ -434,12 +434,17 @@ async function openMember(id, opener) {
     const item = await api(`/api/admin/members/${id}`);
     if (view !== memberView) return;
     selectedMember = item;
-    const f = $('#member-form'); f.reset(); f.elements.nickname.value = item.nickname || ''; f.elements.email.value = item.email || '';
+    const f = $('#member-form'); f.reset(); f.querySelectorAll('input, select, button').forEach(c => c.disabled = false); f.elements.nickname.value = item.nickname || ''; f.elements.email.value = item.email || '';
     f.elements.status.value = item.status; f.elements.role.value = item.role;
     if (item.suspendedUntil) { const d = new Date(item.suspendedUntil); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); f.elements.suspendedUntil.value=d.toISOString().slice(0,16); }
     $('#member-title').textContent = `회원 #${item.id} · ${item.username}`;
     $('#member-message').textContent = item.kakaoOnly ? '카카오 전용 계정입니다.' : '';
     $('#member-reset').disabled = !item.email || item.kakaoOnly;
+    // 탈퇴는 되돌릴 수 없다(서버도 409로 거부). 조회만 가능하게 편집 컨트롤을 끈다. 닫을 때 close 핸들러가 되살린다.
+    if (item.status === 'WITHDRAWN') {
+      f.querySelectorAll('input, select, button:not(#member-close)').forEach(c => c.disabled = true); $('#member-reset').disabled = true;
+      $('#member-message').textContent = '탈퇴한 회원입니다. 정보를 변경하거나 상태를 되돌릴 수 없습니다.';
+    }
     $('#member-dialog').showModal(); await memberActions(id, view);
   } catch (e) { if (view === memberView) $('#notice').textContent=e.message; }
 }

@@ -52,7 +52,8 @@ public class PasswordResetService {
         String email = email(input), key = digest(email);
         limit("request-ip:" + requester, 20, 3600);
         limit("request-email:" + email, 5, 3600);
-        User user = users.findByUsername(username).orElseThrow(() ->
+        // 탈퇴 계정은 없는 아이디와 같게 처리한다(탈퇴 처리 후에는 아이디 자체가 바뀌어 실제로 없는 아이디가 된다).
+        User user = users.findByUsername(username).filter(u -> !u.isWithdrawn()).orElseThrow(() ->
             new RequestFailure(HttpStatus.BAD_REQUEST, "USERNAME_NOT_FOUND", "등록되지 않은 아이디입니다."));
         if (!email.equals(user.getEmail()))
             throw new RequestFailure(HttpStatus.BAD_REQUEST, "IDENTITY_MISMATCH", "아이디와 이메일 정보가 일치하지 않습니다.");
@@ -90,7 +91,7 @@ public class PasswordResetService {
         if (payload == null) throw invalid();
         String[] parts=payload.split(":");
         User user=users.lockById(Long.valueOf(parts[0])).orElseThrow(PasswordResetService::invalid);
-        if (user.getKakaoId()!=null || user.getEmail()==null || user.getAuthVersion()!=Long.parseLong(parts[1]) || !digest(user.getEmail()).equals(parts[2])) throw invalid();
+        if (user.isWithdrawn() || user.getKakaoId()!=null || user.getEmail()==null || user.getAuthVersion()!=Long.parseLong(parts[1]) || !digest(user.getEmail()).equals(parts[2])) throw invalid();
         user.upgradePassword(passwords.encode(password)); user.invalidateSessions(); users.saveAndFlush(user);
     }
     static final class RequestFailure extends ResponseStatusException {

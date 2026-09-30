@@ -51,7 +51,8 @@ export function createApp({ db, redis }) {
     if (req.user) {
       const { rows } = await db.query("SELECT COALESCE(auth_version,0) AS version, COALESCE(account_status,'ACTIVE') AS status, suspended_until FROM users WHERE id=$1", [req.user.id]);
       const current = rows[0];
-      if (!current || Number(current.version) !== (req.user.version ?? 0) || current.status === 'DISABLED' ||
+      // 탈퇴(WITHDRAWN)는 되돌릴 수 없는 최종 상태다. 탈퇴 처리가 auth_version도 올리지만 상태만으로도 거부한다.
+      if (!current || Number(current.version) !== (req.user.version ?? 0) || current.status === 'DISABLED' || current.status === 'WITHDRAWN' ||
           (current.status === 'SUSPENDED' && (!current.suspended_until || new Date(current.suspended_until) > new Date()))) req.user = null;
     }
     next();

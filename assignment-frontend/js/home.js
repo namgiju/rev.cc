@@ -39,7 +39,8 @@ function closeDetail() {
   $("#detail-dialog").close();
   history.replaceState(null, "", location.pathname + location.search);
 }
-const memberLink = (id, name) => link(name, `/#member-${id}`, "owner-link");
+// 탈퇴 회원은 id가 없다("탈퇴한 회원"). 프로필이 없으므로 링크 없이 이름만 보여 준다.
+const memberLink = (id, name) => id == null ? el("span", name, "owner-link member-withdrawn") : link(name, `/#member-${id}`, "owner-link");
 const isMyGaragePage = () => true;
 function on(node, event, handler) {
   // /community, /garage, /parts 등 독립 페이지는 index.html의 일부 요소가 없을 수 있어
