@@ -76,6 +76,10 @@
 
 ## 4. 다음 작업 순서
 
+> **2026-10-01 전환**: "기능·보안 요구사항을 최대한 완벽하게 구현하는 단계"에서 "실제로 공개하고 사용자를 받아 보는 단계"로 바꾼다. 현재 규모는 회원 약 33명, 게시글 약 21개, 매물 0건이다. STEP 10-impl-C까지 완료했고 main에도 반영했다(`82de6b3`). 목표는 완벽한 인프라·보안·DB 설계가 아니라 **실제로 배포 가능한 서비스 → 사용자를 받음 → 실제 사용 데이터를 확인 → 필요한 부분을 개선**이다.
+
+### 완료
+
 ```
 [x] STEP 1: P1-1 비밀번호 최소 길이 + P1-2 요청 body 크기 제한 + P1-5 운영 배포 문서 수정
 [x] STEP 2: P1-4 부품장터 관리자 모더레이션 + P1-6 admin/market 인가 테스트
@@ -92,13 +96,78 @@
 [x] STEP 10-impl-A: 탈퇴 상태 기반(스키마 V3) + 탈퇴 계정 차단·표시 + 관리자 복구 차단 + 마지막 관리자 보호
 [x] STEP 10-impl-B: 본인 글 soft delete + 이미지 공개 범위 제한 + image_ids orphan 방지
 [x] STEP 10-impl-C: 일반 계정 탈퇴(비밀번호 재확인) + 데이터 처리 + 매물·방명록·차고 처리 + 재가입 제한 + 탈퇴 UI
-[ ] STEP 10-impl-D: 카카오 계정 탈퇴(prompt=login 재인증 + 사용자 토큰 unlink) + 카카오 HttpClient timeout
-[ ] STEP 10-impl-E: 운영 기록 보존기간(설정값) + FK 없는 참조 정리 + Neon board_test_posts_archive 운영 절차
-[ ] STEP 11: P2-1 비밀번호 재설정 계정 열거 (정책 결정 포함)
-[ ] STEP 12+: P3 (P2 완료 후, 이 파일에 STEP을 추가로 정의해서 진행)
 ```
 
-새 세션은 이 표에서 **처음 `[ ]`인 STEP 하나만** 구현한다. 여러 STEP을 한 번에 진행하지 않는다.
+### 지금 할 것 (위에서부터 순서대로)
+
+```
+[ ] NOW-1: UI/UX 개선 및 Next.js 전환 — 현재 최우선 제품 작업
+[ ] NOW-2: 실제 운영 배포 준비 (production secret/env, Compose 실행 조건, 오래된 인스턴스 정리)
+[ ] NOW-3: 실제 배포 (Cloudflare Named Tunnel + 현재 production compose)
+[ ] NOW-4: 최소 운영 안정성 (Kakao HttpClient timeout, 최소 health monitoring/알림)
+[ ] LATER-1: 카카오 회원 탈퇴 최소 구현 (배포 이후 제품 완성도 작업, 구 STEP 10-impl-D 축소)
+[ ] LATER-2: 비밀번호 재설정 응답 통일 (작은 보안 정리, 구 STEP 11 축소)
+```
+
+- **NOW-1 UI/UX 개선 및 Next.js 전환**
+  - 실제 사용자가 커뮤니티, 내 차고, 장터를 편하게 쓰는 데 집중한다.
+  - 기존 backend API(core·board)를 불필요하게 다시 만들지 않는다. 화면 계층만 바꾸고, API 변경은 화면에 꼭 필요한 만큼만 한다.
+  - 저장소에 Next.js "My Garage" 프로토타입(`frontend/`, `docker-compose.garage.yml`의 garage-ui)이 있다. 착수할 때 재사용할지, 새로 시작할지 먼저 정한다.
+  - 전환 범위와 순서(어느 화면부터 바꿀지, 기존 `assignment-frontend`와 공존할지)는 착수 시 짧게 정하고 시작한다. 큰 설계 문서를 먼저 만들지 않는다.
+- **NOW-2 실제 운영 배포 준비**
+  - 운영 `.env`: `WITHDRAWAL_HMAC_SECRET`(32자 이상, 없으면 core 기동 거부), `REDIS_PASSWORD`(영문·숫자), `CLOUDFLARE_TUNNEL_TOKEN`, `KAKAO_REDIRECT_URI`(https), DB 값 등 prod 오버레이가 `:?`로 요구하는 값. `.env.example`을 기준으로 채운다.
+  - 운영 서버의 Docker Compose 버전이 2.24 이상인지 확인한다(prod 오버레이의 `!reset`/`!override`).
+  - Mac 등 같은 Neon에 붙는 오래된 로컬 인스턴스를 멈춘다. 옛 board는 본인 글을 실제로 지우고 모든 사진을 공개한다(STEP 10-impl-B 혼합 배포 주의).
+  - Neon에는 새 core가 처음 기동할 때 V3~V5가 한 번에 적용된다. 기동 직전 읽기 전용으로 `SELECT DISTINCT account_status FROM users`만 다시 확인한다(2026-10-01 기준 전부 NULL).
+  - 필요 없는 Neon `board_test_posts_archive`는 배포 때 함께 정리할 수 있다(선택).
+- **NOW-3 실제 배포**
+  - Cloudflare Named Tunnel + `docker-compose.yml` + `docker-compose.prod.yml` 기준으로 배포한다.
+  - 배포 후 확인은 두 가지만 한다. ① proxy 로그의 첫 칸이 실제 사용자 IP인지, cloudflared가 172.16.238.2를 쓰는지. ② 로그인·게시글·이미지 등 핵심 proxy 동작. 배포를 또 하나의 대형 테스트 프로젝트로 만들지 않는다.
+- **NOW-4 최소 운영 안정성**
+  - `KakaoOAuthService`의 `HttpClient`에 연결·요청 timeout을 넣는다. 작고 독립적인 작업이며 카카오 탈퇴와 분리한다.
+  - 서비스 다운을 알 수 있는 최소 health monitoring·알림(예: 외부 uptime 체크 하나)을 둔다. 장애 대응에 실제로 필요한 최소 수준만 한다.
+- **LATER-1 카카오 회원 탈퇴** (NOW 작업과 배포 이후)
+  - 지금은 카카오 계정의 탈퇴 요청을 400 `KAKAO_REAUTH_REQUIRED`로 안전하게 거부하는 상태를 유지한다.
+  - 공개 서비스에서는 카카오 회원도 탈퇴할 수 있어야 하므로 제품 완성도 작업으로 남긴다.
+  - 구현할 때 기존 STEP 10-impl-D 계획을 기계적으로 따르지 않는다. 카카오 재인증 + unlink + 탈퇴에 필요한 최소 구현만 다시 설계한다(참고: 추가 이슈의 "STEP 10-impl-C → D 전에 알아야 할 것").
+- **LATER-2 비밀번호 재설정 계정 열거**
+  - 응답 통일 같은 작은 수정으로 끝나면 작은 보안 정리로 처리한다. 별도의 큰 설계·테스트가 필요하면 보류한다.
+
+### 보류 (현재 규모에서는 오버헤드 — 실제 필요가 생기면 재개)
+
+기록과 계획은 지우지 않는다. 기존 system/browser/E2E 테스트 자산도 지우지 않고, 큰 릴리스·배포 경계에서만 쓴다.
+
+- STEP 10-impl-D 원래 계획 전체(→ LATER-1로 축소)
+- STEP 10-impl-E: 운영 기록 보존기간, 자동 정리, FK 없는 참조 정리, 만료된 `withdrawal_blocks` 정리
+- STEP 11 원래 계획 전체(→ LATER-2로 축소)
+- 제재(정지·비활성화) 회원 전용 탈퇴 경로
+- 무기한 withdrawal block을 해제하는 관리자 UI/API
+- 드문 withdrawal race condition 보강(탈퇴 중 새 매물 등록 등)
+- 이메일 없는 legacy 계정의 완전한 재가입 방지(이메일 필수화 등)
+- 현재 트래픽에 필요 없는 DB·인덱스 최적화(프로필·차량 사진 참조 인덱스, `users.email` 중복 인덱스 정리 등)
+- `post_images` 연결 테이블 같은 구조 리팩터링
+- DB 역할 세분화(앱용·마이그레이션용 분리)
+- HSTS 확대·preload
+- `scripts/nginx-forwarded-check.sh`의 CI 편입
+- 여러 환경·DB 버전(PG16/PG18 등) 호환성 반복 검증
+- 현재 사용량에서 의미 없는 pagination·성능 최적화
+- unhealthy 컨테이너 자동 재시작, Neon 유휴 연결·자동 일시정지 영향 확인
+- 차고 쓰기·장터 수정 rate limit 추가, Spring 자유 텍스트 서버측 sanitize, 로그인 응답 시간 차이·잠금 직전 동시 요청 보강
+- 실제 문제가 발생하지 않은 구조적 cleanup
+- **P3 전체**(P3-1~P3-9): 개발 로드맵의 선행조건이 아니다. 실제 사용자·트래픽·장애·데이터 증가로 필요성이 확인되거나, 관련 코드를 고칠 일이 생겼을 때 같이 처리하는 backlog다. 단, P3-8(모니터링)의 최소 형태는 NOW-4에 포함했다.
+
+### 새 작업을 판단하는 기준
+
+새 작업을 발견해도 바로 STEP으로 만들지 않는다. 먼저 판단한다.
+
+1. 지금 실제 사용자에게 문제가 되는가?
+2. 실제 운영·배포를 막는가?
+3. 데이터 손실이나 명확한 보안 취약점인가?
+4. 지금 처리하지 않으면 나중에 수정 비용이 크게 늘어나는가?
+
+대부분 "아니요"면 backlog(위 "보류")로 보낸다. 회원 33명 규모에서 수십만 사용자 규모를 가정한 최적화·자동화·희귀 경쟁조건 방어를 먼저 구현하지 않는다. "가능한 문제"와 "지금 해결해야 하는 문제"를 구분한다. 검증 범위는 §5의 "작업 및 검증 경량화 원칙"을 따른다.
+
+새 세션은 "지금 할 것"에서 **처음 `[ ]`인 작업 하나만** 진행한다. 여러 작업을 한 번에 진행하지 않는다.
 
 ---
 
@@ -606,7 +675,7 @@
 - frontend: 내 정보 영역(`assignment-frontend/js/home.js` 또는 해당 설정 화면)에 "회원 탈퇴"를 추가한다. 처리 내용 안내(글·댓글 유지, 차고·등록증 삭제, 30일 재가입 제한), 예약중 매물 안내, 비밀번호 입력과 확인 체크 후 호출, 성공 시 로그아웃 상태로 홈 이동. 카카오 계정에는 "카카오로 다시 인증하고 탈퇴" 버튼(D).
 - 테스트: `WithdrawalService` 통합 테스트(실 PostgreSQL, 테이블별 결과를 결정표대로 검증), 비밀번호 오류·제한, ADMIN 409, 예약중 409, 재가입 30일(가입·카카오·관리자 이메일 등록) + 제재 탈퇴, HMAC 원문 미저장(DB에 이메일 문자열 없음), 세션 즉시 무효(Spring·board), 이미지 유지/삭제 행렬, 매물 closed 비공개, 방명록 양방향, 신고·moderation_logs 유지와 익명화, 브라우저 스크립트(탈퇴 흐름).
 
-**STEP 10-impl-D: 카카오 계정 탈퇴 + unlink** (결정 11·12)
+**STEP 10-impl-D: 카카오 계정 탈퇴 + unlink** (결정 11·12) — ⏸ 2026-10-01 보류: §4 LATER-1에서 최소 구현으로 다시 설계한다. timeout은 NOW-4로 분리했다.
 - 카카오 API 조사(2026-09-30, developers.kakao.com):
   - 연결 끊기: `POST https://kapi.kakao.com/v1/user/unlink`. 인증은 두 가지다. 사용자 토큰(`Authorization: Bearer <사용자 access token>`) 또는 Admin 키(`Authorization: KakaoAK <서비스 앱 Admin 키>` + `target_id_type=user_id&target_id=<회원번호>`). 성공 시 200 `{"id": 회원번호}`. 동의를 철회하고 발급된 토큰을 폐기한다.
   - 재인증: 인가 요청에 `prompt=login`을 붙이면 사용자가 카카오 로그인(인증)을 다시 수행해야 한다.
@@ -619,7 +688,7 @@
 - 카카오 HttpClient timeout(STEP 9 추가 이슈 해결): 연결 5초, 요청 10초. 탈퇴 흐름이 카카오 응답을 기다리므로 이 STEP에 포함한다.
 - 테스트: 인가 URL에 `prompt=login`과 state 목적이 포함되는지, state 목적 불일치·재사용·만료, 카카오 id 불일치 400, 세션 없음 401, unlink 요청 헤더(Bearer, Admin 키 미사용), unlink 실패 처리(결정 필요 D-1), timeout 설정, 카카오 로그인 흐름 회귀(prompt 없음).
 
-**STEP 10-impl-E: 운영 기록 보존기간 + FK 없는 참조 + 운영 정리 절차** (결정 9, 요구 14·15)
+**STEP 10-impl-E: 운영 기록 보존기간 + FK 없는 참조 + 운영 정리 절차** (결정 9, 요구 14·15) — ⏸ 2026-10-01 보류(현재 규모에서는 오버헤드, §4 "보류")
 - 보존기간 설정(값은 사용자 결정, 결정 필요 E-1):
   - `REVCC_MODERATION_RETENTION_DAYS`: `moderation_logs.original_content`와 `target_author_username`/`admin_username` 비우기. 보존 대상은 행과 종류·일시·대상 id·처리 관리자 id·사유다.
   - `REVCC_DELETED_POST_RETENTION_DAYS`: 본인 삭제 글 원문 비우기. 처리 대기 신고가 있는 글은 처리 전까지 보류한다.
@@ -659,7 +728,7 @@
 
 ---
 
-### STEP 11: 비밀번호 재설정 계정 열거 (P2-1)
+### STEP 11: 비밀번호 재설정 계정 열거 (P2-1) — ⏸ 2026-10-01 보류: 작은 응답 통일은 §4 LATER-2
 
 **작업 목적**: 비밀번호 재설정 요청이 "없는 아이디 / 이메일 불일치 / 카카오 계정"을 서로 다른 코드로 알려 준다. 그래서 특정 아이디에 어떤 이메일이 연결돼 있는지 확인할 수 있다.
 
@@ -863,8 +932,8 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 | STEP 10-impl-A | 완료 | 2026-10-01 | `cf9fe55` | Flyway V3: `users.withdrawn_at`, `account_status` CHECK(ACTIVE/SUSPENDED/DISABLED/WITHDRAWN), `board_posts.deleted_at/deleted_by(FK users)/deleted_reason`(AUTHOR/ADMIN, 기존 deleted=true는 ADMIN 백필). V1/V2 무변경, 탈퇴 API 없음. Spring: WITHDRAWN을 `User.isBlocked()`에 포함 → 일반 로그인(없는 계정과 같은 401)·카카오 로그인(403, 닉네임 갱신 전 거부)·공유 세션·관리자 인가 차단, 비밀번호 재설정 요청/완료도 거부. 관리자 회원 PATCH: 탈퇴 대상은 모든 변경 409, 변경 후 유효 관리자 0명이면 409(ADMIN 행 전체 id 순 FOR UPDATE 후 요청자·대상을 다시 읽음), 목록 WITHDRAWN 필터(기본 목록·overview 회원 수 제외). 예약 아이디(NFKC·대소문자·구두점 정규화, "탈퇴한 회원"·`withdrawn` 접두어·관리자류): 가입·중복 확인·카카오 신규/닉네임 갱신. board: WITHDRAWN 세션 거부, 공통 `member-display.js`로 글·댓글·알림·방명록·장터·관리자 글/신고 목록에 "탈퇴한 회원" 표시와 공개 id·연결 차량 숨김(관리자는 내부 id 유지), 탈퇴 회원 프로필·차고·방명록 404, 연락처 비공개, 회원 수·검색·관리자 회원 목록 제외. frontend: id 없으면 프로필 링크 없음, 관리자 회원 창 WITHDRAWN 표시·편집 비활성. **중단 복구**: 작업 중 세션이 끊겨 커밋 전 working tree에서 재개. 누락 1건(관리자 글/신고 목록의 탈퇴 표시)을 보완하고, 남아 있던 임시 컨테이너 `s10a-testpg`/`s10a-testredis`를 정리했다. 검증: `mvn test` 118 run/0 fail/0 skip(통합 포함, 빈 PG16·빈 PG18 각각, 같은 DB 재기동 시 flyway history·checksum 동일), 마지막 관리자 동시 강등 8라운드 매번 1건만 성공·관리자 1명 유지, Flyway CLI로 V1+V2 적용 DB(기존 글·정지 회원 포함)에 V3 적용 PG16/PG18 모두 성공(백필 ADMIN, 기존 상태 유지, 잘못된 상태 CHECK 거부, validate 통과), `npm test` 47 pass, 수동 시스템 테스트 5개 PASS(`withdrawn-member-system.mjs` 신규), `garage-schema-check.py` PASS(V1→V2→V3 + core validate). Neon 미접속·V3 미적용(다음 core 기동 시 V3 적용됨). GitHub Actions run 36738672032 성공(Spring tests, Node tests) |
 | STEP 10-impl-B | 완료 | 2026-10-01 | `544a819` | 본인 글 삭제를 `DELETE`에서 soft delete로 바꿨다(`deleted=true, deleted_at=NOW(), deleted_by=삭제한 사용자 id, deleted_reason='AUTHOR'`, 원문·사진 참조 유지). 관리자 삭제도 `deleted_at/deleted_by/deleted_reason='ADMIN'`을 기록한다(원문은 기존대로 moderation_logs, 글의 제목·본문·image_ids는 비움). 댓글·신고·좋아요·북마크·알림은 더 이상 cascade로 지워지지 않고, 반복 삭제는 404(기록 추가 없음). 공개 조회는 이미 `NOT deleted`였고, 관리자 overview `totalPosts`·회원별 `postCount`·관리자 게시글 목록에서도 삭제 글을 뺐다. 관리자 신고 목록은 삭제 글의 신고를 유지하며 `postDeleted/deletedReason/deletedAt`과 작성자 삭제 글의 원문을 준다(관리자 화면에 "작성자가/관리자가 삭제한 글" + 원문 펼치기). 이미지 공개(`GET /api/board/images/:id`): 삭제되지 않은 글·매물의 image_ids, 탈퇴하지 않은 회원의 avatar/cover/차량 image_id가 참조할 때만 공개하고, 소유자(미리보기)와 DB 기준 관리자는 항상 볼 수 있다. 그 밖은 없는 id와 같은 404(`board-service/src/image-references.js`). 글·매물 응답의 imageIds는 실제 있는 이미지와 교집합(순서 유지). Flyway V4 `V4__image_reference_indexes.sql`: `board_posts.image_ids`, `parts_listings.image_ids` GIN 인덱스. 이미지 행을 지우는 코드 경로는 원래 없었다(삭제는 회원 cascade뿐)라 바꾸지 않았다(추가 이슈 참고). 검증: `mvn test` 118 run/0 fail/0 skip(빈 PG16·PG18 각각, 재기동 후 flyway history·checksum 동일), Flyway CLI로 V1→V3 + 데이터 5000행 DB에 V4 적용 PG16/PG18 성공, 재실행 "up to date", `image_ids @> ARRAY[..]`가 `board_posts_image_ids_gin` Bitmap Index Scan 사용, `npm test` 47 pass, 수동 시스템 테스트 6개 PASS(`post-soft-delete-system.mjs` 신규: 요청한 15개 항목 + 탈퇴자 프로필·차량 사진 404 + 숫자가 아닌 이미지 id 400, `moderation-system.mjs`에 deleted_by/deleted_reason 기대값, `community-system.mjs`는 미첨부 사진 비로그인 404로 기대값 변경), `garage-schema-check.py` PASS(V1→V4 + core validate). Neon 미접속·V3/V4 미적용. GitHub Actions run 36744039479 성공(Spring tests, Node tests) |
 | STEP 10-impl-C | 완료 | 2026-10-01 | `1af7edb` | 일반 계정 탈퇴 `POST /api/auth/withdraw {password, confirm:true}`(로그인 필수, 로그인과 같은 비밀번호 확인, 실패 회원당 5회/15분 `withdraw-fail:<id>` + IP 10/분 + nginx 인증 구간), 화면용 `GET /api/auth/withdraw`(방식·관리자·예약중 수). 거부: 카카오 400 `KAKAO_REAUTH_REQUIRED`(D 전까지), ADMIN 409, 예약중 매물 409(개수), 비밀값 없음 503 — 거부 시 아무것도 바뀌지 않는다. `WithdrawalService` 한 트랜잭션: 회원·매물 행 잠금 → `withdrawal_blocks` → 차고(차량 CASCADE로 정비기록·등록증·인증, 글 vehicle_id SET NULL)·프로필·내 차고 방명록 삭제 → 판매중 closed(연락처·찜 삭제), 판매완료 연락처만 삭제(지역·사진 유지) → 좋아요·북마크·찜·받은 알림 삭제 → 어디서도 참조하지 않는 내 사진 삭제(삭제 글·닫힌 매물 참조도 보존) → moderation_logs 대상 이름 `탈퇴한 회원#<id>` → users 익명화(`withdrawn:<id>`, email·kakao_id·nickname NULL, 사용 불가 비밀번호, suspended_until 유지) + WITHDRAWN + withdrawn_at + auth_version+1 → `SELF_WITHDRAW:<직전상태>`. 커밋 후 현재 세션 키 삭제·쿠키 제거, 다른 세션은 auth_version으로 Spring·board 즉시 거부. 재가입 제한: HMAC-SHA256(`WITHDRAWAL_HMAC_SECRET`, `type:value`)만 저장(V5 CHECK로 hex 64자만 허용), 아이디(가입과 같은 원문)·정규화 이메일·카카오 id, COOLDOWN 30일 + SANCTION(정지: 종료일과 30일 중 늦은 날, 종료일 없는 정지·비활성화: 무기한). 확인: 가입·아이디 확인·카카오 신규 가입/닉네임 갱신·관리자 이메일 등록. prod 프로파일·오버레이는 비밀값 없으면 기동 거부, 그 외 환경은 탈퇴 503 + 살아 있는 제한 행이 있으면 가입도 503. Flyway V5 `V5__member_withdrawal_data.sql`(매물 status에 closed — 기존 CHECK는 정의로 찾아 교체, closed_at, withdrawal_blocks). board: closed 매물은 목록·검색·찜·상세·조회수·찜·수정에서 제외(관리자 상세만), 사진 비공개. `/api/admin/members/{id}/actions`의 admin_id NULL NPE 수정. frontend `/home` "회원 탈퇴"(안내·비밀번호·동의, 서버 사유 표시, 카카오·관리자·예약중은 폼 없이 안내). 문서 `docs/member-withdrawal.md`(키·교체·수동 해제·한계). 검증: `mvn test` 130 run/0 fail/0 skip(빈 PG16·PG18 각각, 같은 DB 재실행 후 flyway history·checksum 동일; 신규 `WithdrawalIntegrationTest` 9·`WithdrawalBlocksTest` 3 — 테이블별 결과, 세션 2개 무효, 탈퇴 전 재설정 토큰 거부, 재가입 409, 원문·단순 SHA-256 미저장, 예약중 409 무변경, 카카오·관리자 거부, 제재 기간 4가지, 강제 실패 전체 롤백, 동시 탈퇴 4회 1건만 성공, 예약 변경 경쟁 6회, 관리자 복구 불가·마지막 관리자 보호), Flyway CLI V4(기존 매물 3상태)→V5 PG16/PG18 성공·재실행 up to date·CHECK 이름이 달라도 교체, `npm test` 47 pass, 수동 시스템 테스트 7개 PASS(`withdrawal-system.mjs` 신규), `garage-schema-check.py` PASS(V1→V5 + core validate), 실제 core+board 임시 스택 e2e PASS, 전체 스택(proxy·frontend 포함) 브라우저 `withdrawal-browser.cjs` PASS, prod 프로파일 비밀값 없이 기동 실패 확인, `docker compose config`(prod는 비밀값 누락 시 거부, 기본 compose는 영향 없음). Neon: 읽기 전용 집계만(Flyway v2, account_status 33명 전부 NULL, 매물 0건, status CHECK 이름 `parts_listings_status_check`, 이메일 1·카카오 1·관리자 1) — 쓰기 없음. GitHub Actions run 36748149088 성공(Spring tests, Node tests) |
-| STEP 10-impl-D~E | 미착수 | - | - | 회원탈퇴 구현(STEP 10 결정 기준) |
-| STEP 11 | 미착수 | - | - | 비밀번호 재설정 열거 (방식 결정 필요) |
+| STEP 10-impl-D~E | 보류(2026-10-01) | - | - | 공개 단계 전환으로 보류. D는 §4 LATER-1(최소 구현), E는 §4 "보류" |
+| STEP 11 | 보류(2026-10-01) | - | - | 작은 응답 통일은 §4 LATER-2, 큰 설계가 필요하면 보류 |
 
 ---
 
@@ -873,5 +942,5 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 새 터미널/새 Claude Code 세션에서 아래 한 문장만 입력하면 된다:
 
 ```
-REVCC_NEXT_TASKS.md를 읽고 다음 미완료 STEP을 구현해. 파일에 적힌 작업 규칙과 완료 조건을 따르고, 테스트 통과 후 commit 및 origin/docker-assignment push까지 진행해.
+REVCC_NEXT_TASKS.md를 읽고 "지금 할 것"의 처음 미완료 작업 하나만 진행해. 공통 작업 규칙과 "작업 및 검증 경량화 원칙"을 따르고, 관련 테스트 통과 후 commit 및 origin/docker-assignment push까지 진행해.
 ```
