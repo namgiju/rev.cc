@@ -64,6 +64,10 @@ prod 오버레이가 적용하는 것:
 - 운영 DB는 Neon이다. 로컬 `postgres` 서비스와 `revcc_pg` 볼륨은 병합 결과에서 제거되어 만들어지지 않는다
   (`!reset`/`!override` 사용, Docker Compose 2.24 이상 필요). core/board는 `.env`의 `DB_HOST`, `DB_NAME`,
   `DB_USER`, `DB_PASSWORD`만 쓰며, 하나라도 없으면 기동 자체가 실패한다.
+- 네트워크를 역할별로 나눈다(과제용 기본 compose의 단일 `revcc-network`는 그대로다).
+  `edge`(proxy·frontend, internal), `app`(proxy·core·board, 외부 통신 가능), `data`(core·board·redis, internal).
+  frontend와 proxy는 redis에 닿지 않고, redis와 frontend는 외부로 나가지 못한다.
+  core/board는 `app`을 통해 Neon·Kakao·SMTP로 나간다.
 - `REDIS_PASSWORD`, `KAKAO_REDIRECT_URI`가 없으면 기동 자체가 실패한다(로컬 Redis 기본 비밀번호, `localhost:8090` 콜백 차단).
   `REDIS_PASSWORD`는 영문·숫자로 만든다(예: `openssl rand -hex 32`).
 - core가 `SPRING_PROFILES_ACTIVE=prod`로 실행되어 세션 쿠키가 항상 `Secure`로 나간다.
