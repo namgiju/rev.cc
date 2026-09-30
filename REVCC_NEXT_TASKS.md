@@ -81,7 +81,7 @@
 [x] STEP 2: P1-4 부품장터 관리자 모더레이션 + P1-6 admin/market 인가 테스트
 [x] STEP 3: P1-7 GitHub Actions CI
 [x] STEP 4: P1-3 Flyway/Liquibase 기반 DB migration 정리
-[ ] STEP 5-A: P2-2 외부 X-Forwarded-For 신뢰 문제 해결 + limiter 만료 버킷 정리
+[x] STEP 5-A: P2-2 외부 X-Forwarded-For 신뢰 문제 해결 + limiter 만료 버킷 정리
 [ ] STEP 5-B: P2-2 계정 단위 로그인 제한 + P2-4 board 누락 엔드포인트 rate limit (+ admin-system.mjs 정합화)
 [ ] STEP 6: P2-3 서버측 XSS 방어 (B안: 입력 시 HTML 태그 제거)
 [ ] STEP 7-A: P2-5 Redis 인증 + P2-6 DB credential 정리
@@ -577,6 +577,8 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 - STEP 5~11 계획 중 발견 — Spring이 저장하는 자유 텍스트(차고 차량 `nickname`/`description` 등 `GarageVehicleRequest` 필드, 관리자가 수정하는 `users.nickname`)도 서버측 정리가 없다. STEP 6은 board-service만 다룬다.
 - STEP 5~11 계획 중 발견 — core와 board가 Neon에 같은 DB 사용자(`DB_USER`)로 접속한다. 이 사용자는 Flyway DDL 권한까지 가진다. 앱용/마이그레이션용 역할 분리(최소 권한)는 어느 STEP에도 포함되지 않았다.
 - STEP 5~11 계획 중 발견 — Docker는 healthcheck가 unhealthy여도 컨테이너를 재시작하지 않는다. STEP 8의 restart 정책은 프로세스 종료만 복구한다. hang 상태 복구가 필요하면 별도 감시가 필요하다.
+- STEP 5-A — `scripts/nginx-forwarded-check.sh`(nginx가 X-Forwarded-For를 덮어쓰는지 확인)는 수동 검사다. GitHub Actions에는 넣지 않았다(CI 워크플로 변경은 이 STEP 범위 밖). nginx 설정 회귀를 CI에서 막으려면 별도로 추가한다.
+- STEP 5-A — Docker Desktop의 포트 매핑으로 로컬 접속하면 nginx의 `$remote_addr`가 Docker 게이트웨이 주소가 되어, 로컬의 모든 브라우저가 IP 버킷 하나를 공유한다. 로컬 개발 한정이며 기존 동작과 같다(수정하지 않음).
 - STEP 4 — `docker compose down -v && up` 검증: 기본 compose는 core/board가 `.env`의 Neon을 가리키고 URL에 `sslmode=require`가 고정돼 있다. 그래서 compose를 그대로 기동하지 않고, 같은 이미지로 임시 PostgreSQL(16·18)과 Redis 스택을 만들어 compose와 같은 순서(core healthy → board)로 검증했다.
 
 ---
@@ -591,7 +593,7 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 | STEP 3 | 완료 | 2026-09-30 | `a74eb33` | `.github/workflows/ci.yml`(backend: Java 23 + Postgres/Redis 서비스로 통합테스트 포함, board: Node 22). GitHub Actions 첫 실행 성공: `mvn test` 86 run/0 fail/0 skip, `npm test` 14 pass. 1차 시도는 러너가 서비스 컨테이너 초기화 단계에서 멈춰 취소됐고(로그 없음, 일시 장애로 판단) 재실행에서 통과 |
 | STEP 4 | 완료 | 2026-09-30 | `e68e81f` | Flyway 도입(`V1__baseline`=Neon 스키마, `V2`=`LISTING_DELETE` CHECK), `baseline-on-migrate`, `ddl-auto: validate`. board `schema.sql`, `backend/migrations/`, `VehicleRepository` DDL 제거. 검증: 빈 PG16/PG18 적용 후 Neon 덤프와 비교(예상한 차이만 있음), Neon 스키마 복제본+데이터에서 baseline→V2 적용·데이터 보존·재기동 멱등·API 200, 이전 코드로 만든 DB에서 baseline 통과. `mvn test` 86 run/0 fail/0 skip(통합 포함), `npm test` 14 pass |
 | STEP 4 follow-up | 완료 | 2026-09-30 | `47dbd69` | 수동 시스템 테스트 5개를 Flyway 단일 스키마 소유 구조로 전환(`scripts/lib/flyway-migrations.mjs`, `scripts/run-board-system.sh`, `garage-schema-check.py` 임시 스택화, 문서 4곳의 실행 명령 수정). 임시 PostgreSQL 16에서 실행: community/market/moderation PASS, garage-schema-check PASS(V1→V2 + core validate), admin은 기존 rate limit 충돌로 실패(사본으로 나머지 검증 PASS, 추가 이슈 참고). `mvn test` 86 run/0 fail/0 skip(통합 포함), `npm test` 14 pass. Neon 미접속. GitHub Actions run 36661042141 성공(Spring tests, Node tests 모두 success) |
-| STEP 5-A | 미착수 | - | - | 외부 X-Forwarded-For 신뢰 문제 해결 + limiter 만료 버킷 정리 (Cloudflare IP 복원은 STEP 9) |
+| STEP 5-A | 완료 | 2026-09-30 | (push 후 기록) | 재현: Spring(`forward-headers-strategy: framework`)은 X-Forwarded-For 첫 값을 IP로 쓰고 nginx는 클라이언트 값 뒤에 덧붙이고 있어, 위조 헤더로 core 로그인 IP 버킷을 매번 바꿀 수 있었다(`ForwardedClientIpTest`, `scripts/nginx-forwarded-check.sh`로 수정 전 실패 확인). 수정: nginx 두 `/api` location에서 X-Forwarded-For를 `$remote_addr`로 덮어씀, Spring/board limiter에 만료 윈도 정리(윈도 길이마다 sweep, 시계 주입). 검증: `mvn test` 91 run/0 fail/0 skip(통합 포함, 신규 5), `npm test` 16 pass(신규 2), nginx 검사 PASS, 현재 소스로 빌드한 전체 임시 스택에서 가입·로그인·글쓰기·프론트 정상 + 위조 XFF를 바꿔 가며 로그인해도 10회 초과 시 429. Cloudflare 실제 IP 복원은 STEP 9. Neon 미접속 |
 | STEP 5-B | 미착수 | - | - | 계정 단위 로그인 제한 + board 누락 엔드포인트 + admin-system.mjs 정합화 |
 | STEP 6 | 미착수 | - | - | 서버측 XSS 방어 (B안 채택: 입력 시 HTML 태그 제거) |
 | STEP 7-A | 미착수 | - | - | Redis 인증 + DB credential 정리 |
