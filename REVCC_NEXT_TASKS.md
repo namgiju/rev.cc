@@ -80,7 +80,7 @@
 [x] STEP 1: P1-1 비밀번호 최소 길이 + P1-2 요청 body 크기 제한 + P1-5 운영 배포 문서 수정
 [x] STEP 2: P1-4 부품장터 관리자 모더레이션 + P1-6 admin/market 인가 테스트
 [x] STEP 3: P1-7 GitHub Actions CI
-[ ] STEP 4: P1-3 Flyway/Liquibase 기반 DB migration 정리
+[x] STEP 4: P1-3 Flyway/Liquibase 기반 DB migration 정리
 [ ] STEP 5+: P2/P3 (P1 전부 완료 후, 이 파일에 STEP을 추가로 정의해서 진행)
 ```
 
@@ -240,6 +240,13 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 - STEP 2 — `board-service/src/schema.sql`: `moderation_logs.action_type` CHECK 제약에 `LISTING_DELETE`를 추가했다(기존 DB는 board-service 기동 시 1회 교체, 임시 PostgreSQL에서 기존 로그 보존·재적용 무변화·잘못된 값 거부 확인). 공유 Neon DB에는 board-service가 새 코드로 처음 재기동될 때 적용된다. 이전 코드와도 호환된다(허용 값만 늘어남).
 - STEP 2 — `assignment-frontend/js/admin.js` 운영 로그 탭: 매물 삭제 로그의 카테고리는 부품 카테고리 키(`brakes` 등)가 그대로 표시된다(커뮤니티 카테고리 이름표만 있음). 기능 영향 없음, 표시 개선만 필요.
 - STEP 2 — `board-service/src/market.js`: 관리자 매물 삭제는 소프트 삭제가 아니라 실제 삭제다(관심 목록은 CASCADE로 함께 삭제). 원문(제목·설명·판매자)은 `moderation_logs`에 스냅샷으로 남는다. 이미지(`image_ids`)는 로그에 남지 않는다.
+- STEP 4 — 스키마 소유 주체는 감사 기록의 3곳이 아니라 4곳이었다: `VehicleRepository`의 `@PostConstruct`도 `vehicles` 테이블을 만들고 시드 데이터를 넣고 있었다. 이번에 V1으로 옮겼다.
+- STEP 4 — 스키마가 기동 순서에 따라 달라지고 있었다: 빈 DB에서는 core(Hibernate)가 먼저 `owner_vehicles`/`vehicle_verifications`를 identity 컬럼, 기본값 없음, year CHECK 없음으로 만들었고, Neon은 board `schema.sql`이 먼저 만든 형태(SERIAL, 기본값, CHECK)였다. V1은 Neon 형태를 기준으로 삼았다. 이전 코드로 만든 로컬 볼륨은 Hibernate 형태로 남지만 baseline과 validate는 통과한다(임시 DB에서 확인).
+- STEP 4 — Neon에만 있는 `board_test_posts_archive` 테이블: 코드에서 쓰지 않으므로 V1에 넣지 않았고 건드리지도 않았다. 필요 없으면 수동으로 정리할 대상이다.
+- STEP 4 — `users.email`에 unique 제약(`uk6dotkott...`, Hibernate)과 unique 인덱스(`users_email_unique`, 과거 수동 마이그레이션)가 중복돼 있다. 운영 DB와 맞추려고 V1에 그대로 두었다. 정리하려면 새 마이그레이션으로 처리한다.
+- STEP 4 — Neon은 PostgreSQL 18.6인데 로컬 compose와 CI는 postgres:16이다. Spring Boot 3.5.0이 쓰는 Flyway는 PG18에서 "지원 미검증" 경고를 낸다(PG18 임시 DB에서 V1·V2 적용, baseline, 재기동 모두 정상 확인). CI와 compose를 18로 올릴지는 별도로 판단할 사항이다.
+- STEP 4 — Neon 반영 시점: 새 core가 Neon에 처음 기동할 때 baseline(V1)을 기록하고 V2(`LISTING_DELETE` CHECK)를 적용한다. Neon은 아직 STEP 2 제약이 반영되지 않은 상태였다(덤프로 확인). 이전 코드(Mac 등)와도 호환된다. 이전 board `schema.sql`은 멱등하고, 이전 Hibernate update는 추가할 컬럼이 없다. 이 세션에서는 Neon에 쓰기를 하지 않았다(읽기 전용 스키마 덤프만 실행).
+- STEP 4 — `docker compose down -v && up` 검증: 기본 compose는 core/board가 `.env`의 Neon을 가리키고 URL에 `sslmode=require`가 고정돼 있다. 그래서 compose를 그대로 기동하지 않고, 같은 이미지로 임시 PostgreSQL(16·18)과 Redis 스택을 만들어 compose와 같은 순서(core healthy → board)로 검증했다.
 
 ---
 
@@ -251,7 +258,7 @@ _(작업 중 발견하면 여기에 "STEP 번호 — 파일:설명" 형식으로
 | STEP 1 | 완료 | 2026-09-30 | `688e990` | 비밀번호 8자 이상(가입/재설정만), `/api` 본문 64KB·인증서류 업로드 5MB 상한(413), prod 배포 문서. `mvn test` 86 run/0 fail/0 skip(통합테스트 포함), `npm test` 9 run/0 fail |
 | STEP 2 | 완료 | 2026-09-30 | `a7ed438` | 관리자 매물 삭제(사유 필수, `LISTING_DELETE` 로그), admin/market 인가·IDOR 테스트 5건. `npm test` 14 run/0 fail, `mvn test` 86 run/0 fail(통합 9 skip) |
 | STEP 3 | 완료 | 2026-09-30 | `a74eb33` | `.github/workflows/ci.yml`(backend: Java 23 + Postgres/Redis 서비스로 통합테스트 포함, board: Node 22). GitHub Actions 첫 실행 성공: `mvn test` 86 run/0 fail/0 skip, `npm test` 14 pass. 1차 시도는 러너가 서비스 컨테이너 초기화 단계에서 멈춰 취소됐고(로그 없음, 일시 장애로 판단) 재실행에서 통과 |
-| STEP 4 | 미착수 | - | - | - |
+| STEP 4 | 완료 | 2026-09-30 | (push 후 기록) | Flyway 도입(`V1__baseline`=Neon 스키마, `V2`=`LISTING_DELETE` CHECK), `baseline-on-migrate`, `ddl-auto: validate`. board `schema.sql`, `backend/migrations/`, `VehicleRepository` DDL 제거. 검증: 빈 PG16/PG18 적용 후 Neon 덤프와 비교(예상한 차이만 있음), Neon 스키마 복제본+데이터에서 baseline→V2 적용·데이터 보존·재기동 멱등·API 200, 이전 코드로 만든 DB에서 baseline 통과. `mvn test` 86 run/0 fail/0 skip(통합 포함), `npm test` 14 pass |
 
 ---
 

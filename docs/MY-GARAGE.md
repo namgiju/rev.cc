@@ -3,7 +3,7 @@
 ## 기존 구조 분석
 
 - Spring Boot 3.5 / Java 23, `com.revcc.app` 패키지. 회원은 JPA `User` / `UserRepository`, 기존 차량 카탈로그는 JdbcTemplate `VehicleRepository`를 사용한다.
-- PostgreSQL 스키마는 Spring의 `ddl-auto: update`와 Express의 멱등 SQL 초기화로 관리한다. 별도 마이그레이션 라이브러리는 추가하지 않았다.
+- PostgreSQL 스키마는 core의 Flyway 마이그레이션이 관리하고 Hibernate는 `ddl-auto: validate`로 검증만 한다(`docs/DATABASE-MIGRATIONS.md`).
 - `SharedSessionService`가 Redis `revcc:session:<token>`에 회원 id와 username을 저장한다. TTL은 1,800초이며 `REVCC_SESSION` HttpOnly 쿠키로 Spring과 Express가 같은 세션을 조회한다.
 - 기존 회원가입, 로그인, 로그아웃, `/api/auth/me`, Kakao 인증을 유지한다. 차량 API도 이 세션 서비스를 재사용한다.
 - 기존 `GET /api/vehicles`는 `vehicles` 테이블의 공용 카탈로그 목록이다. 소유 차량 테이블은 HTML 커뮤니티에서 이미 사용하는 `owner_vehicles`이며, 두 테이블의 id는 별개다.

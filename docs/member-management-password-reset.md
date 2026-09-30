@@ -42,12 +42,7 @@ SMTP 전송은 제한된 작업 큐(2 스레드/100 대기)에서 비동기로 �
 
 ## DB 마이그레이션과 배포
 
-`backend/migrations/20260929_member_management.sql`을 **현재 사용 중인 연결 DB에** 먼저 실행한 뒤 core와 board를 함께 배포하고 frontend를 배포한다. 현재 프로젝트의 Hibernate `ddl-auto: update`도 유지되어 새 컬럼/테이블을 생성할 수 있지만, 명시적 SQL 적용을 권장한다. DB 연결 설정은 변경하지 않았다. Compose에 있는 로컬 postgres가 실제 운영 DB라고 가정하지 않는다.
-
-```sh
-# 기존에 사용하는 연결 옵션으로 psql에 접속하여 실행한다. 비밀번호를 명령줄에 넣지 않는다.
-psql <기존 연결 옵션> -v ON_ERROR_STOP=1 -f backend/migrations/20260929_member_management.sql
-```
+아래 스키마는 Flyway `V1__baseline.sql`에 포함되어 있어 따로 SQL을 실행하지 않는다(`docs/DATABASE-MIGRATIONS.md`). 예전의 수동 스크립트 `backend/migrations/20260929_member_management.sql`은 삭제했다. Compose에 있는 로컬 postgres가 실제 운영 DB라고 가정하지 않는다.
 
 - users에 nullable `nickname`, `email`, `account_status`, `suspended_until`, `auth_version` 추가.
 - email unique index. 이메일은 NULL이면 여러 회원에게 허용.

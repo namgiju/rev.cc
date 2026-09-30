@@ -1,9 +1,9 @@
-import { readFile } from "node:fs/promises";
 import pg from "pg";
 import { createClient } from "redis";
 import { createApp } from "./app.js";
 
-// Compose는 core의 JPA users 테이블 생성 후 board를 시작한다.
+// 스키마는 core(Spring)의 Flyway 마이그레이션(backend/src/main/resources/db/migration)이 관리한다.
+// Compose는 core가 마이그레이션을 마치고 healthy가 된 뒤 board를 시작한다.
 const db = new pg.Pool({
   ssl: process.env.PGSSLMODE === "require"
     ? { rejectUnauthorized: false }
@@ -21,9 +21,6 @@ redis.on("error", (err) =>
   console.error("Redis connection error:", err.message),
 );
 await redis.connect();
-await db.query(
-  await readFile(new URL("./schema.sql", import.meta.url), "utf8"),
-);
 const server = createApp({ db, redis }).listen(3001, "0.0.0.0", () =>
   console.log("REV.CC board listening on 3001"),
 );
