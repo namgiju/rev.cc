@@ -68,6 +68,10 @@ prod 오버레이가 적용하는 것:
   `edge`(proxy·frontend, internal), `app`(proxy·core·board, 외부 통신 가능), `data`(core·board·redis, internal).
   frontend와 proxy는 redis에 닿지 않고, redis와 frontend는 외부로 나가지 못한다.
   core/board는 `app`을 통해 Neon·Kakao·SMTP로 나간다.
+- 모든 서비스가 `restart: unless-stopped`다. 프로세스가 죽거나 호스트가 재부팅되면 다시 올라오고,
+  `docker compose stop`/`down`으로 멈춘 것은 올리지 않는다. healthcheck가 unhealthy인 것만으로는 재시작하지 않는다.
+- DB 커넥션 풀: core 10 + board 10(평시 최대 20, 재배포 중 겹쳐도 40). 연결을 5초 안에 못 얻거나
+  쿼리가 15초 안에 끝나지 않으면 요청은 503으로 끝난다. 조정 변수는 `.env.example` 참고.
 - `REDIS_PASSWORD`, `KAKAO_REDIRECT_URI`가 없으면 기동 자체가 실패한다(로컬 Redis 기본 비밀번호, `localhost:8090` 콜백 차단).
   `REDIS_PASSWORD`는 영문·숫자로 만든다(예: `openssl rand -hex 32`).
 - core가 `SPRING_PROFILES_ACTIVE=prod`로 실행되어 세션 쿠키가 항상 `Secure`로 나간다.

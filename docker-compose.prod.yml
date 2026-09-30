@@ -11,21 +11,33 @@
 #   data: core/board ↔ redis              (internal: redis는 외부와 통신하지 않는다)
 # frontend와 proxy는 data에 없어 redis에 닿지 않고, redis는 edge/app에 없다.
 #
+# 운영 서비스는 프로세스가 죽거나 호스트가 재부팅되면 자동으로 다시 시작한다(restart: unless-stopped).
+# docker compose stop/down으로 멈춘 것은 다시 올리지 않는다. 과제용 docker-compose.yml에는 두지 않는다.
+# 참고: Docker는 healthcheck가 unhealthy라는 이유만으로는 재시작하지 않는다(프로세스 종료 시에만).
+#
 # 사용: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
 services:
   proxy:
+    restart: unless-stopped
     networks: [edge, app]
   frontend:
+    restart: unless-stopped
     networks: [edge]
   postgres: !reset null
   redis:
+    restart: unless-stopped
     networks: [data]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 환경변수를 설정해야 배포할 수 있습니다.}
       REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD 환경변수를 설정해야 배포할 수 있습니다.}
   core:
+    restart: unless-stopped
     networks: [app, data]
     environment:
+      # DB 커넥션 풀(Hikari). 기본값은 application.yml(최대 10, 최소 유휴 2, 연결 대기 5초).
+      DB_POOL_MAX: ${CORE_DB_POOL_MAX:-10}
+      DB_POOL_MIN_IDLE: ${CORE_DB_POOL_MIN_IDLE:-2}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST:?DB_HOST(Neon 호스트)를 설정해야 배포할 수 있습니다.}:${DB_PORT:-5432}/${DB_NAME:?DB_NAME을 설정해야 배포할 수 있습니다.}?sslmode=require
       POSTGRES_USER: ${DB_USER:?DB_USER를 설정해야 배포할 수 있습니다.}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD를 설정해야 배포할 수 있습니다.}
@@ -39,8 +51,12 @@ services:
       redis:
         condition: service_healthy
   board:
+    restart: unless-stopped
     networks: [app, data]
     environment:
+      # DB 커넥션 풀(pg.Pool). 기본값은 src/db-pool.js(최대 10, 유휴 30초, 연결 대기 5초).
+      PG_POOL_MAX: ${BOARD_DB_POOL_MAX:-10}
+      PG_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
       PGHOST: ${DB_HOST:?DB_HOST(Neon 호스트)를 설정해야 배포할 수 있습니다.}
       PGDATABASE: ${DB_NAME:?DB_NAME을 설정해야 배포할 수 있습니다.}
       PGUSER: ${DB_USER:?DB_USER를 설정해야 배포할 수 있습니다.}
