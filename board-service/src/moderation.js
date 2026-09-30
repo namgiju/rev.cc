@@ -26,8 +26,13 @@ export async function deleteContent(db, user, kind, id, reason) {
          target.category,target.post_id,target.post_title,target.id,target.author_id,target.username,target.content,note,admin.id,admin.username]);
     }
     if (isPost) {
-      if (moderation) await client.query(`UPDATE board_posts SET deleted=true,title='관리자에 의해 삭제된 게시글입니다.',content='관리자에 의해 삭제된 게시글입니다.',image_ids='{}',vehicle='',vehicle_id=NULL WHERE id=$1`, [id]);
-      else await client.query('DELETE FROM board_posts WHERE id=$1', [id]);
+      // 게시글은 행을 지우지 않는다(STEP 10-impl-B). 댓글·신고·좋아요·알림과 운영 기록의 참조가 그대로 남고,
+      // 공개 API는 NOT deleted로 숨긴다. deleted_by는 삭제한 사용자 id, deleted_reason은 삭제 주체다.
+      // 관리자 삭제는 원문을 moderation_logs에 남기고 글에서는 지운다(사진 참조도 비워 공개되지 않는다).
+      // 작성자 삭제는 신고 처리를 위해 원문을 DB에 남긴다. 사진은 삭제 글만 참조하면 공개되지 않는다(image-references.js).
+      if (moderation) await client.query(`UPDATE board_posts SET deleted=true,deleted_at=NOW(),deleted_by=$2,deleted_reason='ADMIN',
+        title='관리자에 의해 삭제된 게시글입니다.',content='관리자에 의해 삭제된 게시글입니다.',image_ids='{}',vehicle='',vehicle_id=NULL WHERE id=$1`, [id, user.id]);
+      else await client.query(`UPDATE board_posts SET deleted=true,deleted_at=NOW(),deleted_by=$2,deleted_reason='AUTHOR' WHERE id=$1`, [id, user.id]);
     } else {
       await client.query('UPDATE board_comments SET deleted=true,content=$2 WHERE id=$1',
         [id, moderation ? '관리자에 의해 삭제된 댓글입니다.' : '삭제된 댓글입니다.']);

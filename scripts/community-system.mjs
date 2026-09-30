@@ -55,7 +55,9 @@ try {
   }
   await req("/posts", "POST", { title: "bad", content: "no auth" }, "", 401);
   const image = await req("/images", "POST", { data: png }, tokenA, 201);
-  const raw = await fetch(base + `/images/${image.id}`);
+  // 아직 어디에도 첨부하지 않은 사진은 소유자(작성 중 미리보기)만 볼 수 있다(STEP 10-impl-B).
+  assert.equal((await fetch(base + `/images/${image.id}`)).status, 404);
+  const raw = await fetch(base + `/images/${image.id}`, { headers: { Cookie: `REVCC_SESSION=${tokenA}` } });
   assert.equal(raw.headers.get("content-type"), "image/png");
   assert.equal(
     (await raw.arrayBuffer()).byteLength,

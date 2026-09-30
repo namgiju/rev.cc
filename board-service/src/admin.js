@@ -35,7 +35,7 @@ export function adminRouter({ db, auth }) {
   });
   router.get("/overview", async (req, res) => {
     const { rows } =
-      await db.query(`SELECT (SELECT count(*)::int FROM board_posts) AS "totalPosts",
+      await db.query(`SELECT (SELECT count(*)::int FROM board_posts WHERE NOT deleted) AS "totalPosts",
       (SELECT count(*)::int FROM community_reports WHERE status='pending') AS "pendingReports"`);
     res.json(rows[0]);
   });
@@ -44,7 +44,7 @@ export function adminRouter({ db, auth }) {
     await list(
       res,
       `SELECT u.id,u.username,u.role,u.created_at AS "joinedAt",
-      (SELECT count(*)::int FROM board_posts WHERE author_id=u.id) AS "postCount",
+      (SELECT count(*)::int FROM board_posts WHERE author_id=u.id AND NOT deleted) AS "postCount",
       (SELECT count(*)::int FROM owner_vehicles WHERE owner_id=u.id) AS "vehicleCount"
       FROM users u`,
       // 탈퇴 계정은 회원 목록에 넣지 않는다(Spring 회원 관리의 WITHDRAWN 필터로 조회한다).
@@ -64,7 +64,8 @@ export function adminRouter({ db, auth }) {
       `SELECT p.id,p.title,p.category,p.author_id AS "authorId",${displayNameSql("u")} AS username,p.created_at AS "createdAt",
       (SELECT count(*)::int FROM community_reports WHERE post_id=p.id) AS "reportCount"
       FROM board_posts p JOIN users u ON u.id=p.author_id`,
-      `WHERE (p.title ILIKE $1 OR ${displayNameSql("u")} ILIKE $1) AND ($2='' OR p.category=$2)`,
+      // 삭제된 글(작성자·관리자 삭제)은 게시글 관리 목록·집계에서 뺀다. 삭제 글의 신고는 신고 목록에 남는다.
+      `WHERE NOT p.deleted AND (p.title ILIKE $1 OR ${displayNameSql("u")} ILIKE $1) AND ($2='' OR p.category=$2)`,
       [q, category],
       page,
     );
@@ -74,9 +75,13 @@ export function adminRouter({ db, auth }) {
       status = text(req.query.status ?? "", 20, false);
     if (!["", "pending", "resolved", "dismissed"].includes(status))
       fail(400, "신고 상태를 확인해주세요.");
+    // 삭제된 글의 신고도 남는다. 작성자가 지운 글은 원문이 DB에 남아 있으므로 신고 검토용으로 함께 준다.
+    // 관리자가 지운 글의 원문은 글에서 지워지고 moderation_logs(처리 기록)에 있다.
     await list(
       res,
       `SELECT r.id,r.post_id AS "postId",p.title,p.category,${displayNameSql("u")} AS reporter,r.reason,r.status,
+      p.deleted AS "postDeleted",p.deleted_reason AS "deletedReason",p.deleted_at AS "deletedAt",
+      CASE WHEN p.deleted_reason='AUTHOR' THEN p.content END AS "deletedContent",
       r.created_at AS "createdAt",r.reviewed_at AS "reviewedAt",CASE WHEN a.id IS NULL THEN NULL ELSE ${displayNameSql("a")} END AS reviewer,r.resolution_note AS "resolutionNote"
       FROM community_reports r JOIN board_posts p ON p.id=r.post_id JOIN users u ON u.id=r.user_id
       LEFT JOIN users a ON a.id=r.reviewed_by`,

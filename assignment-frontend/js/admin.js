@@ -359,6 +359,15 @@ async function loadList(name) {
       else {
         const details = el("div");
         details.append(el("span", reportStatuses[item.status] || item.status));
+        // 신고된 글이 이미 삭제됐으면 삭제 주체를 보여 준다. 작성자가 지운 글은 원문을 펼쳐 볼 수 있다.
+        if (item.postDeleted) {
+          details.append(el("p", item.deletedReason === "AUTHOR" ? "작성자가 삭제한 글" : "관리자가 삭제한 글"));
+          if (item.deletedContent != null) {
+            const source = el("details");
+            source.append(el("summary", "삭제된 글 원문"), el("p", item.deletedContent, "detail-text"));
+            details.append(source);
+          }
+        }
         if (item.reviewedAt)
           details.append(
             el(

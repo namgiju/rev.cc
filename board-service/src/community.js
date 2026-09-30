@@ -1,5 +1,6 @@
 import { deleteContent } from './moderation.js';
 import { displayNameSql, isWithdrawnSql, publicMemberId, unlessWithdrawnSql } from "./member-display.js";
+import { existingImageIdsSql, publicImageSql } from "./image-references.js";
 import { Router } from "express";
 import { VERIFIED_OWNER_BADGE } from "./badges.js";
 
@@ -39,7 +40,7 @@ const postSelect = `SELECT p.id,p.title,p.content,${unlessWithdrawnSql("u", "p.a
  ${isWithdrawnSql("u")} AS "authorWithdrawn",
  ${unlessWithdrawnSql("u", "p.vehicle_id")} AS "vehicleId",
  ${unlessWithdrawnSql("u", "(SELECT json_build_object('id',v.id,'model',v.model,'year',v.year,'verified',v.verified,'imageId',v.image_id) FROM owner_vehicles v WHERE v.id=p.vehicle_id AND v.owner_id=p.author_id)")} AS "linkedVehicle",
- p.created_at AS "createdAt",p.updated_at AS "updatedAt",p.category,p.vehicle,p.image_ids AS "imageIds",p.views,
+ p.created_at AS "createdAt",p.updated_at AS "updatedAt",p.category,p.vehicle,${existingImageIdsSql("p.image_ids")} AS "imageIds",p.views,
  (SELECT COUNT(*)::int FROM board_comments c WHERE c.post_id=p.id AND NOT c.deleted) AS "commentCount",
  (SELECT COUNT(*)::int FROM board_likes l WHERE l.post_id=p.id) AS "likeCount",
  EXISTS(SELECT 1 FROM board_likes l WHERE l.post_id=p.id AND l.user_id=$1) AS liked,
@@ -137,9 +138,13 @@ export function communityRouter({ db, auth }) {
       .json({ id: rows[0].id, url: `/api/board/images/${rows[0].id}` });
   });
   router.get("/images/:id", async (req, res) => {
+    // 공개 데이터가 참조하는 사진만 누구에게나 준다(image-references.js). 소유자는 작성 중 미리보기로,
+    // 관리자(DB 기준 역할)는 신고 처리로 볼 수 있다. 정지·탈퇴 세션은 app.js 인증에서 이미 null이다.
+    // 삭제된 글에만 쓰였거나 어디에도 쓰이지 않는 사진은 id를 알아도 404로, 없는 사진과 구분하지 않는다.
     const { rows } = await db.query(
-      "SELECT mime,data FROM community_images WHERE id=$1",
-      [req.params.id],
+      `SELECT i.mime,i.data FROM community_images i WHERE i.id=$1 AND (
+        i.owner_id=$2 OR EXISTS(SELECT 1 FROM users a WHERE a.id=$2 AND a.role='ADMIN') OR ${publicImageSql("i")})`,
+      [req.params.id, req.user?.id ?? null],
     );
     if (!rows.length) fail(404, "사진을 찾을 수 없습니다.");
     res
