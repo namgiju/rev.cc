@@ -2,6 +2,7 @@ import { Router } from "express";
 import { fail, text, positive, integer } from "./validation.js";
 import { validateOwnedImages } from "./owned-images.js";
 import { requireCurrentAdmin } from "./admin-access.js";
+import { rateLimiter } from "./rate-limit.js";
 const categories = [
   "wheels",
   "suspension",
@@ -65,6 +66,9 @@ export async function deleteListing(db, user, id, reason) {
 }
 export function marketRouter({ db, auth }) {
   const router = Router();
+  const listingLimiter = rateLimiter({ windowMs: 60_000, max: 10, message: "매물 등록이 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  // 조회수는 비로그인도 올릴 수 있어 로그인 여부와 관계없이 IP 단위로 제한한다(조회수 부풀리기 방지).
+  const viewLimiter = rateLimiter({ windowMs: 60_000, max: 60, by: "ip" });
   router.param("id", (req, res, next, id) => {
     req.params.id = positive(id);
     next();
@@ -151,7 +155,7 @@ export function marketRouter({ db, auth }) {
       limit,
     });
   });
-  router.post("/", auth, async (req, res) => {
+  router.post("/", auth, listingLimiter, async (req, res) => {
     const values = await input(req.body, req.user.id);
     const { rows } = await db.query(
       `INSERT INTO parts_listings(seller_id,title,description,price,category,status,image_ids,vehicle,region,contact)
@@ -214,7 +218,7 @@ export function marketRouter({ db, auth }) {
       );
     res.json({ ok: true });
   });
-  router.post("/:id/view", async (req, res) => {
+  router.post("/:id/view", viewLimiter, async (req, res) => {
     const { rows } = await db.query(
       "UPDATE parts_listings SET views=views+1 WHERE id=$1 RETURNING views",
       [req.params.id],

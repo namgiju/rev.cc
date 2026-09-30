@@ -23,13 +23,16 @@ public class AuthController {
     private final SharedSessionService sessions;
     private final KakaoOAuthService kakao;
     private final KakaoStateService kakaoState;
+    private final LoginAttemptLimiter attempts;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder();
 
-    public AuthController(UserRepository users, SharedSessionService sessions, KakaoOAuthService kakao, KakaoStateService kakaoState) {
+    public AuthController(UserRepository users, SharedSessionService sessions, KakaoOAuthService kakao, KakaoStateService kakaoState,
+            LoginAttemptLimiter attempts) {
         this.users = users;
         this.sessions = sessions;
         this.kakao = kakao;
         this.kakaoState = kakaoState;
+        this.attempts = attempts;
     }
 
     public record UsernameQuery(@NotBlank @Size(max = 100) String username) {}
@@ -66,9 +69,16 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody Credentials request,
             @CookieValue(name = SharedSessionService.COOKIE, required = false) String previous) {
+        // 아이디 단위 실패 제한(IP 제한과 별개). 막힌 동안은 DB 조회나 비밀번호 검사 없이, 계정 존재 여부와 무관하게 같은 429.
+        long locked = attempts.lockedSeconds(request.username());
+        if (locked > 0)
+            return ResponseEntity.status(429).header(HttpHeaders.RETRY_AFTER, String.valueOf(locked))
+                .body(Map.of("message", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요."));
         User user = users.lockByUsername(request.username()).orElse(null);
-        if (user == null || user.isBlocked() || !matches(request.password(), user.getPassword()))
+        if (user == null || user.isBlocked() || !matches(request.password(), user.getPassword())) {
+            attempts.recordFailure(request.username());
             return ResponseEntity.status(401).body(Map.of("message", "아이디 또는 비밀번호가 올바르지 않습니다."));
+        }
         // 이미 저장된 평문 계정을 보존하면서 첫 로그인에 BCrypt로 마이그레이션한다.
         if (!isHash(user.getPassword())) {
             if (request.password().getBytes(StandardCharsets.UTF_8).length > 72)

@@ -70,6 +70,9 @@ try {
   assert.ok(
     !JSON.stringify(await req("/admin/members")).includes("PRIVATE-HASH"),
   );
+  // 게시글 23개를 실제 API로 만든다. 글 작성 rate limit(사용자당 10/분)을 끄지 않고 지키도록
+  // 작성자를 10개씩 나눈다(a: 1~10번, b: 11~20번, c: 21~23번). 1번 글은 일반 회원(a)의 글이어야
+  // 아래 "관리자도 남의 글은 수정 불가" 검사가 의미를 가진다.
   for (let i = 0; i < 23; i++)
     await req(
       "/posts",
@@ -79,7 +82,7 @@ try {
         content: "content",
         category: i % 2 ? "free" : "maintenance",
       },
-      "a",
+      ["a", "b", "c"][Math.floor(i / 10)],
       201,
     );
   assert.equal((await req("/admin/posts")).items.length, 20);

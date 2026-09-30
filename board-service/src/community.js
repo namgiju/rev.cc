@@ -70,6 +70,9 @@ export function communityRouter({ db, auth }) {
   const commentLimiter = rateLimiter({ windowMs: 60_000, max: 20, message: "댓글 작성이 너무 잦아요. 잠시 후 다시 시도해주세요." });
   const guestbookLimiter = rateLimiter({ windowMs: 60_000, max: 10, message: "방명록 작성이 너무 잦아요. 잠시 후 다시 시도해주세요." });
   const imageLimiter = rateLimiter({ windowMs: 60_000, max: 20, message: "사진 업로드가 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  const reportLimiter = rateLimiter({ windowMs: 60_000, max: 10, message: "신고가 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  // 조회수는 비로그인도 올릴 수 있어 로그인 여부와 관계없이 IP 단위로 제한한다(조회수 부풀리기 방지).
+  const viewLimiter = rateLimiter({ windowMs: 60_000, max: 60, by: "ip" });
   router.param("id", (req, res, next, id) => {
     req.params.id = positive(id);
     next();
@@ -209,7 +212,7 @@ export function communityRouter({ db, auth }) {
     if (!rows.length) fail(404, "삭제되었거나 없는 글입니다.");
     res.json(asPost(rows[0]));
   });
-  router.post("/posts/:id/view", async (req, res) => {
+  router.post("/posts/:id/view", viewLimiter, async (req, res) => {
     const { rows } = await db.query(
       "UPDATE board_posts SET views=views+1 WHERE id=$1 AND NOT deleted RETURNING views",
       [req.params.id],
@@ -290,7 +293,7 @@ export function communityRouter({ db, auth }) {
     await deleteContent(db, req.user, 'comment', req.params.commentId, req.body?.reason);
     res.json({ ok: true });
   });
-  router.post("/posts/:id/report", auth, async (req, res) => {
+  router.post("/posts/:id/report", auth, reportLimiter, async (req, res) => {
     await exists(req.params.id);
     const reason = text(req.body?.reason, 500);
     const { rows } = await db.query(

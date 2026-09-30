@@ -13,7 +13,8 @@ class AuthControllerTest {
     private final SharedSessionService sessions = mock(SharedSessionService.class);
     private final KakaoOAuthService kakao = mock(KakaoOAuthService.class);
     private final KakaoStateService kakaoState = mock(KakaoStateService.class);
-    private final AuthController controller = new AuthController(users, sessions, kakao, kakaoState);
+    private final LoginAttemptLimiter attempts = mock(LoginAttemptLimiter.class);
+    private final AuthController controller = new AuthController(users, sessions, kakao, kakaoState, attempts);
 
     @Test void signupStoresHash() {
         when(users.saveAndFlush(any())).thenAnswer(call -> {
@@ -131,5 +132,45 @@ class AuthControllerTest {
         assertEquals(controller.login(new AuthController.Credentials("known", "wrong"), null).getBody(),
             controller.login(new AuthController.Credentials("unknown", "wrong"), null).getBody());
         verifyNoInteractions(sessions);
+    }
+
+    @Test void failedLoginCountsForExistingAndUnknownUsernames() {
+        when(users.lockByUsername("known")).thenReturn(Optional.of(new User("known", "secret")));
+        controller.login(new AuthController.Credentials("known", "wrong"), null);
+        controller.login(new AuthController.Credentials("unknown", "wrong"), null);
+        verify(attempts).recordFailure("known");
+        verify(attempts).recordFailure("unknown");
+    }
+
+    @Test void blockedAccountFailureAlsoCounts() {
+        User blocked = mock(User.class);
+        when(blocked.isBlocked()).thenReturn(true);
+        when(users.lockByUsername("blocked")).thenReturn(Optional.of(blocked));
+        assertEquals(401, controller.login(new AuthController.Credentials("blocked", "whatever"), null).getStatusCode().value());
+        verify(attempts).recordFailure("blocked");
+    }
+
+    @Test void lockedUsernameGetsSame429WithoutCheckingPasswordOrAccount() {
+        when(attempts.lockedSeconds("known")).thenReturn(900L);
+        when(attempts.lockedSeconds("unknown")).thenReturn(900L);
+        var known = controller.login(new AuthController.Credentials("known", "right-or-wrong"), null);
+        var unknown = controller.login(new AuthController.Credentials("unknown", "right-or-wrong"), null);
+        assertEquals(429, known.getStatusCode().value());
+        assertEquals(429, unknown.getStatusCode().value());
+        assertEquals(known.getBody(), unknown.getBody());
+        assertEquals("900", known.getHeaders().getFirst(HttpHeaders.RETRY_AFTER));
+        verifyNoInteractions(users, sessions);
+        verify(attempts, never()).recordFailure(any());
+    }
+
+    @Test void successfulLoginNeitherCountsNorClearsFailures() {
+        // PasswordResetService와 같이 카운터는 성공으로 지우지 않고 TTL로만 만료된다(초기화 API 자체가 없다).
+        User user = new User("test", new BCryptPasswordEncoder().encode("secret-pass"));
+        when(users.lockByUsername("test")).thenReturn(Optional.of(user));
+        when(sessions.create(user)).thenReturn("new-token");
+        when(sessions.cookie("new-token", false)).thenReturn("REVCC_SESSION=new-token");
+        assertEquals(200, controller.login(new AuthController.Credentials("test", "secret-pass"), null).getStatusCode().value());
+        verify(attempts).lockedSeconds("test");
+        verifyNoMoreInteractions(attempts);
     }
 }
