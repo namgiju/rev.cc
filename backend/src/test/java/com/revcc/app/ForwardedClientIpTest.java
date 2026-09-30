@@ -45,6 +45,19 @@ class ForwardedClientIpTest {
         assertEquals(CLIENT, clientIpSeenBySpring(CLIENT));
     }
 
+    @Test void springPrefersTheStandardForwardedHeaderOverForwardedFor() throws Exception {
+        // RFC 7239 Forwarded 헤더가 있으면 X-Forwarded-For보다 먼저 쓴다. Cloudflare는 이 헤더를 지우지 않고
+        // 그대로 넘기므로(STEP 9 실측) nginx가 core/board로 넘기지 않아야 한다(nginx/default.conf에서 비움).
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.setRemoteAddr("172.18.0.5");
+        request.addHeader("Forwarded", "for=198.51.100.7");
+        request.addHeader("X-Forwarded-For", CLIENT);
+        String[] seen = new String[1];
+        new ForwardedHeaderFilter().doFilter(request, new MockHttpServletResponse(),
+            (req, res) -> seen[0] = ((HttpServletRequest) req).getRemoteAddr());
+        assertEquals("198.51.100.7", seen[0]);
+    }
+
     @Test void appendedForwardedForLetsClientRotateBuckets() throws Exception {
         RateLimitFilter limiter = new RateLimitFilter(Duration.ofMinutes(1), 2);
         for (int i = 0; i < 5; i++)

@@ -9,7 +9,17 @@
 #   edge: proxy ↔ frontend                (internal: 외부 통신 불필요)
 #   app : proxy ↔ core/board              (일반 bridge: core/board가 Neon·Kakao·SMTP로 나가는 경로)
 #   data: core/board ↔ redis              (internal: redis는 외부와 통신하지 않는다)
+#   tunnel: cloudflared ↔ proxy          (cloudflared는 고정 주소 172.16.238.2, 다른 서비스는 붙지 않는다)
 # frontend와 proxy는 data에 없어 redis에 닿지 않고, redis는 edge/app에 없다.
+#
+# 외부 진입은 Cloudflare Named Tunnel 하나뿐이다:
+#   사용자 → rev.cc(Cloudflare DNS·HTTPS 종단) → Named Tunnel → cloudflared → proxy → frontend/core/board
+# cloudflared가 Cloudflare로 나가는 연결을 먼저 맺으므로 호스트에 열어 둘 포트가 없다. 그래서 proxy의
+# 호스트 포트 게시(docker-compose.yml의 REVCC_PORT)를 병합 결과에서 없앤다 — Docker가 게시한 포트는
+# 호스트 방화벽(ufw 등)을 우회해 인터넷에 열리므로, 남겨 두면 Cloudflare를 거치지 않는 경로가 생긴다.
+# nginx는 172.16.238.2에서 온 연결만 Cloudflare 경유로 보고 CF-Connecting-IP로 실제 사용자 IP를 복원한다
+# (nginx/default.conf의 set_real_ip_from과 같은 값이어야 한다. scripts/nginx-forwarded-check.sh가 대조).
+# Cloudflare Dashboard의 tunnel Public Hostname은 rev.cc → http://proxy:80 으로 설정한다.
 #
 # 운영 서비스는 프로세스가 죽거나 호스트가 재부팅되면 자동으로 다시 시작한다(restart: unless-stopped).
 # docker compose stop/down으로 멈춘 것은 다시 올리지 않는다. 과제용 docker-compose.yml에는 두지 않는다.
@@ -19,7 +29,31 @@
 services:
   proxy:
     restart: unless-stopped
-    networks: [edge, app]
+    ports: !reset []
+    networks: [edge, app, tunnel]
+  cloudflared:
+    # 버전을 고정한다(자동 업데이트 끔). 올릴 때는 태그만 바꿔 다시 배포한다.
+    image: cloudflare/cloudflared:2026.9.3
+    # 원격 관리(Dashboard) tunnel: 라우팅(Public Hostname)은 Dashboard에서 정하고 여기서는 토큰만 쓴다.
+    command: ["tunnel", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN(Cloudflare Named Tunnel 토큰)을 설정해야 배포할 수 있습니다.}
+      # /ready(healthcheck)용 metrics는 컨테이너 안에서만 연다.
+      TUNNEL_METRICS: 127.0.0.1:20241
+    restart: unless-stopped
+    depends_on:
+      proxy:
+        condition: service_healthy
+    healthcheck:
+      # Cloudflare 엣지와 연결이 하나 이상 맺어져 있으면 성공한다.
+      test: ["CMD", "cloudflared", "tunnel", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      tunnel:
+        ipv4_address: 172.16.238.2
   frontend:
     restart: unless-stopped
     networks: [edge]
@@ -70,3 +104,10 @@ networks:
   app: {}
   data:
     internal: true
+  tunnel:
+    # cloudflared가 Cloudflare로 나가야 하므로 internal이 아니다. 고정 주소는 동적 할당 범위(ip_range) 밖에 둬
+    # proxy가 먼저 떠도 172.16.238.2를 가져가지 못하게 한다. Docker 기본 주소 풀(172.17~31, 192.168) 밖 대역이다.
+    ipam:
+      config:
+        - subnet: 172.16.238.0/28
+          ip_range: 172.16.238.8/29
