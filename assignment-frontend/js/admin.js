@@ -16,6 +16,7 @@ async function api(path, body, method = "GET") {
     $("#admin-app").hidden = true;
     $("#admin-denied").hidden = false;
     $("#review-dialog").close();
+    $("#member-dialog").close();
     $("#admin-user").textContent = "";
     renderManagementNav(null);
   }
@@ -163,6 +164,7 @@ async function initialize() {
     }
   });
 
+  setupMembers();
   setupTabs();
   setupOperationalLists();
   $("#admin-app").hidden = false;
@@ -240,9 +242,16 @@ function setupOperationalLists() {
     search.name = "q";
     search.maxLength = 100;
     search.placeholder =
-      name === "members" ? "아이디 검색" : "제목 / 사용자 검색";
+      name === "members" ? "회원 검색" : "제목 / 사용자 검색";
     search.setAttribute("aria-label", search.placeholder);
     controls.append(search);
+    if (name === "members") {
+      for (const [name, options] of [['field', {username:'아이디',nickname:'닉네임',email:'이메일'}], ['status', {'':'전체 상태',ACTIVE:'정상',SUSPENDED:'정지',DISABLED:'비활성',WITHDRAWN:'탈퇴'}]]) {
+        const select = el('select'); select.name = name; select.setAttribute('aria-label', name === 'field' ? '검색 항목' : '계정 상태');
+        for (const [value,label] of Object.entries(options)) { const option = el('option',label); option.value=value; select.append(option); }
+        controls.append(select);
+      }
+    }
     if (name === "posts" || name === "reports") {
       const select = el("select");
       select.name = name === "posts" ? "category" : "status";
@@ -317,20 +326,14 @@ async function loadList(name) {
   root.replaceChildren(row(["불러오는 중…"]));
   pager.querySelectorAll("button").forEach((b) => (b.disabled = true));
   try {
-    const result = await api(`/api/board/admin/${name}?${params}`);
+    const result = await api(`${name === "members" ? "/api/admin/members" : `/api/board/admin/${name}`}?${params}`);
     if (request !== state.request) return;
     root.replaceChildren();
     for (const item of result.items) {
-      if (name === "members")
-        root.append(
-          row([
-            item.username,
-            item.role,
-            date(item.joinedAt),
-            String(item.postCount),
-            String(item.vehicleCount),
-          ]),
-        );
+      if (name === "members") {
+        const open = el('button', item.username, 'secondary'); open.dataset.memberId = item.id; open.addEventListener('click', () => openMember(item.id, open));
+        root.append(row([String(item.id),open,item.nickname || '—',item.email || '미등록',date(item.joinedAt),({ACTIVE:'정상',SUSPENDED:'이용 정지',DISABLED:'비활성',WITHDRAWN:'탈퇴'})[item.status] || item.status,item.role]));
+      }
       else if (name === "posts")
         root.append(
           row([
@@ -345,7 +348,7 @@ async function loadList(name) {
         const source = el('details'), body = el('p', item.original_content, 'detail-text');
         source.append(el('summary', '삭제 당시 원문'), body);
         const reason = el('div'); reason.append(el('p', item.reason), source);
-        const action = {POST_DELETE:'게시글', COMMENT_DELETE:'댓글', REPLY_DELETE:'답글'}[item.action_type];
+        const action = {POST_DELETE:'게시글', COMMENT_DELETE:'댓글', REPLY_DELETE:'답글', LISTING_DELETE:'부품 매물'}[item.action_type];
         root.append(row([
           date(item.created_at) + ' · ' + item.admin_username,
           (categories[item.category] || item.category) + ' > ' + item.post_title + ' (#' + item.post_id + ')',
@@ -356,6 +359,15 @@ async function loadList(name) {
       else {
         const details = el("div");
         details.append(el("span", reportStatuses[item.status] || item.status));
+        // 신고된 글이 이미 삭제됐으면 삭제 주체를 보여 준다. 작성자가 지운 글은 원문을 펼쳐 볼 수 있다.
+        if (item.postDeleted) {
+          details.append(el("p", item.deletedReason === "AUTHOR" ? "작성자가 삭제한 글" : "관리자가 삭제한 글"));
+          if (item.deletedContent != null) {
+            const source = el("details");
+            source.append(el("summary", "삭제된 글 원문"), el("p", item.deletedContent, "detail-text"));
+            details.append(source);
+          }
+        }
         if (item.reviewedAt)
           details.append(
             el(
@@ -416,3 +428,78 @@ window.addEventListener("focus", () => {
   if (!$("#admin-app").hidden)
     void api("/api/board/admin/overview").catch(() => {});
 });
+
+let selectedMember = null;
+let memberBusy = false;
+let memberView = 0, memberOpener = null;
+async function memberActions(id, view = memberView) {
+  const logs = await api(`/api/admin/members/${id}/actions`);
+  if (view !== memberView || !$('#member-dialog').open) return;
+  // 본인 탈퇴 기록(SELF_WITHDRAW:<직전 상태>)은 관리자 없이 남는다.
+  $('#member-actions').replaceChildren(...logs.map(l => el('li', l.action.startsWith('SELF_WITHDRAW') ? `${date(l.createdAt)} · 본인 탈퇴 (탈퇴 전 상태: ${l.action.split(':')[1] || '-'})` : `${date(l.createdAt)} · 관리자 #${l.adminId} · ${l.action === 'PASSWORD_RESET_REQUEST' ? '비밀번호 재설정 메일 요청' : l.action.replace('UPDATE:', '회원 정보 변경: ').replace('NICKNAME', '닉네임').replace('EMAIL', '이메일').replace('ROLE', '권한').replace('STATUS', '상태')}`)));
+}
+async function openMember(id, opener) {
+  const view = ++memberView; memberOpener = opener;
+  try {
+    const item = await api(`/api/admin/members/${id}`);
+    if (view !== memberView) return;
+    selectedMember = item;
+    const f = $('#member-form'); f.reset(); f.querySelectorAll('input, select, button').forEach(c => c.disabled = false); f.elements.nickname.value = item.nickname || ''; f.elements.email.value = item.email || '';
+    f.elements.status.value = item.status; f.elements.role.value = item.role;
+    if (item.suspendedUntil) { const d = new Date(item.suspendedUntil); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); f.elements.suspendedUntil.value=d.toISOString().slice(0,16); }
+    $('#member-title').textContent = `회원 #${item.id} · ${item.username}`;
+    $('#member-message').textContent = item.kakaoOnly ? '카카오 전용 계정입니다.' : '';
+    $('#member-reset').disabled = !item.email || item.kakaoOnly;
+    // 탈퇴는 되돌릴 수 없다(서버도 409로 거부). 조회만 가능하게 편집 컨트롤을 끈다. 닫을 때 close 핸들러가 되살린다.
+    if (item.status === 'WITHDRAWN') {
+      f.querySelectorAll('input, select, button:not(#member-close)').forEach(c => c.disabled = true); $('#member-reset').disabled = true;
+      $('#member-message').textContent = '탈퇴한 회원입니다. 정보를 변경하거나 상태를 되돌릴 수 없습니다.';
+    }
+    $('#member-dialog').showModal(); await memberActions(id, view);
+  } catch (e) { if (view === memberView) $('#notice').textContent=e.message; }
+}
+function setupMembers() {
+  const dialog = $('#member-dialog');
+  let pointerOutside = false;
+  const outside = event => {
+    const r = dialog.getBoundingClientRect();
+    return event.target === dialog && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom);
+  };
+  $('#member-close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('pointerdown', event => { pointerOutside = outside(event); });
+  dialog.addEventListener('pointercancel', () => { pointerOutside = false; });
+  dialog.addEventListener('click', event => { if (pointerOutside && outside(event)) dialog.close(); pointerOutside = false; });
+  // Native dialog handles ESC, focus trapping, and backdrop. One close handler cleans every path.
+  dialog.addEventListener('close', () => {
+    const id = selectedMember?.id;
+    const opener = memberOpener?.isConnected ? memberOpener : document.querySelector(`[data-member-id="${id}"]`);
+    memberView++; selectedMember = null; memberBusy = false; memberOpener = null; pointerOutside = false;
+    $('#member-form').reset(); $('#member-message').textContent = ''; $('#member-actions').replaceChildren();
+    dialog.querySelectorAll('button').forEach(b => b.disabled = false); $('#member-reset').disabled = true;
+    if (opener?.getClientRects().length) opener.focus();
+  });
+  const work = async action => {
+    if (memberBusy || !selectedMember) return;
+    memberBusy=true; const id=selectedMember.id, view=memberView;
+    $('#member-dialog').querySelectorAll('button:not(#member-close)').forEach(b => b.disabled=true);
+    try { await action(id, view); } catch (e) { if (view === memberView) $('#member-message').textContent=e.message; }
+    finally { if (view === memberView) { memberBusy=false; $('#member-dialog').querySelectorAll('button').forEach(b => b.disabled=false); $('#member-reset').disabled=!selectedMember?.email || selectedMember?.kakaoOnly; } }
+  };
+  $('#member-form').addEventListener('submit', e => {
+    e.preventDefault(); void work(async (id, view) => {
+      const body=Object.fromEntries(new FormData(e.target));
+      body.suspendedUntil=body.status === 'SUSPENDED' && body.suspendedUntil ? new Date(body.suspendedUntil).toISOString() : null;
+      const updated=await api(`/api/admin/members/${id}`,body,'PATCH');
+      await loadList('members');
+      if (view !== memberView) return;
+      selectedMember=updated;
+      $('#member-message').textContent='저장했습니다. 기존 로그인 세션이 만료되었습니다.';
+      await memberActions(id, view);
+    });
+  });
+  $('#member-reset').addEventListener('click', () => void work(async (id, view) => {
+    const result=await api(`/api/admin/members/${id}/password-reset`,{},'POST');
+    if (view !== memberView) return;
+    $('#member-message').textContent=result.message; await memberActions(id, view);
+  }));
+}

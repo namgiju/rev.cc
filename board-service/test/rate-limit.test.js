@@ -76,3 +76,29 @@ test("rateLimiter falls back to IP when there is no authenticated user", () => {
   assert.equal(calls, 1);
   assert.equal(blocked.statusCode, 429);
 });
+test("rateLimiter removes expired windows so buckets do not accumulate", () => {
+  let now = 1_000_000;
+  const limiter = rateLimiter({ windowMs: 60_000, max: 1, now: () => now });
+
+  for (let i = 0; i < 50; i++) limiter({ ip: `198.51.100.${i}` }, mockRes(), () => {});
+  assert.equal(limiter.bucketCount(), 50);
+
+  now += 60_001;
+  limiter({ ip: "203.0.113.5" }, mockRes(), () => {});
+
+  assert.equal(limiter.bucketCount(), 1);
+});
+
+test("rateLimiter keeps the current window limit when a sweep runs", () => {
+  let now = 1_000_000;
+  const limiter = rateLimiter({ windowMs: 60_000, max: 1, now: () => now });
+  let calls = 0;
+
+  now += 60_000; // 첫 요청과 동시에 정리 시점이 된다.
+  limiter({ user: { id: 1 } }, mockRes(), () => calls++);
+  const blocked = mockRes();
+  limiter({ user: { id: 1 } }, blocked, () => calls++);
+
+  assert.equal(calls, 1);
+  assert.equal(blocked.statusCode, 429);
+});

@@ -21,13 +21,15 @@ public class SharedSessionService {
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
     private final boolean secure;
+    private final UserRepository users;
     private final SecureRandom random = new SecureRandom();
 
     public SharedSessionService(StringRedisTemplate redis, ObjectMapper mapper,
-            @Value("${app.session.secure:false}") boolean secure) {
+            @Value("${app.session.secure:false}") boolean secure, UserRepository users) {
         this.redis = redis;
         this.mapper = mapper;
         this.secure = secure;
+        this.users = users;
     }
 
     public String create(User user) {
@@ -36,7 +38,7 @@ public class SharedSessionService {
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         try {
             redis.opsForValue().set("revcc:session:" + token,
-                mapper.writeValueAsString(new SessionUser(user.getId(), user.getUsername(), user.getRole())), Duration.ofMinutes(30));
+                mapper.writeValueAsString(new SessionUser(user.getId(), user.getUsername(), user.getRole(), user.getAuthVersion())), Duration.ofMinutes(30));
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("세션 직렬화 실패", e);
         }
@@ -46,7 +48,12 @@ public class SharedSessionService {
     public SessionUser require(String token) {
         String json = valid(token) ? redis.opsForValue().get("revcc:session:" + token) : null;
         if (json != null) {
-            try { return mapper.readValue(json, SessionUser.class); }
+            try {
+                SessionUser session = mapper.readValue(json, SessionUser.class);
+                User user = users.findById(session.id()).orElse(null);
+                if (user != null && !user.isBlocked() && user.getAuthVersion() == session.version()) return session;
+                revoke(token);
+            }
             catch (JsonProcessingException e) { revoke(token); }
         }
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
@@ -68,5 +75,7 @@ public class SharedSessionService {
     // role이 없는 예전 Redis 세션(마이그레이션 이전)은 null로 역직렬화되며, Express 쪽 JSON에도
     // 키 자체가 빠지도록 NON_NULL로 직렬화해 두 서비스의 응답 모양이 계속 일치하게 한다.
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record SessionUser(Long id, String username, String role) {}
+    public record SessionUser(Long id, String username, String role, long version) {
+        public SessionUser(Long id, String username, String role) { this(id, username, role, 0); }
+    }
 }

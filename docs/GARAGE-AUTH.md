@@ -73,7 +73,7 @@ Chrome을 사용한다. 고유한 임시 일반 사용자 2명(차량 0대/5대)
 
 ```sh
 npm test --prefix board-service
-docker compose exec -T board node --input-type=module < scripts/community-system.mjs
+scripts/run-board-system.sh scripts/community-system.mjs
 PLAYWRIGHT_MODULE=/tmp/revcc-browser/node_modules/playwright \
 CHROME_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
 node scripts/garage-auth-browser.cjs

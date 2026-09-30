@@ -48,6 +48,84 @@ docker compose up -d --wait
 
 접속: http://localhost:8090. 다른 포트는 `REVCC_PORT=8091`로 지정한다.
 
+### 운영 배포 (docker-compose.prod.yml)
+
+위의 `docker compose up -d --build --wait`는 **로컬 개발용**이다. `-f` 없이 실행하면 Compose가
+`docker-compose.override.yml`(로컬 HTML 직접 마운트)을 자동으로 병합하고,
+`docker-compose.prod.yml`의 운영 하드닝은 전혀 적용되지 않는다.
+운영 서버에서는 반드시 파일을 명시해 override가 병합되지 않게 한다:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
+```
+
+prod 오버레이가 적용하는 것:
+
+- 운영 DB는 Neon이다. 로컬 `postgres` 서비스와 `revcc_pg` 볼륨은 병합 결과에서 제거되어 만들어지지 않는다
+  (`!reset`/`!override` 사용, Docker Compose 2.24 이상 필요). core/board는 `.env`의 `DB_HOST`, `DB_NAME`,
+  `DB_USER`, `DB_PASSWORD`만 쓰며, 하나라도 없으면 기동 자체가 실패한다.
+- 네트워크를 역할별로 나눈다(과제용 기본 compose의 단일 `revcc-network`는 그대로다).
+  `edge`(proxy·frontend, internal), `app`(proxy·core·board, 외부 통신 가능), `data`(core·board·redis, internal).
+  frontend와 proxy는 redis에 닿지 않고, redis와 frontend는 외부로 나가지 못한다.
+  core/board는 `app`을 통해 Neon·Kakao·SMTP로 나간다.
+- 모든 서비스가 `restart: unless-stopped`다. 프로세스가 죽거나 호스트가 재부팅되면 다시 올라오고,
+  `docker compose stop`/`down`으로 멈춘 것은 올리지 않는다. healthcheck가 unhealthy인 것만으로는 재시작하지 않는다.
+- DB 커넥션 풀: core 10 + board 10(평시 최대 20, 재배포 중 겹쳐도 40). 연결을 5초 안에 못 얻거나
+  쿼리가 15초 안에 끝나지 않으면 요청은 503으로 끝난다. 조정 변수는 `.env.example` 참고.
+- `REDIS_PASSWORD`, `KAKAO_REDIRECT_URI`가 없으면 기동 자체가 실패한다(로컬 Redis 기본 비밀번호, `localhost:8090` 콜백 차단).
+  `REDIS_PASSWORD`는 영문·숫자로 만든다(예: `openssl rand -hex 32`).
+- core가 `SPRING_PROFILES_ACTIVE=prod`로 실행되어 세션 쿠키가 항상 `Secure`로 나간다.
+  따라서 앞단(Cloudflare 등)에서 HTTPS로 종단해야 로그인이 동작한다.
+- 외부 진입은 Cloudflare Named Tunnel 하나뿐이다: 사용자 → rev.cc(Cloudflare DNS·HTTPS) → Named Tunnel →
+  `cloudflared` 컨테이너 → proxy → frontend/core/board. proxy의 호스트 포트(`REVCC_PORT`)는 게시하지 않는다
+  (Docker가 게시한 포트는 ufw 등 호스트 방화벽을 우회해 열리므로 Cloudflare를 거치지 않는 경로가 된다).
+  `cloudflared`는 proxy와 둘만 있는 `tunnel` 네트워크의 고정 주소 172.16.238.2를 쓰고, nginx는 이 주소에서 온
+  요청만 `CF-Connecting-IP`로 실제 사용자 IP를 복원한다(rate limit·로그가 사용자별로 동작). `CLOUDFLARE_TUNNEL_TOKEN`이
+  없으면 기동 자체가 실패한다.
+- nginx(모든 구성 공통): `server_tokens off`, `/api` rate limit 안전망(IP당 초당 20·순간 200, 로그인·가입·아이디 확인·
+  비밀번호 재설정·카카오는 IP당 분당 30·순간 30, 초과 시 JSON 429), upstream 응답 대기 30초, HSTS(`max-age=300`,
+  Cloudflare를 거친 HTTPS 요청에만).
+
+#### Cloudflare Named Tunnel 준비 (Dashboard에서 1회)
+
+1. Cloudflare Zero Trust → Networks → Tunnels → Create a tunnel → **Cloudflared** 선택, 이름 지정.
+2. 설치 명령에 나오는 토큰(`--token` 뒤의 긴 값)을 운영 `.env`의 `CLOUDFLARE_TUNNEL_TOKEN`에 넣는다(비밀번호처럼 취급).
+   설치 명령 자체는 실행하지 않는다 — compose의 `cloudflared` 서비스가 같은 일을 한다.
+3. Public Hostname: `rev.cc`(경로 비움) → Service `HTTP`, URL `proxy:80`. DNS CNAME은 Cloudflare가 만든다.
+   기존에 rev.cc를 서버 IP로 가리키던 A/AAAA 레코드가 있으면 지운다.
+4. SSL/TLS → Edge Certificates에서 **Always Use HTTPS**를 켠다(nginx도 `X-Forwarded-Proto: http`면 301로 보낸다).
+   Cloudflare의 HSTS 설정은 켜지 않는다(nginx가 보낸다. 둘 다 켜면 값이 겹친다).
+5. Rules → Transform Rules의 **Remove visitor IP headers**를 켜지 않는다(켜면 `CF-Connecting-IP`가 사라져
+   모든 사용자가 rate limit 버킷 하나를 공유한다).
+
+운영 반영 후 확인:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps          # cloudflared가 healthy
+docker compose -f docker-compose.yml -f docker-compose.prod.yml port proxy 80 # 게시된 포트가 없어야 한다(오류)
+curl -sI https://rev.cc/ | grep -i strict-transport-security                  # max-age=300
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs proxy | tail   # 첫 칸이 실제 사용자 IP(172.16.238.2가 아님)
+```
+
+nginx IP 신뢰 경계·rate limit·HSTS 동작은 `scripts/nginx-forwarded-check.sh`로 로컬에서 확인할 수 있다
+(운영 스택이 떠 있지 않은 PC에서 실행).
+
+적용 여부는 실행 전에 병합 결과로 확인할 수 있다:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config --services   # postgres가 없고 cloudflared가 있어야 한다
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config | grep -E 'SPRING_PROFILES_ACTIVE|KAKAO_REDIRECT_URI'
+```
+
+`config` 전체 출력에는 `.env`의 비밀번호가 그대로 찍히므로 공유하거나 로그에 남기지 않는다.
+
+기본(과제) compose의 Redis도 인증을 요구한다. `REDIS_PASSWORD`를 정하지 않으면 로컬 기본값 `revcc-local-redis`를 쓴다.
+컨테이너 밖에서 `docker-compose.dev.yml`의 Redis(127.0.0.1:6379)에 Spring/Node를 직접 붙일 때는
+같은 값을 `REDIS_PASSWORD` 환경변수로 넘겨야 한다.
+
+`-f docker-compose.yml -f docker-compose.prod.yml`로 올렸다면 이후 `ps`, `logs`, `down` 등도
+같은 `-f` 조합으로 실행해야 같은 설정을 대상으로 한다.
+
 ## 3. 컨테이너·네트워크·내부 확인
 
 ```sh

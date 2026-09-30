@@ -583,6 +583,11 @@
 #home-badges{grid-column:2;grid-row:2}
 #home-guestbook{grid-column:2;grid-row:3}
 #member-content{grid-column:3;grid-row:2 / 4;display:block}
+@media(max-width:900px){
+  .personal-garage #main{width:calc(100% - 40px)}
+  .personal-garage-grid{grid-template-columns:1fr}
+  #home-profile,#my-vehicles,#owned-panel,#home-badges,#home-guestbook,#member-content{grid-column:auto;grid-row:auto}
+}
 .garage-panel{padding:22px;border:1px solid var(--line);border-radius:14px;background:white;overflow-wrap:anywhere}
 .garage-panel>h2{font-size:19px;margin:0 0 18px}
 #home-garage[data-state="HAS_VEHICLE"]{display:block}
@@ -612,3 +617,12 @@
 .admin-panel .feed-controls > .rev-dd { flex: 0 1 180px; }
 .admin-panel .activity-actions { margin-top: 18px; }
 .admin-table td { overflow-wrap: anywhere; }
+
+/* Keep the existing admin cards and table usable on narrow screens. */
+.admin-shell > div { min-width: 0; }
+.admin-panel { overflow-x: auto; }
+#member-dialog { width: min(560px, calc(100% - 32px)); max-height: 90vh; overflow-y: auto; border: 1px solid var(--border, #ddd); border-radius: 16px; padding: 24px; }
+#member-form { display: grid; gap: 12px; }
+#member-form input, #member-form select { width: 100%; box-sizing: border-box; }
+#member-reset { margin-top: 20px; }
+#member-actions { padding-left: 20px; font-size: 13px; }

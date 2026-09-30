@@ -1,4 +1,6 @@
 import { deleteContent } from './moderation.js';
+import { displayNameSql, isWithdrawnSql, publicMemberId, unlessWithdrawnSql } from "./member-display.js";
+import { existingImageIdsSql, publicImageSql } from "./image-references.js";
 import { Router } from "express";
 import { VERIFIED_OWNER_BADGE } from "./badges.js";
 
@@ -33,17 +35,19 @@ export function decodeImage(value) {
     fail(400, "지원하지 않거나 너무 큰 사진입니다.");
   return { mime, data };
 }
-const postSelect = `SELECT p.id,p.title,p.content,p.author_id AS "authorId",u.username,
- p.vehicle_id AS "vehicleId",
- (SELECT json_build_object('id',v.id,'model',v.model,'year',v.year,'verified',v.verified,'imageId',v.image_id) FROM owner_vehicles v WHERE v.id=p.vehicle_id AND v.owner_id=p.author_id) AS "linkedVehicle",
- p.created_at AS "createdAt",p.updated_at AS "updatedAt",p.category,p.vehicle,p.image_ids AS "imageIds",p.views,
+// 탈퇴 작성자의 글은 남기되 이름·회원 id·차량(차고 링크로 다시 식별된다)은 공개하지 않는다(member-display.js).
+const postSelect = `SELECT p.id,p.title,p.content,${unlessWithdrawnSql("u", "p.author_id")} AS "authorId",${displayNameSql("u")} AS username,
+ ${isWithdrawnSql("u")} AS "authorWithdrawn",
+ ${unlessWithdrawnSql("u", "p.vehicle_id")} AS "vehicleId",
+ ${unlessWithdrawnSql("u", "(SELECT json_build_object('id',v.id,'model',v.model,'year',v.year,'verified',v.verified,'imageId',v.image_id) FROM owner_vehicles v WHERE v.id=p.vehicle_id AND v.owner_id=p.author_id)")} AS "linkedVehicle",
+ p.created_at AS "createdAt",p.updated_at AS "updatedAt",p.category,p.vehicle,${existingImageIdsSql("p.image_ids")} AS "imageIds",p.views,
  (SELECT COUNT(*)::int FROM board_comments c WHERE c.post_id=p.id AND NOT c.deleted) AS "commentCount",
  (SELECT COUNT(*)::int FROM board_likes l WHERE l.post_id=p.id) AS "likeCount",
  EXISTS(SELECT 1 FROM board_likes l WHERE l.post_id=p.id AND l.user_id=$1) AS liked,
  EXISTS(SELECT 1 FROM board_bookmarks b WHERE b.post_id=p.id AND b.user_id=$1) AS bookmarked,
- (SELECT model FROM owner_vehicles v WHERE v.owner_id=p.author_id ORDER BY v.id LIMIT 1) AS "ownerVehicle"
+ ${unlessWithdrawnSql("u", "(SELECT model FROM owner_vehicles v WHERE v.owner_id=p.author_id ORDER BY v.id LIMIT 1)")} AS "ownerVehicle"
  FROM (SELECT * FROM board_posts WHERE NOT deleted) p JOIN users u ON u.id=p.author_id`;
-const asPost = (row) => ({ ...row, authorId: Number(row.authorId) });
+const asPost = (row) => ({ ...row, authorId: publicMemberId(row.authorId) });
 
 // Asia/Seoul(KST, UTC+9는 서머타임이 없어 상수로 계산해도 안전하다) 기준 오늘 00:00을
 // 해당 UTC 시각으로 변환한다. period=today 필터에 사용한다.
@@ -70,6 +74,9 @@ export function communityRouter({ db, auth }) {
   const commentLimiter = rateLimiter({ windowMs: 60_000, max: 20, message: "댓글 작성이 너무 잦아요. 잠시 후 다시 시도해주세요." });
   const guestbookLimiter = rateLimiter({ windowMs: 60_000, max: 10, message: "방명록 작성이 너무 잦아요. 잠시 후 다시 시도해주세요." });
   const imageLimiter = rateLimiter({ windowMs: 60_000, max: 20, message: "사진 업로드가 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  const reportLimiter = rateLimiter({ windowMs: 60_000, max: 10, message: "신고가 너무 잦아요. 잠시 후 다시 시도해주세요." });
+  // 조회수는 비로그인도 올릴 수 있어 로그인 여부와 관계없이 IP 단위로 제한한다(조회수 부풀리기 방지).
+  const viewLimiter = rateLimiter({ windowMs: 60_000, max: 60, by: "ip" });
   router.param("id", (req, res, next, id) => {
     req.params.id = positive(id);
     next();
@@ -131,9 +138,13 @@ export function communityRouter({ db, auth }) {
       .json({ id: rows[0].id, url: `/api/board/images/${rows[0].id}` });
   });
   router.get("/images/:id", async (req, res) => {
+    // 공개 데이터가 참조하는 사진만 누구에게나 준다(image-references.js). 소유자는 작성 중 미리보기로,
+    // 관리자(DB 기준 역할)는 신고 처리로 볼 수 있다. 정지·탈퇴 세션은 app.js 인증에서 이미 null이다.
+    // 삭제된 글에만 쓰였거나 어디에도 쓰이지 않는 사진은 id를 알아도 404로, 없는 사진과 구분하지 않는다.
     const { rows } = await db.query(
-      "SELECT mime,data FROM community_images WHERE id=$1",
-      [req.params.id],
+      `SELECT i.mime,i.data FROM community_images i WHERE i.id=$1 AND (
+        i.owner_id=$2 OR EXISTS(SELECT 1 FROM users a WHERE a.id=$2 AND a.role='ADMIN') OR ${publicImageSql("i")})`,
+      [req.params.id, req.user?.id ?? null],
     );
     if (!rows.length) fail(404, "사진을 찾을 수 없습니다.");
     res
@@ -174,7 +185,8 @@ export function communityRouter({ db, auth }) {
       `%${model.replace(/[\\%_]/g, "\\$&")}%`,
       period === "today" ? todayStartKst() : period === "week" ? weekAgo() : null,
     ];
-    let where = ` WHERE (p.title ILIKE $2 OR p.content ILIKE $2 OR u.username ILIKE $2) AND ($3='' OR p.category=$3) AND p.vehicle ILIKE $4 AND ($5::timestamptz IS NULL OR p.created_at>=$5)`;
+    // 작성자 검색은 화면에 보이는 이름으로만 한다(탈퇴 회원의 원래 아이디로 글을 찾을 수 없게).
+    let where = ` WHERE (p.title ILIKE $2 OR p.content ILIKE $2 OR ${displayNameSql("u")} ILIKE $2) AND ($3='' OR p.category=$3) AND p.vehicle ILIKE $4 AND ($5::timestamptz IS NULL OR p.created_at>=$5)`;
     if (scope === "mine") where += " AND p.author_id=$1";
     if (scope === "bookmarks")
       where +=
@@ -209,7 +221,7 @@ export function communityRouter({ db, auth }) {
     if (!rows.length) fail(404, "삭제되었거나 없는 글입니다.");
     res.json(asPost(rows[0]));
   });
-  router.post("/posts/:id/view", async (req, res) => {
+  router.post("/posts/:id/view", viewLimiter, async (req, res) => {
     const { rows } = await db.query(
       "UPDATE board_posts SET views=views+1 WHERE id=$1 AND NOT deleted RETURNING views",
       [req.params.id],
@@ -257,11 +269,12 @@ export function communityRouter({ db, auth }) {
   router.get("/posts/:id/comments", async (req, res) => {
     await exists(req.params.id);
     const { rows } = await db.query(
-      `SELECT c.id,c.content,c.deleted,c.parent_id AS "parentId",c.author_id AS "authorId",u.username,c.created_at AS "createdAt"
+      `SELECT c.id,c.content,c.deleted,c.parent_id AS "parentId",${unlessWithdrawnSql("u", "c.author_id")} AS "authorId",
+      ${displayNameSql("u")} AS username,${isWithdrawnSql("u")} AS "authorWithdrawn",c.created_at AS "createdAt"
       FROM board_comments c JOIN users u ON u.id=c.author_id WHERE c.post_id=$1 ORDER BY c.id`,
       [req.params.id],
     );
-    res.json(rows.map((c) => ({ ...c, authorId: Number(c.authorId) })));
+    res.json(rows.map((c) => ({ ...c, authorId: publicMemberId(c.authorId) })));
   });
   router.post("/posts/:id/comments", auth, commentLimiter, async (req, res) => {
     const content = text(req.body?.content, 2000);
@@ -290,7 +303,7 @@ export function communityRouter({ db, auth }) {
     await deleteContent(db, req.user, 'comment', req.params.commentId, req.body?.reason);
     res.json({ ok: true });
   });
-  router.post("/posts/:id/report", auth, async (req, res) => {
+  router.post("/posts/:id/report", auth, reportLimiter, async (req, res) => {
     await exists(req.params.id);
     const reason = text(req.body?.reason, 500);
     const { rows } = await db.query(
@@ -311,7 +324,7 @@ export function communityRouter({ db, auth }) {
   });
   router.get("/notifications", auth, async (req, res) => {
     const { rows } = await db.query(
-      `SELECT n.id,n.post_id AS "postId",n.is_read AS "isRead",n.created_at AS "createdAt",p.title,p.category,u.username,n.kind
+      `SELECT n.id,n.post_id AS "postId",n.is_read AS "isRead",n.created_at AS "createdAt",p.title,p.category,${displayNameSql("u")} AS username,n.kind
       FROM community_notifications n JOIN board_posts p ON p.id=n.post_id JOIN users u ON u.id=n.actor_id
       WHERE n.user_id=$1 AND NOT p.deleted ORDER BY n.id DESC LIMIT 100`,
       [req.user.id],
@@ -347,18 +360,20 @@ export function communityRouter({ db, auth }) {
   });
   router.get("/members/:id/guestbook", async (req, res) => {
     const before = req.query.before === undefined ? null : positive(req.query.before);
-    const owner = await db.query(`SELECT id,(SELECT COUNT(*)::int FROM garage_guestbook WHERE owner_id=$1) AS total FROM users WHERE id=$1`,[req.params.id]);
+    // 탈퇴 회원의 차고(와 그 방명록)는 공개하지 않는다. 다른 회원 차고에 남긴 방명록은 "탈퇴한 회원"으로 보인다.
+    const owner = await db.query(`SELECT id,(SELECT COUNT(*)::int FROM garage_guestbook WHERE owner_id=$1) AS total FROM users u WHERE id=$1 AND NOT ${isWithdrawnSql("u")}`,[req.params.id]);
     if (!owner.rows.length) fail(404, "회원을 찾을 수 없어요.");
-    const {rows} = await db.query(`SELECT g.id,g.owner_id AS "ownerId",g.author_id AS "authorId",u.username,g.content,g.created_at AS "createdAt"
+    const {rows} = await db.query(`SELECT g.id,g.owner_id AS "ownerId",${unlessWithdrawnSql("u", "g.author_id")} AS "authorId",
+      ${displayNameSql("u")} AS username,${isWithdrawnSql("u")} AS "authorWithdrawn",g.content,g.created_at AS "createdAt"
       FROM garage_guestbook g JOIN users u ON u.id=g.author_id
       WHERE g.owner_id=$1 AND ($2::int IS NULL OR g.id<$2) ORDER BY g.id DESC LIMIT 21`,[req.params.id,before]);
-    const items=rows.slice(0,20).map(r=>({...r,ownerId:Number(r.ownerId),authorId:Number(r.authorId)}));
+    const items=rows.slice(0,20).map(r=>({...r,ownerId:Number(r.ownerId),authorId:publicMemberId(r.authorId)}));
     res.json({items,total:owner.rows[0].total,nextCursor:rows.length>20?items.at(-1).id:null});
   });
   router.post("/members/:id/guestbook", auth, guestbookLimiter, async (req, res) => {
     const content = text(req.body?.content,1000);
     const {rows} = await db.query(`INSERT INTO garage_guestbook(owner_id,author_id,content)
-      SELECT id,$2,$3 FROM users WHERE id=$1 RETURNING id`,[req.params.id,req.user.id,content]);
+      SELECT id,$2,$3 FROM users u WHERE id=$1 AND NOT ${isWithdrawnSql("u")} RETURNING id`,[req.params.id,req.user.id,content]);
     if (!rows.length) fail(404,"회원을 찾을 수 없어요.");
     res.status(201).json(rows[0]);
   });
@@ -373,9 +388,10 @@ export function communityRouter({ db, auth }) {
        (SELECT COUNT(*)::int FROM board_posts p WHERE p.author_id=u.id AND NOT p.deleted) AS "postCount",
        (SELECT COUNT(*)::int FROM board_comments c WHERE c.author_id=u.id AND NOT c.deleted AND EXISTS(SELECT 1 FROM board_posts p WHERE p.id=c.post_id AND NOT p.deleted)) AS "commentCount",
        (SELECT COUNT(*)::int FROM board_likes l JOIN board_posts p ON p.id=l.post_id WHERE p.author_id=u.id AND NOT p.deleted) AS "receivedLikes"
-       FROM users u WHERE u.id=$1`,
+       FROM users u WHERE u.id=$1 AND NOT ${isWithdrawnSql("u")}`,
       [req.params.id],
     );
+    // 탈퇴 회원의 공개 프로필(가입일·활동 수·차고·프로필 사진)은 보여 주지 않는다.
     if (!rows.length) fail(404, "회원을 찾을 수 없어요.");
     const posts = await db.query(
       postSelect + " WHERE p.author_id=$2 ORDER BY p.id DESC LIMIT 30",
@@ -423,7 +439,7 @@ export function communityRouter({ db, auth }) {
   router.get("/stats/summary", async (req, res) => {
     const { rows } = await db.query(
       `SELECT
-       (SELECT COUNT(*)::int FROM users) AS "memberCount",
+       (SELECT COUNT(*)::int FROM users u WHERE NOT ${isWithdrawnSql("u")}) AS "memberCount",
        (SELECT COUNT(*)::int FROM owner_vehicles) AS "vehicleCount",
        (SELECT COUNT(*)::int FROM parts_listings WHERE status='sold') AS "soldPartsCount",
        (SELECT COUNT(*)::int FROM board_posts WHERE NOT deleted) AS "postCount"`,
@@ -466,7 +482,7 @@ export function communityRouter({ db, auth }) {
     const { rows } = await db.query(
       `SELECT v.id,v.owner_id AS "ownerId",u.username,v.model,v.year,v.trim,v.bio,v.image_id AS "imageId",
       (SELECT COUNT(*)::int FROM vehicle_records r WHERE r.vehicle_id=v.id) AS "recordCount"
-      FROM owner_vehicles v JOIN users u ON u.id=v.owner_id WHERE ($1::bigint IS NULL OR v.owner_id=$1) ORDER BY v.id DESC LIMIT 100`,
+      FROM owner_vehicles v JOIN users u ON u.id=v.owner_id WHERE ($1::bigint IS NULL OR v.owner_id=$1) AND NOT ${isWithdrawnSql("u")} ORDER BY v.id DESC LIMIT 100`,
       [owner],
     );
     res.json(rows.map((v) => ({ ...v, ownerId: Number(v.ownerId) })));
@@ -507,7 +523,7 @@ export function communityRouter({ db, auth }) {
   router.get("/garage/:id", async (req, res) => {
     const { rows } = await db.query(
       `SELECT v.id,v.owner_id AS "ownerId",u.username,v.model,v.year,v.trim,v.bio,v.image_id AS "imageId"
-      FROM owner_vehicles v JOIN users u ON u.id=v.owner_id WHERE v.id=$1`,
+      FROM owner_vehicles v JOIN users u ON u.id=v.owner_id WHERE v.id=$1 AND NOT ${isWithdrawnSql("u")}`,
       [req.params.id],
     );
     if (!rows.length) fail(404, "차량을 찾을 수 없어요.");

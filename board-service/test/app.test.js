@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createApp, sessionUser } from "../src/app.js";
+import { createApp as baseCreateApp, sessionUser } from "../src/app.js";
 
 // 서버 간 직렬화 계약과 작성자 위조 방지를 외부 DB 없이 검증한다.
 const token = "a".repeat(43);
@@ -58,3 +58,10 @@ test("authenticated author is taken from Redis; invalid and unauthenticated post
   assert.equal((await result.json()).authorId, 7);
   assert.deepEqual(parameters, ["hello", "world", 7, "free", "", [], null]);
 });
+
+// Existing fixtures represent active legacy accounts (session version zero).
+function createApp({db,redis}) {
+  const query=db.query.bind(db);
+  return baseCreateApp({redis,db:{...db,query:(sql,values) => sql.startsWith('SELECT COALESCE(auth_version')
+    ? Promise.resolve({rows:[{version:0,status:'ACTIVE',suspended_until:null}]}) : query(sql,values)}});
+}

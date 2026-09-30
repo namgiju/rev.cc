@@ -1,4 +1,9 @@
 window.partsMarket = (() => {
+  // 탈퇴 판매자는 id가 없다("탈퇴한 회원"). 프로필이 없으므로 링크 없이 이름만 보여 준다.
+  const sellerLink = (item) =>
+    item.sellerId == null
+      ? el("span", item.username, "member-withdrawn")
+      : link(item.username, `/community#member-${item.sellerId}`);
   const categories = {
     wheels: "휠 / 타이어",
     suspension: "서스펜션",
@@ -187,7 +192,7 @@ window.partsMarket = (() => {
     );
     const bottom = el("div", "", "market-card-bottom");
     bottom.append(
-      link(item.username, `/community#member-${item.sellerId}`),
+      sellerLink(item),
       favoriteButton(item),
     );
     root.append(bottom);
@@ -323,7 +328,7 @@ window.partsMarket = (() => {
     );
     const meta = el("p", "", "context-muted");
     meta.append(
-      link(item.username, `/community#member-${item.sellerId}`),
+      sellerLink(item),
       document.createTextNode(
         ` · ${dateText(item.createdAt)} · 조회 ${item.views}`,
       ),
@@ -375,6 +380,24 @@ window.partsMarket = (() => {
         link("로그인하기", "/login", "text-link"),
       );
     root.append(contact);
+    if (state.user?.role === "ADMIN" && state.user.id !== item.sellerId) {
+      // 커뮤니티 관리자 삭제와 같은 사유 입력 대화상자(app.js)를 쓴다.
+      const controls = el("div", "", "market-owner-actions");
+      controls.append(
+        button(
+          "관리자 삭제",
+          async () => {
+            if (!(await requestContentDeletion(`/api/parts/listings/${item.id}`, item.sellerId, "")))
+              return;
+            forget(item.id);
+            closeDetail();
+            await Promise.all([load(), popular()]);
+          },
+          "danger-text",
+        ),
+      );
+      root.append(controls);
+    }
     if (state.user?.id === item.sellerId) {
       const controls = el("div", "", "market-owner-actions");
       controls.append(

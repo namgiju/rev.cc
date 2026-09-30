@@ -50,20 +50,20 @@
   line-height: 1.85;
   margin: 0 0 34px;
 }
-#auth-form > label,
+.auth-content form > label,
 .signup-only > label {
   display: block;
   font-size: 12px;
   font-weight: 650;
   margin: 22px 0 8px;
 }
-#auth-form input:not([type="checkbox"]) {
+.auth-content form input:not([type="checkbox"]) {
   height: 48px;
   background: #fafbfc;
   border-color: #e4e8ed;
   font-size: 13px;
 }
-#auth-form input:focus-visible {
+.auth-content form input:focus-visible {
   outline: 2px solid #347ac1;
   outline-offset: 2px;
 }
@@ -190,3 +190,9 @@
   .auth-content { padding: 32px 0; }
   .auth-content h1 { font-size: 36px; }
 }
+
+.username-field { display: flex; gap: 8px; align-items: center; }
+.username-field input { flex: 1; min-width: 0; }
+.username-field button { flex-shrink: 0; height: 48px; }
+#username-status[data-kind="error"] { color: #ba3324; }
+#username-status[data-kind="success"] { color: #277148; }

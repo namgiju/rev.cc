@@ -60,7 +60,7 @@
 ```sh
 PLAYWRIGHT_MODULE=/path/to/playwright CHROME_PATH=/path/to/chrome node scripts/post-detail-browser.cjs
 PLAYWRIGHT_MODULE=/path/to/playwright CHROME_PATH=/path/to/chrome node scripts/post-detail-live.cjs
-docker compose exec -T board node --input-type=module < scripts/community-system.mjs
+scripts/run-board-system.sh scripts/community-system.mjs
 PLAYWRIGHT_MODULE=/path/to/playwright CHROME_PATH=/path/to/chrome node scripts/home-garage-browser.cjs
 ```
 

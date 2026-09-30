@@ -31,11 +31,13 @@ public class KakaoOAuthService {
         this.redirectUri = redirectUri;
     }
 
-    public String authorizeUrl() {
+    public String authorizeUrl(String state) {
         // scope를 명시해야 카카오 동의 화면에 닉네임 제공이 뜬다. 콘솔의 동의항목에서도
         // "닉네임"이 켜져 있어야 실제 값이 내려온다(꺼져 있으면 이 값과 무관하게 비어 온다).
+        // state는 로그인 CSRF/계정 혼동을 막는 1회용 토큰이다(KakaoStateService가 발급/검증).
         return "https://kauth.kakao.com/oauth/authorize?client_id=" + encode(clientId)
-            + "&redirect_uri=" + encode(redirectUri) + "&response_type=code&scope=profile_nickname";
+            + "&redirect_uri=" + encode(redirectUri) + "&response_type=code&scope=profile_nickname"
+            + "&state=" + encode(state);
     }
 
     public record KakaoUser(long id, String nickname) {}

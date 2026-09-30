@@ -30,7 +30,8 @@ public class AdminController {
     public Map<String, Object> overview(
             @CookieValue(name = SharedSessionService.COOKIE, required = false) String token) {
         requireAdmin(token);
-        return Map.of("totalUsers", users.count(), "totalVehicles", vehicles.count());
+        // 탈퇴 계정은 행이 남지만 회원 수에는 넣지 않는다.
+        return Map.of("totalUsers", users.countByAccountStatusIsNullOrAccountStatusNot(User.WITHDRAWN), "totalVehicles", vehicles.count());
     }
 
     public record VerificationSummary(Integer id, Integer vehicleId, String username, String licensePlate,
@@ -83,7 +84,10 @@ public class AdminController {
         SharedSessionService.SessionUser session = sessions.require(token);
         if (!"ADMIN".equals(session.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자만 접근할 수 있습니다.");
-        return users.findById(session.id()).orElseThrow(() ->
+        User admin = users.findById(session.id()).orElseThrow(() ->
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "다시 로그인해주세요."));
+        if (!"ADMIN".equals(admin.getRole()) || admin.isBlocked())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자만 접근할 수 있습니다.");
+        return admin;
     }
 }

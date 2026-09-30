@@ -44,6 +44,49 @@ public class User {
 
     public Instant getCreatedAt() { return createdAt; }
 
+    private String nickname;
+    @Column(unique = true, length = 254)
+    private String email;
+    private String accountStatus;
+    private Instant suspendedUntil;
+    private Long authVersion;
+    // soft withdrawal(STEP 10). WITHDRAWN은 되돌릴 수 없는 최종 상태이며, 행은 게시글·신고 등의 참조를 위해 남긴다.
+    public static final String WITHDRAWN = "WITHDRAWN";
+    @Column(name = "withdrawn_at")
+    private Instant withdrawnAt;
+    public String getNickname() { return nickname; }
+    public void registerEmail(String email) { this.email = email; }
+    public String getEmail() { return email; }
+    public String getAccountStatus() { return accountStatus == null ? "ACTIVE" : accountStatus; }
+    public Instant getSuspendedUntil() { return suspendedUntil; }
+    public long getAuthVersion() { return authVersion == null ? 0 : authVersion; }
+    public Instant getWithdrawnAt() { return withdrawnAt; }
+    public boolean isWithdrawn() { return WITHDRAWN.equals(getAccountStatus()); }
+    // 로그인·세션·관리자 인가가 모두 이 값으로 막는다. 탈퇴 계정은 어떤 경로로도 다시 인증되지 않는다.
+    public boolean isBlocked() { return isWithdrawn() || "DISABLED".equals(getAccountStatus()) ||
+        ("SUSPENDED".equals(getAccountStatus()) && (suspendedUntil == null || suspendedUntil.isAfter(Instant.now()))); }
+    // 관리자 기능을 실제로 쓸 수 있는 관리자: ADMIN이면서 정지·비활성화·탈퇴 상태가 아니다.
+    public boolean isEffectiveAdmin() { return "ADMIN".equals(role) && !isBlocked(); }
+    public void invalidateSessions() { authVersion = getAuthVersion() + 1; }
+    // 상태 전이만 한다(모든 세션 무효화 포함). 개인정보 익명화·데이터 처리는 탈퇴 처리(STEP 10-impl-C)가 함께 한다.
+    public void markWithdrawn(Instant at) {
+        if (isWithdrawn()) return;
+        accountStatus = WITHDRAWN; withdrawnAt = at;
+        invalidateSessions();
+    }
+    // 탈퇴 처리(WithdrawalService)에서만 부른다. 직접 식별값(아이디·이메일·카카오 id·닉네임)과 비밀번호를 지운다.
+    // 아이디는 가입 예약어 접두어(withdrawn:)라 다른 사람이 쓸 수 없다. 정지 종료일(suspended_until)은 제재 기록으로 남긴다.
+    public void anonymizeForWithdrawal(String unusablePasswordHash) {
+        username = ReservedUsernames.WITHDRAWN_USERNAME_PREFIX + id;
+        password = unusablePasswordHash;
+        email = null; kakaoId = null; nickname = null;
+    }
+    public void manage(String nickname, String email, String status, String role, Instant until) {
+        this.nickname = nickname; this.email = email; this.accountStatus = status;
+        this.role = role; this.suspendedUntil = until;
+        invalidateSessions();
+    }
+
     // 한 회원이 여러 소유 차량을 가질 수 있다. 차량 API는 별도의 DTO로 응답한다.
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<Vehicle> vehicles = new ArrayList<>();
@@ -82,6 +125,8 @@ public class User {
         this.username = username;
     }
 
+    // Authentication can read the hash, but JSON serialization must never expose it.
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public String getPassword() {
         return password;
     }

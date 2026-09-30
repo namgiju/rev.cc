@@ -1,10 +1,19 @@
 # 운영 배포 프로파일. SPRING_PROFILES_ACTIVE=prod로 활성화한다(docker-compose.prod.yml 참고).
 # 로컬 개발 기본값(application.yml)과 분리해 두 가지를 절대 허용하지 않는다:
 #  - 세션 쿠키가 Secure 없이 나가는 것 (환경변수로 되돌릴 수 없도록 값을 고정한다)
-#  - POSTGRES_PASSWORD 없이 기동되는 것 (기본값을 두지 않아 누락 시 기동에 실패한다)
+#  - POSTGRES_PASSWORD, REDIS_PASSWORD 없이 기동되는 것 (기본값을 두지 않아 누락 시 기동에 실패한다)
+# 요청 본문 크기 상한은 운영에서도 같은 값을 쓰도록 application.yml에만 두고 여기서는 덮어쓰지 않는다
+# (server.tomcat.max-http-form-post-size, app.request.max-body-size / max-upload-size).
 spring:
   datasource:
     password: ${POSTGRES_PASSWORD}
+  data:
+    redis:
+      password: ${REDIS_PASSWORD}
 app:
   session:
     secure: true
+  # 회원 탈퇴 재가입 제한 HMAC 키. 기본값이 없고 32자 미만이면 기동하지 않는다(WithdrawalBlocks).
+  withdrawal:
+    hmac-secret: ${WITHDRAWAL_HMAC_SECRET}
+    require-secret: true

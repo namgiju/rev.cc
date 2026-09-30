@@ -73,7 +73,11 @@ async function renderPostContext(post, request) {
         );
     });
   let member = null;
-  try {
+  // 탈퇴 작성자는 id가 없고 공개 프로필도 없다. 조회하지 않고 이름만 보여 준다.
+  if (post.authorId == null) {
+    $("#post-author").replaceChildren(el("p", post.username, "context-muted"));
+    $("#post-author-badges").replaceChildren(el("h3", "작성자의 인장"), el("p", "탈퇴한 회원의 인장은 표시하지 않아요.", "context-muted"));
+  } else try {
     member = await api(`/api/board/members/${post.authorId}`);
     if (!current()) return;
     renderAuthorContext(member);

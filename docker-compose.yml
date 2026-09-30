@@ -1,3 +1,4 @@
+
 # 단일 진입점: 호스트에는 proxy만 노출한다. DB 볼륨 이름은 기존 설정을 유지한다.
 services:
   proxy:
@@ -32,10 +33,21 @@ services:
     image: revcc-core:assignment
     container_name: revcc-core
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/revcc
-      POSTGRES_USER: revcc
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-revcc}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=require
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-revcc-local-redis}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      PASSWORD_RESET_SECRET: ${PASSWORD_RESET_SECRET:-}
+      WITHDRAWAL_HMAC_SECRET: ${WITHDRAWAL_HMAC_SECRET:-}
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:8090/password-reset}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
@@ -56,11 +68,14 @@ services:
     image: revcc-board:assignment
     container_name: revcc-board
     environment:
-      PGHOST: postgres
-      PGDATABASE: revcc
-      PGUSER: revcc
-      PGPASSWORD: ${POSTGRES_PASSWORD:-revcc}
+      PGHOST: ${DB_HOST}
+      PGPORT: ${DB_PORT:-5432}
+      PGDATABASE: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGSSLMODE: require
       REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-revcc-local-redis}
     depends_on:
       core:
         condition: service_healthy
@@ -72,8 +87,15 @@ services:
   redis:
     image: redis:7-alpine
     container_name: revcc-redis
+    # 세션 저장소라 인증을 요구한다. 로컬 기본값은 편의용이고 운영(prod 오버레이)은 REDIS_PASSWORD를 강제한다.
+    # 비밀번호는 명령줄 인자(ps에 보임) 대신 설정 파일로 넘긴다. 영문·숫자로 만든다(예: openssl rand -hex 32).
+    command: ["sh", "-c", "printf 'requirepass \"%s\"\\n' \"$$REDIS_PASSWORD\" > /tmp/redis.conf && exec redis-server /tmp/redis.conf"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-revcc-local-redis}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-revcc-local-redis}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # redis-cli는 NOAUTH 오류에도 0으로 끝날 수 있어 PONG 응답을 직접 확인한다.
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 10

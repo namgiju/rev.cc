@@ -17,3 +17,9 @@ out/
 
 # Python integration test bytecode
 __pycache__/
+
+# Local database backups
+revcc_backup.dump
+
+# TypeScript build cache
+*.tsbuildinfo

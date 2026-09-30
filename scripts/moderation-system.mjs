@@ -1,16 +1,16 @@
-// Run inside board container; isolated schema only, no real member content is changed.
+// Run: scripts/run-board-system.sh scripts/moderation-system.mjs; isolated schema only, no real member content is changed.
 import assert from 'node:assert/strict';
 import pg from 'pg';
-import { readFile } from 'node:fs/promises';
 import { createApp } from './src/app.js';
+import { applyFlywayMigrations, assertIsolatedDatabase } from './scripts/lib/flyway-migrations.mjs';
+assertIsolatedDatabase();
 const pool = new pg.Pool(), schema = `moderation_test_${Date.now()}`;
 let db, server;
 try {
   await pool.query(`CREATE SCHEMA ${schema}`);
   db = new pg.Pool({options:`-c search_path=${schema}`});
-  await db.query("CREATE TABLE users(id BIGINT PRIMARY KEY,username TEXT NOT NULL,role TEXT NOT NULL); INSERT INTO users VALUES(1,'owner','USER'),(2,'reader','USER'),(3,'manager','ADMIN')");
-  const sql = await readFile('./src/schema.sql','utf8');
-  await db.query(sql); await db.query(sql);
+  await applyFlywayMigrations(db);
+  await db.query("INSERT INTO users(id,username,role,password) VALUES(1,'owner','USER','test-only'),(2,'reader','USER','test-only'),(3,'manager','ADMIN','test-only')");
   const redis = {get: async key => {
     const id = {a:1,b:2,c:3}[key.at(-1)];
     return id ? JSON.stringify({id,username:'session-name',role:id===3?'ADMIN':'USER'}) : null;
@@ -54,7 +54,8 @@ try {
   await req(`/comments/${reply.id}`,'DELETE',{reason:'중복'},'c',404);
   await req(path,'PUT',{title:'불가',content:'불가'},'c',403);
   await req(path,'DELETE',{reason:'게시글 사유'},'c');
-  assert.equal((await db.query('SELECT deleted FROM board_posts WHERE id=$1',[post.id])).rows[0].deleted,true);
+  // 관리자 삭제는 soft delete: 삭제한 관리자 id와 ADMIN 사유를 남긴다(STEP 10-impl-B).
+  assert.deepEqual(Object.values((await db.query('SELECT deleted,deleted_by::int AS by,deleted_reason,deleted_at IS NOT NULL AS at FROM board_posts WHERE id=$1',[post.id])).rows[0]),[true,3,'ADMIN',true]);
   assert.equal((await db.query('SELECT parent_id FROM board_comments WHERE id=$1',[reply.id])).rows[0].parent_id,comment.id);
   await req(path,'GET',undefined,'a',404);
   await req(path+'/comments','GET',undefined,'a',404);
@@ -82,6 +83,9 @@ try {
   await req(`/posts/${adminPost.id}`,'DELETE',{},'c');
   const userPost = await req('/posts','POST',{title:'일반 본인',content:'own'},'a',201);
   await req(`/posts/${userPost.id}`,'DELETE',{},'a');
+  // 본인 삭제도 행을 지우지 않는다(작성자 id, AUTHOR). 관리자 본인 글 삭제도 작성자 삭제다.
+  const ownDeletes = (await db.query('SELECT id,deleted,deleted_by::int AS by,deleted_reason FROM board_posts WHERE id=ANY($1) ORDER BY id',[[adminPost.id,userPost.id]])).rows;
+  assert.deepEqual(ownDeletes.map(r=>[r.deleted,r.by,r.deleted_reason]),[[true,3,'AUTHOR'],[true,1,'AUTHOR']]);
   assert.equal((await req('/admin/logs','GET',undefined,'c')).total,3);
   console.log('PASS moderation: owner deletes, USER/guest denial, ADMIN comment/reply/post reason+snapshots, missing/blank/long reason, stale role, rollback, duplicate delete, parent retention, public exclusion, log access/search/pagination, unchanged edit policy and own deletes.');
 } finally {

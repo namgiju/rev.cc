@@ -1,9 +1,10 @@
-// Run: docker compose exec -T board node --input-type=module < scripts/community-system.mjs
+// Run: scripts/run-board-system.sh scripts/community-system.mjs (임시 PostgreSQL, Neon 미사용)
 // Uses an isolated PostgreSQL schema; always cleans it up. No live posts are created.
 import assert from "node:assert/strict";
 import pg from "pg";
-import { readFile } from "node:fs/promises";
 import { createApp } from "./src/app.js";
+import { applyFlywayMigrations, assertIsolatedDatabase } from "./scripts/lib/flyway-migrations.mjs";
+assertIsolatedDatabase();
 const admin = new pg.Pool();
 const schema = `community_test_${Date.now()}`;
 let db, server;
@@ -14,12 +15,10 @@ const png =
 try {
   await admin.query(`CREATE SCHEMA ${schema}`);
   db = new pg.Pool({ options: `-c search_path=${schema}` });
+  await applyFlywayMigrations(db);
   await db.query(
-    "CREATE TABLE users(id BIGINT PRIMARY KEY,username TEXT NOT NULL); INSERT INTO users VALUES(1,'owner'),(2,'reader')",
+    "INSERT INTO users(id,username,password) VALUES(1,'owner','test-only'),(2,'reader','test-only')",
   );
-  const sql = await readFile("./src/schema.sql", "utf8");
-  await db.query(sql);
-  await db.query(sql);
   const redis = {
     get: async (key) =>
       key.endsWith(tokenA)
@@ -56,7 +55,9 @@ try {
   }
   await req("/posts", "POST", { title: "bad", content: "no auth" }, "", 401);
   const image = await req("/images", "POST", { data: png }, tokenA, 201);
-  const raw = await fetch(base + `/images/${image.id}`);
+  // 아직 어디에도 첨부하지 않은 사진은 소유자(작성 중 미리보기)만 볼 수 있다(STEP 10-impl-B).
+  assert.equal((await fetch(base + `/images/${image.id}`)).status, 404);
+  const raw = await fetch(base + `/images/${image.id}`, { headers: { Cookie: `REVCC_SESSION=${tokenA}` } });
   assert.equal(raw.headers.get("content-type"), "image/png");
   assert.equal(
     (await raw.arrayBuffer()).byteLength,
@@ -317,7 +318,7 @@ try {
   await req(`/garage/${car.id}`, "DELETE", {});
   await req(`/garage/${car.id}`, "GET", undefined, tokenA, 404);
   console.log(
-    "PASS: author profile/statistics, derived verification badge, private field exclusion, related filters, migration idempotency, image validation, posts, search/categories, ownership, likes/bookmarks, comments/replies, notifications, reports, garage/records, cascade deletion.",
+    "PASS: author profile/statistics, derived verification badge, private field exclusion, related filters, Flyway migrations, image validation, posts, search/categories, ownership, likes/bookmarks, comments/replies, notifications, reports, garage/records, cascade deletion.",
   );
 } finally {
   if (server) {
