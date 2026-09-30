@@ -14,8 +14,10 @@ const db = new pg.Pool({
 db.on("error", (err) =>
   console.error("PostgreSQL idle connection error:", err.message),
 );
+// 비밀번호는 URL에 넣지 않고 따로 넘긴다(특수문자 URL 인코딩 문제 회피). 비어 있으면 인증 없이 접속한다.
 const redis = createClient({
   url: process.env.REDIS_URL ?? "redis://localhost:6379",
+  password: process.env.REDIS_PASSWORD || undefined,
 });
 redis.on("error", (err) =>
   console.error("Redis connection error:", err.message),

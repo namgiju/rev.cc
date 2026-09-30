@@ -19,7 +19,12 @@ docker volume inspect revcc-site_revcc_pg >/dev/null 2>&1 || docker volume creat
 docker run -d --name revcc-postgres --network revcc-network --network-alias postgres \
     -e POSTGRES_DB=revcc -e POSTGRES_USER=revcc -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-revcc}" \
     -v revcc-site_revcc_pg:/var/lib/postgresql/data postgres:16
-docker run -d --name revcc-redis --network revcc-network --network-alias redis redis:7-alpine
+# Redis는 docker-compose.yml과 같은 방식으로 인증을 요구한다(비밀번호는 명령줄 인자 대신 설정 파일로 전달).
+REDIS_PASSWORD="${REDIS_PASSWORD:-revcc-local-redis}"
+export REDIS_PASSWORD
+docker run -d --name revcc-redis --network revcc-network --network-alias redis \
+    -e REDIS_PASSWORD -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7-alpine \
+    sh -c 'printf "requirepass \"%s\"\n" "$REDIS_PASSWORD" > /tmp/redis.conf && exec redis-server /tmp/redis.conf'
 
 # 고정 sleep만 쓰면 느린 PC에서 실패할 수 있으므로 실제 응답을 반복 확인한다.
 wait_for() {
@@ -31,17 +36,17 @@ wait_for() {
     done
 }
 wait_for docker exec revcc-postgres pg_isready -U revcc -d revcc
-wait_for docker exec revcc-redis redis-cli ping
+wait_for sh -c 'docker exec revcc-redis redis-cli ping | grep -q PONG'
 
 docker run -d --name revcc-core --network revcc-network --network-alias core \
     -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/revcc \
     -e POSTGRES_USER=revcc -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-revcc}" \
-    -e REDIS_HOST=redis -e "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}" revcc-core:assignment
+    -e REDIS_HOST=redis -e REDIS_PASSWORD -e "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}" revcc-core:assignment
 wait_for docker exec revcc-core curl -fsS http://localhost:8080/api/vehicles
 
 docker run -d --name revcc-board --network revcc-network --network-alias board \
     -e PGHOST=postgres -e PGDATABASE=revcc -e PGUSER=revcc \
-    -e "PGPASSWORD=${POSTGRES_PASSWORD:-revcc}" -e REDIS_URL=redis://redis:6379 revcc-board:assignment
+    -e "PGPASSWORD=${POSTGRES_PASSWORD:-revcc}" -e REDIS_URL=redis://redis:6379 -e REDIS_PASSWORD revcc-board:assignment
 wait_for docker exec revcc-board node -e "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 docker run -d --name revcc-frontend --network revcc-network --network-alias frontend revcc-frontend:assignment

@@ -61,15 +61,26 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --
 
 prod 오버레이가 적용하는 것:
 
-- `POSTGRES_PASSWORD`, `KAKAO_REDIRECT_URI`가 없으면 기동 자체가 실패한다(로컬 기본값 `revcc`, `localhost:8090` 콜백 차단).
+- 운영 DB는 Neon이다. 로컬 `postgres` 서비스와 `revcc_pg` 볼륨은 병합 결과에서 제거되어 만들어지지 않는다
+  (`!reset`/`!override` 사용, Docker Compose 2.24 이상 필요). core/board는 `.env`의 `DB_HOST`, `DB_NAME`,
+  `DB_USER`, `DB_PASSWORD`만 쓰며, 하나라도 없으면 기동 자체가 실패한다.
+- `REDIS_PASSWORD`, `KAKAO_REDIRECT_URI`가 없으면 기동 자체가 실패한다(로컬 Redis 기본 비밀번호, `localhost:8090` 콜백 차단).
+  `REDIS_PASSWORD`는 영문·숫자로 만든다(예: `openssl rand -hex 32`).
 - core가 `SPRING_PROFILES_ACTIVE=prod`로 실행되어 세션 쿠키가 항상 `Secure`로 나간다.
   따라서 앞단(Cloudflare 등)에서 HTTPS로 종단해야 로그인이 동작한다.
 
 적용 여부는 실행 전에 병합 결과로 확인할 수 있다:
 
 ```sh
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config --services   # postgres가 없어야 한다
 docker compose -f docker-compose.yml -f docker-compose.prod.yml config | grep -E 'SPRING_PROFILES_ACTIVE|KAKAO_REDIRECT_URI'
 ```
+
+`config` 전체 출력에는 `.env`의 비밀번호가 그대로 찍히므로 공유하거나 로그에 남기지 않는다.
+
+기본(과제) compose의 Redis도 인증을 요구한다. `REDIS_PASSWORD`를 정하지 않으면 로컬 기본값 `revcc-local-redis`를 쓴다.
+컨테이너 밖에서 `docker-compose.dev.yml`의 Redis(127.0.0.1:6379)에 Spring/Node를 직접 붙일 때는
+같은 값을 `REDIS_PASSWORD` 환경변수로 넘겨야 한다.
 
 `-f docker-compose.yml -f docker-compose.prod.yml`로 올렸다면 이후 `ps`, `logs`, `down` 등도
 같은 `-f` 조합으로 실행해야 같은 설정을 대상으로 한다.
