@@ -13,7 +13,10 @@
   line-height: 1.6;
 }
 
-.shell a {
+/* Zero-specificity reset (:where()) so any component class (.heroCta,
+   .textLink, .garageSpotlightLink, ...) can set its own anchor color
+   without fighting this rule's specificity. */
+:where(.shell) :where(a) {
   color: inherit;
   text-decoration: none;
 }
@@ -47,10 +50,13 @@
 }
 
 .headerInner {
-  max-width: 1240px;
+  /* Wider desktop container (reference uses a wide, dense header, not a
+     narrow centered one) — kept in lockstep with .mainGrid/.heroCopy/.notice
+     below so edges still align. */
+  max-width: 1600px;
   height: 100%;
   margin: auto;
-  padding: 0 32px;
+  padding: 0 40px;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -67,16 +73,20 @@
 }
 
 .search {
-  flex: 1;
-  max-width: 420px;
+  /* Grow:0 so it never competes with .nav's margin-left:auto for leftover
+     space — it only shrinks (flex-shrink:1) when the header runs out of
+     room, which is the one element meant to give way first. */
+  position: relative;
+  flex: 0 1 460px;
+  min-width: 0;
 }
 
 .search input {
   width: 100%;
   border: 1px solid #e5e7e9;
-  border-radius: 20px;
-  padding: 10px 16px;
-  font-size: 13px;
+  border-radius: 10px;
+  padding: 12px 16px 12px 40px;
+  font-size: 14px;
   background: #f7f8f9;
   color: var(--ink);
 }
@@ -85,8 +95,20 @@
   color: #a0a5aa;
 }
 
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: #9aa0a6;
+  pointer-events: none;
+}
+
 .nav {
   display: flex;
+  flex: none;
+  white-space: nowrap;
   gap: 26px;
   font-size: 14px;
   font-weight: 650;
@@ -117,6 +139,8 @@
 
 .headerActions {
   display: flex;
+  flex: none;
+  white-space: nowrap;
   align-items: center;
   gap: 12px;
   font-size: 13px;
@@ -178,9 +202,9 @@
 }
 
 .notice {
-  max-width: 1240px;
+  max-width: 1600px;
   margin: 12px auto 0;
-  padding: 0 32px;
+  padding: 0 40px;
   font-size: 13px;
   color: #a43e3e;
 }
@@ -188,7 +212,9 @@
 /* --- Hero --- */
 .hero {
   position: relative;
-  min-height: 420px;
+  /* Shorter than before so it reads as a banner, not a full screen — it
+     must not push "오늘의 인기글" below the fold. */
+  min-height: 360px;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -204,7 +230,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 55%;
+  /* Crop toward the right side of the source photo, where the car is, so
+     the car reads as the dominant subject instead of the landscape. */
+  object-position: 72% 55%;
   display: block;
   animation: heroVisualIn 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
@@ -212,23 +240,30 @@
 .heroOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, #10131a 0%, #10131ad9 32%, #10131a66 52%, transparent 72%);
+  /* Fades out earlier (58% vs the previous 72%) so more of the car on the
+     right stays unobstructed by the dark readability gradient. */
+  background: linear-gradient(100deg, #10131a 0%, #10131ad9 24%, #10131a66 40%, transparent 56%);
 }
 
 .heroCopy {
   position: relative;
   z-index: 1;
-  max-width: 560px;
-  padding: 0 min(8vw, 80px);
+  max-width: 480px;
+  /* Left edge matches .headerInner/.mainGrid's shared content edge
+     (max-width:1600px + 40px padding) instead of an independent vw-based
+     offset, so the hero text lines up with the header/feed below it at
+     every width, including above the 1600px container cap. */
+  padding-left: max(40px, calc((100vw - 1600px) / 2 + 40px));
+  padding-right: min(6vw, 64px);
   color: #fff;
 }
 
 .heroTitle {
-  margin: 0 0 30px;
-  font-size: clamp(30px, 4vw, 44px);
+  margin: 0 0 18px;
+  font-size: clamp(24px, 2.6vw, 34px);
   font-weight: 800;
-  letter-spacing: -1.5px;
-  line-height: 1.32;
+  letter-spacing: -1.2px;
+  line-height: 1.2;
 }
 
 .heroTitle span {
@@ -244,7 +279,7 @@
   background: #fff;
   color: var(--ink);
   border-radius: 999px;
-  padding: 15px 26px;
+  padding: 13px 22px;
   font-size: 14px;
   font-weight: 700;
   opacity: 0;
@@ -298,12 +333,15 @@
   }
 }
 
-/* --- Main grid: left feed (~72%), right sidebar (~28%) --- */
+/* --- Main grid: left feed (~75%), right "실시간 인기" sidebar (~25%) --- */
 .mainGrid {
-  width: min(1240px, calc(100% - 64px));
-  margin: 48px auto 72px;
+  /* Same box model as .headerInner (max-width + padding, not width+calc) so
+     the two stay edge-aligned above the 1600px cap too. */
+  max-width: 1600px;
+  margin: 40px auto 56px;
+  padding: 0 40px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 32px;
   align-items: start;
 }
@@ -372,7 +410,7 @@
 .postGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 24px;
   min-height: 80px;
 }
 
@@ -392,7 +430,9 @@
 }
 
 .postMedia {
-  aspect-ratio: 4 / 3;
+  /* Wider, more landscape image ratio — closer to the reference's
+     image-forward cards than a squarer 4:3 frame. */
+  aspect-ratio: 16 / 10;
   background: linear-gradient(135deg, #eef1f5, #f8f9fb);
   overflow: hidden;
 }
@@ -455,10 +495,67 @@
   padding: 20px 0;
 }
 
-/* --- Sidebar --- */
+/* --- Sidebar: "실시간 인기" (reference's right-column ranking) --- */
 .sidebar {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  background: #fff;
+}
+
+.popularList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.popularRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.popularRow:last-child {
+  border-bottom: 0;
+}
+
+.popularRank {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #c6cad0;
+}
+
+.popularRank[data-top='true'] {
+  color: var(--accent);
+}
+
+.popularTitle {
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popularTitle:hover {
+  color: var(--accent);
+}
+
+/* --- Lower section: "오늘의 차고" / "장터 새 매물" (moved below the fold,
+   out of the first-screen sidebar, per the reference's priority: ranking
+   first, garage/market as a secondary discovery row). --- */
+.lowerGrid {
+  max-width: 1600px;
+  margin: 0 auto 72px;
+  padding: 0 40px;
   display: grid;
-  gap: 28px;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 32px;
 }
 
 .sidebarSection {
@@ -590,21 +687,25 @@
 @media (max-width: 900px) {
   .mainGrid {
     grid-template-columns: minmax(0, 1fr) 280px;
+    padding: 0 20px;
     gap: 24px;
+  }
+  .lowerGrid {
+    padding: 0 20px;
   }
   .headerInner {
     gap: 18px;
     padding: 0 20px;
   }
   .search {
-    max-width: 220px;
+    flex-basis: 240px;
   }
   .nav {
     gap: 16px;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .header {
     height: 60px;
   }
@@ -618,16 +719,14 @@
     gap: 12px;
     font-size: 12px;
   }
-  .hero {
-    min-height: 360px;
-  }
   .heroCopy {
-    padding: 0 24px;
+    padding-left: 24px;
+    padding-right: 24px;
     max-width: 100%;
   }
   .mainGrid {
     grid-template-columns: 1fr;
-    width: calc(100% - 40px);
+    padding: 0 20px;
     margin: 32px auto 48px;
     gap: 36px;
   }
@@ -635,7 +734,10 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  .sidebar {
+  .lowerGrid {
+    grid-template-columns: 1fr;
+    padding: 0 20px;
+    margin: 0 auto 48px;
     gap: 24px;
   }
 }

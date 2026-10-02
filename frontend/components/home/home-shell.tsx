@@ -5,6 +5,7 @@ import type {GarageEntry, Listing, Post, SessionUser} from '../../lib/home-types
 import {ApiError, fetchSession, fetchTodayPosts, fetchUnreadCount, logout} from '../../lib/home-api';
 import {CATEGORY_LABELS} from '../../lib/format';
 import PostCard from './post-card';
+import PopularList from './popular-list';
 import GarageSpotlight from './garage-spotlight';
 import MarketSpotlight from './market-spotlight';
 import Reveal from './reveal';
@@ -23,11 +24,13 @@ const PERIODS: {value: string; label: string}[] = [
 export default function HomeShell({
   initialPosts,
   initialPostsFailed,
+  popularPosts,
   garageSpotlight,
   market,
 }: {
   initialPosts: Post[];
   initialPostsFailed: boolean;
+  popularPosts: Post[];
   garageSpotlight: GarageEntry | null;
   market: Listing[];
 }) {
@@ -120,12 +123,15 @@ export default function HomeShell({
         <div className={styles.headerInner}>
           <a href="/" className={styles.logo} aria-label="REV.CC 홈">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/main/logo.png" alt="REV.CC" height={26} />
+            <img src="/main/logo.png" alt="REV.CC" height={30} />
           </a>
           <form className={styles.search} role="search" onSubmit={submitSearch}>
             <label className={styles.srOnly} htmlFor="home-search">
               차종, 게시글, 유저 검색
             </label>
+            <span className={styles.searchIcon} aria-hidden="true">
+              🔍
+            </span>
             <input
               id="home-search"
               type="search"
@@ -244,27 +250,34 @@ export default function HomeShell({
           </div>
         </section>
 
-        <aside className={styles.sidebar}>
-          <section className={styles.sidebarSection} aria-labelledby="garage-spotlight-title">
-            <div className={styles.sectionHeading}>
-              <h2 id="garage-spotlight-title">오늘의 차고</h2>
-            </div>
-            <Reveal>
-              <GarageSpotlight vehicle={garageSpotlight} />
-            </Reveal>
-          </section>
-          <section className={styles.sidebarSection} aria-labelledby="market-spotlight-title">
-            <div className={styles.sectionHeading}>
-              <h2 id="market-spotlight-title">장터 새 매물</h2>
-              <a className={styles.textLink} href="/parts">
-                전체보기 →
-              </a>
-            </div>
-            <Reveal>
-              <MarketSpotlight listings={market} />
-            </Reveal>
-          </section>
+        <aside className={styles.sidebar} aria-labelledby="popular-title">
+          <div className={styles.sectionHeading}>
+            <h2 id="popular-title">실시간 인기</h2>
+          </div>
+          <PopularList posts={popularPosts} />
         </aside>
+      </section>
+
+      <section className={styles.lowerGrid} aria-label="내 차고 · 부품장터 미리보기">
+        <section className={styles.sidebarSection} aria-labelledby="garage-spotlight-title">
+          <div className={styles.sectionHeading}>
+            <h2 id="garage-spotlight-title">오늘의 차고</h2>
+          </div>
+          <Reveal>
+            <GarageSpotlight vehicle={garageSpotlight} />
+          </Reveal>
+        </section>
+        <section className={styles.sidebarSection} aria-labelledby="market-spotlight-title">
+          <div className={styles.sectionHeading}>
+            <h2 id="market-spotlight-title">장터 새 매물</h2>
+            <a className={styles.textLink} href="/parts">
+              전체보기 →
+            </a>
+          </div>
+          <Reveal>
+            <MarketSpotlight listings={market} />
+          </Reveal>
+        </section>
       </section>
     </div>
   );

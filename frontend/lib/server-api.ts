@@ -22,6 +22,12 @@ export async function fetchTodayPostsServer(
   return serverApi<Post[]>(`/api/board/posts?${query}`);
 }
 
+// "실시간 인기" 사이드바: assignment-frontend/js/community-list.js의 popular()와
+// 동일한 호출(sort=popular, 기간 제한 없음)을 재사용한다. 새 API 없음.
+export async function fetchPopularPostsServer(limit = 10): Promise<Post[]> {
+  return serverApi<Post[]>(`/api/board/posts?sort=popular&limit=${limit}`);
+}
+
 export async function fetchPublicGarageServer(): Promise<GarageEntry[]> {
   return serverApi<GarageEntry[]>('/api/board/garage');
 }
