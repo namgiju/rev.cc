@@ -9,9 +9,11 @@
 ## 1. 현재 브랜치와 프로젝트 상태
 
 - 브랜치: `docker-assignment` (항상 이 브랜치에서만 작업, 다른 브랜치로 전환하지 말 것)
+- **실제 개발 기준 경로(2026-10-02부터): `~/Projects/revcc-site`.** `~/Desktop/revcc-site`는 이전 위치의 백업본이며 더 이상 작업 기준으로 쓰지 않는다(이 머신은 `~/Desktop` 하위 파일에 처음 접근할 때마다 비정상적으로 느려져 `next dev`/`npm ci`/`mv` 같은 작업이 사실상 멈추는 문제가 있었다 — Projects로 옮긴 뒤 정상 속도 확인됨). 코드·설정·스크립트에 `~/Desktop/revcc-site`든 `~/Projects/revcc-site`든 절대경로를 하드코딩하지 않는다(항상 상대경로 또는 환경변수 사용).
 - 이 파일 작성 시점 기준 `git status`: P0 변경사항 + `REVCC_AUDIT.md` + 이 파일이 커밋 대상으로 대기 중이었고, 이번 세션에서 **P0 변경사항 + REVCC_AUDIT.md + REVCC_NEXT_TASKS.md를 함께 커밋·push했다** (아래 "완료된 작업"의 commit hash 참고).
-- 프로젝트 구조: `backend`(Spring Boot, `core`), `board-service`(Node/Express, `board`), `assignment-frontend`(정적 HTML/JS), `nginx`(proxy), `frontend`(Next.js "My Garage" 프로토타입, 기본 compose 미포함), `docker-compose*.yml` 5종.
-- 인증 구조: 커스텀 쿠키+Redis 세션(Spring Security 미사용). `SharedSessionService`가 세션을 만들고 `revcc:session:<token>` 키로 Redis에 저장, Node가 같은 키를 직접 읽음.
+- 프로젝트 구조: `backend`(Spring Boot, `core`), `board-service`(Node/Express, `board`), `nginx`(proxy), `docker-compose*.yml` 5종 — Next.js 전환과 무관하게 그대로 유지한다. 전환을 이유로 이미 있는 API를 다시 만들지 않는다. 화면 작업 전에는 항상 기존 API와 기존 호출 코드(`assignment-frontend/js/*`, `board-service/src/*`, `backend/src/main/java/com/revcc/app/*`)부터 조사한다.
+- 프론트엔드: `assignment-frontend`(레거시 정적 HTML/CSS/JS, 지금도 실제로 서비스 중 — 기존 기능·API 동작을 확인하는 참고자료로 유지하고 임의로 삭제하지 않는다), `frontend`(Next.js — REV.CC 프론트가 점진적으로 이전해 갈 대상). **새 UI/페이지는 특별한 이유가 없으면 `frontend`(Next.js)에 구현한다.** 전환은 기존 기능을 깨지 않는 방식으로 화면 단위로 하나씩 진행한다.
+- 인증 구조: 커스텀 쿠키+Redis 세션(Spring Security 미사용). `SharedSessionService`가 세션을 만들고 `revcc:session:<token>` 키로 Redis에 저장, Node가 같은 키를 직접 읽음. Next.js 전환에서도 이 인증/세션/API 계약을 임의로 바꾸지 않는다.
 
 ## 2. 완료된 작업 (P0, 2026-09-29)
 
@@ -112,8 +114,9 @@
 - **NOW-1 UI/UX 개선 및 Next.js 전환**
   - 실제 사용자가 커뮤니티, 내 차고, 장터를 편하게 쓰는 데 집중한다.
   - 기존 backend API(core·board)를 불필요하게 다시 만들지 않는다. 화면 계층만 바꾸고, API 변경은 화면에 꼭 필요한 만큼만 한다.
-  - 저장소에 Next.js "My Garage" 프로토타입(`frontend/`, `docker-compose.garage.yml`의 garage-ui)이 있다. 착수할 때 재사용할지, 새로 시작할지 먼저 정한다.
+  - 저장소에 있던 Next.js "My Garage" 프로토타입(`frontend/`, `docker-compose.garage.yml`의 garage-ui)을 재사용하는 쪽으로 정했다(새로 시작하지 않음).
   - 전환 범위와 순서(어느 화면부터 바꿀지, 기존 `assignment-frontend`와 공존할지)는 착수 시 짧게 정하고 시작한다. 큰 설계 문서를 먼저 만들지 않는다.
+  - **진행 상황(2026-10-02)**: 메인 대문(`frontend/app/page.tsx` + `frontend/components/home/*` + `frontend/lib/*`)을 Next.js로 구현하고 실제 API 연동까지 검증 완료. 더미 데이터 없음 — 확인된 실제 API: `GET /api/board/posts`(오늘의 인기글), `GET /api/board/garage`(오늘의 차고), `GET /api/parts/listings`(장터 새 매물), `GET /api/board/me`(세션). 실행 방법: 저장소 루트에서 `docker compose up`(기존 Docker/nginx/백엔드, `localhost:8090`) + `frontend/`에서 `npm run dev`(Next.js, `localhost:3000`)를 같이 띄운다 — `next.config.ts`의 rewrite가 `/api/*`를 8090으로 넘겨준다. 나머지 화면(`/home`, `/community`, `/parts` 등)은 아직 `assignment-frontend` 그대로이며, 다음 STEP에서 화면 단위로 이어서 옮긴다.
 - **NOW-2 실제 운영 배포 준비**
   - 운영 `.env`: `WITHDRAWAL_HMAC_SECRET`(32자 이상, 없으면 core 기동 거부), `REDIS_PASSWORD`(영문·숫자), `CLOUDFLARE_TUNNEL_TOKEN`, `KAKAO_REDIRECT_URI`(https), DB 값 등 prod 오버레이가 `:?`로 요구하는 값. `.env.example`을 기준으로 채운다.
   - 운영 서버의 Docker Compose 버전이 2.24 이상인지 확인한다(prod 오버레이의 `!reset`/`!override`).
