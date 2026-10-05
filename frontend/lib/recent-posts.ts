@@ -1,8 +1,7 @@
 // Client-only "최근 본 글" storage. Same key/shape as the legacy
 // assignment-frontend/js/community-list.js so a browser that visited both
 // the old and new frontend during the migration keeps one shared history.
-// Only reading is needed for the list screen; writing (remembering a post as
-// viewed) belongs to the post detail page, added in a later STEP.
+// The list screen reads; the post detail page writes (remember/forget).
 import {POST_CATEGORIES} from './home-types';
 
 const STORAGE_KEY = 'revcc:recent-posts:v1';
@@ -38,3 +37,22 @@ export function readRecentPosts(): RecentPost[] {
 }
 
 export {STORAGE_KEY as RECENT_POSTS_STORAGE_KEY};
+
+// Same as community-list.js's remember(): newest first, de-duplicated, max 5.
+export function rememberRecentPost(post: {id: number; category: string; title: string}): void {
+  try {
+    const next = [
+      {id: post.id, category: post.category, title: post.title, viewedAt: Date.now()},
+      ...readRecentPosts().filter((p) => p.id !== post.id),
+    ].slice(0, MAX_ITEMS);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {}
+}
+
+// Same as community-list.js's forget(): drop a post that turned out to be
+// deleted/missing (the detail page got a 404).
+export function forgetRecentPost(id: number): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(readRecentPosts().filter((p) => p.id !== id)));
+  } catch {}
+}

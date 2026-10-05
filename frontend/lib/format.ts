@@ -49,3 +49,8 @@ export function pickGarageSpotlight<T extends {imageId: number | null}>(vehicles
   const dayIndex = Math.floor(Date.now() / 86_400_000);
   return pool[dayIndex % pool.length];
 }
+
+// assignment-frontend/js/app.js's dateText(): "2026. 10. 5. 오후 3:12".
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('ko-KR', {dateStyle: 'medium', timeStyle: 'short'});
+}

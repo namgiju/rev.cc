@@ -1,0 +1,475 @@
+/* Post detail page. Lives inside community.module.css's .shell (tokens,
+   header, footer, .notice/.empty/.textLink come from there). Structure follows
+   assignment-frontend/css/style.css's .post-detail-layout: author sidebar /
+   body / related sidebar. Rough layout only — fine tuning comes later.
+
+   app/globals.css still has unscoped `main`, `article` and `section` rules
+   from the old dark garage prototype (max-width, dark background, margins),
+   so every such element here gets a class that resets those properties. */
+
+.page {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1800px;
+  margin: 28px auto 72px;
+  padding: 0 40px;
+}
+
+.backLink {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.backLink:hover {
+  color: var(--accent);
+}
+
+.notice {
+  min-height: 20px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.article,
+.statusBox {
+  min-width: 0;
+  margin: 0;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 5px 0;
+}
+
+/* --- Body --- */
+.category {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.title {
+  font-size: 27px;
+  line-height: 1.45;
+  margin: 9px 0 14px;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #8a929b;
+}
+
+.text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.9;
+  margin: 30px 0;
+  min-height: 100px;
+}
+
+.gallery {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.gallery img {
+  width: 100%;
+  max-height: 550px;
+  object-fit: contain;
+  background: #f6f8fa;
+  border-radius: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-block: 1px solid var(--line);
+  padding: 18px 0;
+  margin: 24px 0;
+}
+
+.actions button {
+  min-height: 40px;
+  border: 1px solid #e2e7ee;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.actions button[aria-pressed='true'] {
+  color: #2462b4;
+  background: #edf4ff;
+  border-color: #98b8e0;
+}
+
+.actions .danger,
+.dangerText {
+  color: #c4473a;
+}
+
+/* --- Badges --- */
+.badges {
+  margin: 0 0 28px;
+  padding: 0 0 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.badges h3,
+.card h3,
+.comments h3 {
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.badgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.badge,
+.badgeCompact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.badge {
+  min-width: 150px;
+  padding: 12px;
+  background: #f5f7fa;
+}
+
+.badgeCompact {
+  padding: 4px;
+  font-size: 11px;
+}
+
+.badge p {
+  margin: 2px 0 0;
+}
+
+.badgeMark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 34px;
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+/* --- Comments --- */
+.comments {
+  margin: 0;
+}
+
+.commentForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  margin: 22px 0;
+}
+
+.commentForm textarea {
+  border: 0;
+  resize: vertical;
+  min-height: 78px;
+  font: inherit;
+  font-size: 14px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.primary {
+  align-self: flex-end;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.replyLabel {
+  background: #eef4fb;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.comment {
+  border-bottom: 1px solid var(--line);
+  padding: 18px 0;
+}
+
+.comment p {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 8px 0;
+}
+
+.reply {
+  margin-left: 28px;
+  border-left: 2px solid #eaf0f7;
+  padding-left: 16px;
+}
+
+.deleted p {
+  color: #9ba1a7;
+  font-style: italic;
+}
+
+.commentMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: #9299a0;
+}
+
+.textButton,
+.dangerText {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.dangerText {
+  color: #c4473a;
+}
+
+.textButton:hover,
+.dangerText:hover {
+  text-decoration: underline;
+}
+
+.emptyComments {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.memberLink {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.memberLink:hover {
+  color: var(--accent);
+}
+
+.memberWithdrawn {
+  color: var(--muted);
+}
+
+/* --- Sidebar cards --- */
+.card {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.authorCover {
+  display: block;
+  width: calc(100% + 40px);
+  height: 150px;
+  margin: -20px -20px 16px;
+  object-fit: cover;
+}
+
+.authorIdentity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #eef2f7;
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 700;
+  object-fit: cover;
+}
+
+.authorCar {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.verified {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2f8a57;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.stats div {
+  background: #f6f8fa;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.stats dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.stats dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.contextRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.contextRow:last-child {
+  border-bottom: 0;
+}
+
+.contextRow img,
+.relatedAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.relatedAvatar {
+  display: grid;
+  place-items: center;
+  background: #eef2f7;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.contextRow > div {
+  min-width: 0;
+}
+
+.contextRow strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.contextRow:hover strong {
+  color: #2462b4;
+}
+
+.carPhoto {
+  display: block;
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 14px;
+}
+
+.boardLink {
+  display: block;
+  margin-top: 16px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f6f8fa;
+  font-size: 12px;
+  text-align: center;
+}
+
+.boardLink:hover {
+  background: #edf4ff;
+  color: #2462b4;
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .article {
+    order: -1;
+  }
+}
+
+@media (max-width: 650px) {
+  .page {
+    padding: 0 16px;
+  }
+  .article,
+  .statusBox {
+    padding: 20px;
+  }
+}

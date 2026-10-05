@@ -63,6 +63,12 @@ export async function fetchPost(id: number): Promise<CommunityPost> {
   return apiFetch<CommunityPost>(`/api/board/posts/${id}`);
 }
 
+// POST /api/board/posts/:id/view — anonymous, rate limited. Returns the new
+// count. Called once per post per page load, like app.js's `viewed` Set.
+export async function recordPostView(id: number): Promise<{views: number}> {
+  return apiFetch(`/api/board/posts/${id}/view`, jsonInit('POST', {}));
+}
+
 // GET /api/board/members/:id — public author profile (joined date, activity
 // counts, vehicles, verified-owner badge, their recent posts).
 export async function fetchMember(id: number): Promise<CommunityMember> {
