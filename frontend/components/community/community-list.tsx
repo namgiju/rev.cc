@@ -4,11 +4,10 @@ import {useCallback, useEffect, useRef, useState, type FormEvent} from 'react';
 import {usePathname, useRouter, useSearchParams} from 'next/navigation';
 import {fetchPosts} from '../../lib/community-api';
 import type {CommunityPost} from '../../lib/community-types';
-import {readRecentPosts, RECENT_POSTS_STORAGE_KEY, type RecentPost} from '../../lib/recent-posts';
-import {postUrl} from '../../lib/format';
-import PopularList from '../home/popular-list';
-import MyGarageMini from './my-garage-mini';
 import PostRow from './post-row';
+import CommunityLeftNav from './community-left-nav';
+import CommunitySidebar from './community-sidebar';
+import {HEADINGS, isCategory, isScope, newPostHref, SCOPE_LABELS, type Category, type Scope} from './categories';
 import CommunityHeader from './community-header';
 import {useCommunitySession} from './use-community-session';
 import SiteFooter from '../footer/site-footer';
@@ -16,35 +15,19 @@ import styles from './community.module.css';
 
 const PAGE_LIMIT = 20;
 
-type Category = '' | 'free' | 'maintenance' | 'parts' | 'drive';
-type Scope = '' | 'mine' | 'bookmarks' | 'commented';
 type Sort = 'latest' | 'popular';
-
-const HEADINGS: Record<Category, [string, string]> = {
-  '': ['전체 게시글', '차를 좋아하는 사람들의 이야기, 궁금한 점과 경험을 함께 나눠보세요.'],
-  free: ['자유게시판', '자동차와 관련된 모든 이야기를 자유롭게 나누는 공간입니다.'],
-  maintenance: ['정비 / DIY', '정비 경험과 직접 관리하는 노하우를 나눠보세요.'],
-  parts: ['부품 이야기', '부품 선택부터 장착 후기까지, 함께 이야기해요.'],
-  drive: ['드라이브', '좋았던 길과 함께 달리고 싶은 순간을 공유해요.'],
-};
-const CATEGORY_TABS: Category[] = ['', 'free', 'maintenance', 'parts', 'drive'];
-const SCOPE_LABELS: Record<'mine' | 'bookmarks' | 'commented', string> = {
-  mine: '내가 쓴 글',
-  bookmarks: '저장한 글',
-  commented: '댓글 남긴 글',
-};
-
-function isCategory(value: string | null): value is Category {
-  return value === 'free' || value === 'maintenance' || value === 'parts' || value === 'drive';
-}
-function isScope(value: string | null): value is 'mine' | 'bookmarks' | 'commented' {
-  return value === 'mine' || value === 'bookmarks' || value === 'commented';
-}
 
 export default function CommunityList() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Legacy "new post" links were /community?category=…#write-post.
+  useEffect(() => {
+    if (window.location.hash === '#write-post') {
+      window.location.replace(newPostHref(new URLSearchParams(window.location.search).get('category') || ''));
+    }
+  }, []);
 
   const auth = useCommunitySession();
   const {session, sessionError} = auth;
@@ -130,35 +113,6 @@ export default function CommunityList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, sort, scope, vehicleFilter, query, session]);
 
-  // --- "지금 인기글" sidebar (추천순 TOP5, 메인 필터와 무관) ---
-  const [popularPosts, setPopularPosts] = useState<CommunityPost[]>([]);
-  const [popularFailed, setPopularFailed] = useState(false);
-  const loadPopular = useCallback(() => {
-    setPopularFailed(false);
-    fetchPosts({sort: 'popular', limit: 5})
-      .then(setPopularPosts)
-      .catch(() => setPopularFailed(true));
-  }, []);
-  useEffect(() => loadPopular(), [loadPopular]);
-
-  // --- "최근 본 글" (로컬 저장, 기존 저장 형식과 동일한 키 공유) ---
-  const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
-  useEffect(() => {
-    setRecentPosts(readRecentPosts());
-    function onStorage(e: StorageEvent) {
-      if (e.key === RECENT_POSTS_STORAGE_KEY) setRecentPosts(readRecentPosts());
-    }
-    function onPageShow() {
-      setRecentPosts(readRecentPosts());
-    }
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('pageshow', onPageShow);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('pageshow', onPageShow);
-    };
-  }, []);
-
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setQuery(searchInput.trim());
@@ -207,45 +161,15 @@ export default function CommunityList() {
       )}
 
       <div className={styles.layout}>
-        <aside className={styles.leftNav} aria-label="커뮤니티 메뉴">
-          <h2 className={styles.leftNavHeading}>커뮤니티</h2>
-          <div className={styles.categoryList} role="group" aria-label="게시판 분류">
-            {CATEGORY_TABS.map((value) => (
-              <button
-                key={value || 'all'}
-                type="button"
-                className={category === value ? styles.categoryActive : styles.categoryButton}
-                aria-pressed={category === value}
-                onClick={() => {
-                  setCategory(value);
-                  setScope('');
-                }}
-              >
-                {HEADINGS[value][0]}
-              </button>
-            ))}
-          </div>
-          <a className={styles.writeLink} href="/community/new">
-            ＋ 글쓰기
-          </a>
-          <div className={styles.shortcuts}>
-            <h3>빠른 이동</h3>
-            {(['mine', 'commented', 'bookmarks'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={scope === s ? styles.shortcutActive : styles.shortcutButton}
-                aria-pressed={scope === s}
-                onClick={() => requireLoginScope(s)}
-              >
-                {SCOPE_LABELS[s]}
-              </button>
-            ))}
-            <a className={styles.shortcutLink} href="#community-recent">
-              최근 본 글
-            </a>
-          </div>
-        </aside>
+        <CommunityLeftNav
+          category={category}
+          scope={scope}
+          onCategory={(value) => {
+            setCategory(value);
+            setScope('');
+          }}
+          onScope={requireLoginScope}
+        />
 
         <section className={styles.feedSection} aria-labelledby="community-title">
           <div className={styles.feedHeading}>
@@ -254,7 +178,7 @@ export default function CommunityList() {
               <h1 id="community-title">{title}</h1>
               <p className={styles.muted}>{description}</p>
             </div>
-            <a className={styles.secondary} href="/community/new">
+            <a className={styles.secondary} href={newPostHref(category)}>
               ＋ 글쓰기
             </a>
           </div>
@@ -363,41 +287,7 @@ export default function CommunityList() {
           )}
         </section>
 
-        <aside className={styles.rightSidebar} aria-label="커뮤니티 사이드바">
-          <section className={styles.sideSection}>
-            <h2>지금 인기글</h2>
-            <p className={styles.muted}>추천 수를 기준으로 모았어요.</p>
-            {popularFailed ? (
-              <p className={styles.empty}>
-                인기글을 불러오지 못했어요.{' '}
-                <button type="button" className={styles.textLink} onClick={loadPopular}>
-                  다시 확인
-                </button>
-              </p>
-            ) : (
-              <PopularList posts={popularPosts} />
-            )}
-          </section>
-          <section className={styles.sideSection}>
-            <h2>MY GARAGE</h2>
-            <MyGarageMini user={session} />
-          </section>
-          <section id="community-recent" className={styles.sideSection}>
-            <h2>최근 본 글</h2>
-            <p className={styles.muted}>이 브라우저에서 읽은 글</p>
-            {recentPosts.length ? (
-              <ul className={styles.recentList}>
-                {recentPosts.map((post) => (
-                  <li key={post.id}>
-                    <a href={postUrl(post)}>{post.title}</a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.muted}>아직 읽은 글이 없습니다.</p>
-            )}
-          </section>
-        </aside>
+        <CommunitySidebar session={session} />
       </div>
 
       <SiteFooter />
