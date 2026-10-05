@@ -196,3 +196,92 @@ export type VehicleRecord = {
   date: string;
 };
 export type PublicVehicle = Omit<GarageCard, 'recordCount'> & {records: VehicleRecord[]};
+
+// Body of POST /api/board/garage and PUT /api/board/garage/:id (board-service's
+// vehicleInput() in community.js) — the public-profile fields of a vehicle row
+// (owner_vehicles table): model/year/trim/bio/photo. Distinct from
+// OwnerVehicleInput below, which is the same table's core-owned fields
+// (manufacturer/licensePlate/verification) via the Spring API.
+export type VehicleProfileInput = {
+  model: string;
+  year: number;
+  trim: string;
+  bio: string;
+  imageId: number | null;
+};
+
+export type VehicleRecordKind = 'maintenance' | 'tuning' | 'parts';
+
+// Body of POST /api/board/garage/:id/records (community.js's records route).
+export type VehicleRecordInput = {
+  kind: VehicleRecordKind;
+  title: string;
+  content: string;
+  date: string;
+  mileage: number | null;
+  cost: number | null;
+};
+
+// GET/POST/PUT /api/garage/vehicles (Spring core, GarageVehicleResponse) — the
+// private, owner-only view of a vehicle row: the same owner_vehicles table as
+// GarageCard/PublicVehicle/MyVehicle above, but core's columns (manufacturer,
+// license plate, verification) instead of board's (model/trim/bio/imageId).
+// licensePlate is null on the public-profile response variant
+// (withoutLicensePlate()); the owner's own /api/garage/vehicles list always
+// includes it.
+export type OwnerVehicle = {
+  id: number;
+  userId: number;
+  manufacturer: string;
+  model: string;
+  modelYear: number;
+  trim: string | null;
+  transmission: string | null;
+  color: string | null;
+  nickname: string | null;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  username: string;
+  licensePlate: string | null;
+  verified: boolean;
+  verificationStatus: string | null;
+  verifiedAt: string | null;
+};
+
+// Body of POST/PUT /api/garage/vehicles (GarageVehicleRequest). Only
+// manufacturer/model/modelYear/licensePlate are required server-side; the
+// rest accept an empty string.
+export type OwnerVehicleInput = {
+  manufacturer: string;
+  model: string;
+  modelYear: number;
+  trim: string;
+  transmission: string;
+  color: string;
+  nickname: string;
+  description: string;
+  licensePlate: string;
+};
+
+// Body of PUT /api/board/profile (community.js). avatarImageId/coverImageId
+// null clears the existing image.
+export type MemberProfileInput = {
+  bio: string;
+  avatarImageId: number | null;
+  coverImageId: number | null;
+};
+
+// GET /api/auth/withdraw (Spring WithdrawalService.info()).
+export type WithdrawInfo = {
+  method: 'PASSWORD' | 'KAKAO';
+  admin: boolean;
+  reservedListings: number;
+  available: boolean;
+};
+
+// Body of POST /api/auth/withdraw.
+export type WithdrawInput = {
+  password: string;
+  confirm: boolean;
+};

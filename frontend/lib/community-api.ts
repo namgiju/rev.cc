@@ -9,11 +9,18 @@ import type {
   CommunityNotification,
   GarageCard,
   GuestbookPage,
+  MemberProfileInput,
+  OwnerVehicle,
+  OwnerVehicleInput,
   PublicVehicle,
   CommunityPost,
   CommunityReport,
   MyVehicle,
   PostInput,
+  VehicleProfileInput,
+  VehicleRecordInput,
+  WithdrawInfo,
+  WithdrawInput,
 } from './community-types';
 import type {PostCategory} from './home-types';
 
@@ -196,4 +203,94 @@ export async function createGuestbookEntry(ownerId: number, content: string): Pr
 // DELETE /api/board/members/:id/guestbook/:entryId — entry author or owner.
 export async function deleteGuestbookEntry(ownerId: number, entryId: number): Promise<{ok: true}> {
   return apiFetch(`/api/board/members/${ownerId}/guestbook/${entryId}`, jsonInit('DELETE', {}));
+}
+
+// --- Personal garage (/home) ---------------------------------------------
+// The two halves below (GarageVehicleController vs community.js's /garage
+// routes) write the same owner_vehicles table, split by column ownership —
+// see OwnerVehicle/VehicleProfileInput in community-types.ts.
+
+// GET /api/garage/vehicles (Spring core) — the signed-in member's own
+// vehicles, including license plate and verification status.
+export async function fetchMyGarageVehicles(): Promise<OwnerVehicle[]> {
+  return apiFetch<OwnerVehicle[]>('/api/garage/vehicles');
+}
+
+// POST /api/garage/vehicles (Spring core) — registration step 1.
+export async function createOwnerVehicle(input: OwnerVehicleInput): Promise<OwnerVehicle> {
+  return apiFetch<OwnerVehicle>('/api/garage/vehicles', jsonInit('POST', input));
+}
+
+// PUT /api/garage/vehicles/:id (Spring core).
+export async function updateOwnerVehicle(id: number, input: OwnerVehicleInput): Promise<OwnerVehicle> {
+  return apiFetch<OwnerVehicle>(`/api/garage/vehicles/${id}`, jsonInit('PUT', input));
+}
+
+// DELETE /api/garage/vehicles/:id (Spring core) — 204 No Content.
+export async function deleteOwnerVehicle(id: number): Promise<void> {
+  return apiFetch(`/api/garage/vehicles/${id}`, {method: 'DELETE'});
+}
+
+// POST /api/garage/vehicles/:id/verification (Spring core) — registration
+// step 2, same data: URL + type/size contract as uploadImage above.
+export async function submitVehicleVerification(vehicleId: number, file: File): Promise<OwnerVehicle> {
+  if (!IMAGE_TYPES.includes(file.type) || file.size > MAX_IMAGE_BYTES)
+    throw new Error('JPG, PNG, WebP 사진을 3MB 이하로 선택해주세요.');
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('사진을 읽지 못했어요.'));
+    reader.readAsDataURL(file);
+  });
+  return apiFetch<OwnerVehicle>(`/api/garage/vehicles/${vehicleId}/verification`, jsonInit('POST', {data}));
+}
+
+// POST /api/board/garage — the public-profile half of vehicle registration
+// (model/trim/bio/photo). Returns the new row's id, shared with the core
+// vehicle created via createOwnerVehicle.
+export async function createVehicleProfile(input: VehicleProfileInput): Promise<{id: number}> {
+  return apiFetch('/api/board/garage', jsonInit('POST', input));
+}
+
+// PUT /api/board/garage/:id — owner only (403 otherwise).
+export async function updateVehicleProfile(id: number, input: VehicleProfileInput): Promise<{id: number}> {
+  return apiFetch(`/api/board/garage/${id}`, jsonInit('PUT', input));
+}
+
+// DELETE /api/board/garage/:id — owner only. Deletes the vehicle's records
+// too (ON DELETE CASCADE); does not delete the core owner_vehicles row by
+// itself, see deleteOwnerVehicle.
+export async function deleteVehicleProfile(id: number): Promise<{ok: true}> {
+  return apiFetch(`/api/board/garage/${id}`, jsonInit('DELETE', {}));
+}
+
+// POST /api/board/garage/:id/records — owner only.
+export async function createVehicleRecord(vehicleId: number, input: VehicleRecordInput): Promise<{id: number}> {
+  return apiFetch(`/api/board/garage/${vehicleId}/records`, jsonInit('POST', input));
+}
+
+// DELETE /api/board/garage/:id/records/:recordId — owner only.
+export async function deleteVehicleRecord(vehicleId: number, recordId: number): Promise<{ok: true}> {
+  return apiFetch(`/api/board/garage/${vehicleId}/records/${recordId}`, jsonInit('DELETE', {}));
+}
+
+// PUT /api/board/profile — bio + avatar/cover image, null clears an image.
+export async function updateMemberProfile(input: MemberProfileInput): Promise<{ok: true}> {
+  return apiFetch('/api/board/profile', jsonInit('PUT', input));
+}
+
+// PUT /api/board/profile/representative-vehicle — 403 unless the vehicle is
+// the caller's own.
+export async function setRepresentativeVehicle(vehicleId: number): Promise<{ok: true}> {
+  return apiFetch('/api/board/profile/representative-vehicle', jsonInit('PUT', {vehicleId}));
+}
+
+// GET /api/auth/withdraw (Spring core) — withdrawal screen info.
+export async function fetchWithdrawInfo(): Promise<WithdrawInfo> {
+  return apiFetch<WithdrawInfo>('/api/auth/withdraw');
+}
+
+// POST /api/auth/withdraw (Spring core).
+export async function withdrawAccount(input: WithdrawInput): Promise<{message: string}> {
+  return apiFetch('/api/auth/withdraw', jsonInit('POST', input));
 }
