@@ -9,6 +9,7 @@ import CommunityHeader from '../community/community-header';
 import {useNotice} from '../community/community-page';
 import SiteFooter from '../footer/site-footer';
 import {useCommunitySession} from '../community/use-community-session';
+import VehicleRegistrationDialog from './vehicle-registration-dialog';
 import styles from './my-garage.module.css';
 
 type GarageState =
@@ -30,6 +31,7 @@ export default function MyGarage() {
   const [state, setState] = useState<GarageState>({status: 'loading'});
   const [reloadKey, setReloadKey] = useState(0);
   const [repBusyId, setRepBusyId] = useState<number | null>(null);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -99,7 +101,12 @@ export default function MyGarage() {
               <RepresentativeVehicle vehicles={state.vehicles} member={state.member} />
             </section>
             <aside className={styles.panel} aria-labelledby="owned-title">
-              <h2 id="owned-title">보유 차량</h2>
+              <div className={styles.panelHeadingRow}>
+                <h2 id="owned-title">보유 차량</h2>
+                <button type="button" className={styles.registerButton} onClick={() => setRegistrationOpen(true)}>
+                  차량 등록
+                </button>
+              </div>
               <OwnedVehicleList
                 vehicles={state.vehicles}
                 member={state.member}
@@ -110,6 +117,13 @@ export default function MyGarage() {
           </div>
         )}
       </main>
+      {registrationOpen && (
+        <VehicleRegistrationDialog
+          onClose={() => setRegistrationOpen(false)}
+          onVehicleCreated={() => setReloadKey((k) => k + 1)}
+          notify={notify}
+        />
+      )}
       <SiteFooter />
     </div>
   );
