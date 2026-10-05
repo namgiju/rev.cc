@@ -303,12 +303,72 @@
   margin-bottom: 12px;
 }
 
-.dialog input {
+.dialog input,
+.dialog select,
+.dialog textarea {
   font: inherit;
   font-size: 14px;
   border: 1px solid #e2e7ee;
   border-radius: 8px;
   padding: 9px 10px;
+  width: 100%;
+}
+
+.dialog textarea {
+  resize: vertical;
+}
+
+.dialogWide {
+  width: min(560px, calc(100% - 32px));
+  max-height: min(680px, calc(100vh - 64px));
+  overflow: auto;
+}
+
+.dialogWide h3 {
+  margin: 20px 0 10px;
+  font-size: 15px;
+}
+
+.formRow {
+  display: flex;
+  gap: 12px;
+}
+
+.formRow > label {
+  flex: 1;
+}
+
+.recordList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.recordRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.recordRow strong {
+  display: block;
+}
+
+.recordRow p {
+  margin: 2px 0;
+  font-size: 13px;
+}
+
+.dangerText {
+  border: 0;
+  background: none;
+  color: #c23b3b;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .dialogError {

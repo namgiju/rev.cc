@@ -9,6 +9,7 @@ import CommunityHeader from '../community/community-header';
 import {useNotice} from '../community/community-page';
 import SiteFooter from '../footer/site-footer';
 import {useCommunitySession} from '../community/use-community-session';
+import VehicleManageDialog from './vehicle-manage-dialog';
 import VehicleRegistrationDialog from './vehicle-registration-dialog';
 import styles from './my-garage.module.css';
 
@@ -32,6 +33,7 @@ export default function MyGarage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [repBusyId, setRepBusyId] = useState<number | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [manageVehicleId, setManageVehicleId] = useState<number | null>(null);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -98,7 +100,7 @@ export default function MyGarage() {
           <div className={styles.grid}>
             <section className={styles.panel} aria-labelledby="garage-title">
               <h2 id="garage-title">대표 차량</h2>
-              <RepresentativeVehicle vehicles={state.vehicles} member={state.member} />
+              <RepresentativeVehicle vehicles={state.vehicles} member={state.member} onManage={setManageVehicleId} />
             </section>
             <aside className={styles.panel} aria-labelledby="owned-title">
               <div className={styles.panelHeadingRow}>
@@ -112,6 +114,7 @@ export default function MyGarage() {
                 member={state.member}
                 busyId={repBusyId}
                 onChooseRepresentative={chooseRepresentative}
+                onManage={setManageVehicleId}
               />
             </aside>
           </div>
@@ -122,6 +125,13 @@ export default function MyGarage() {
           onClose={() => setRegistrationOpen(false)}
           onVehicleCreated={() => setReloadKey((k) => k + 1)}
           notify={notify}
+        />
+      )}
+      {manageVehicleId !== null && (
+        <VehicleManageDialog
+          vehicleId={manageVehicleId}
+          onClose={() => setManageVehicleId(null)}
+          onChanged={() => setReloadKey((k) => k + 1)}
         />
       )}
       <SiteFooter />
@@ -139,7 +149,15 @@ function verificationChip(vehicle: OwnerVehicle): [string, string] {
   return VERIFICATION_CHIP[vehicle.verificationStatus ?? ''] ?? ['인증 전', styles.chipPending];
 }
 
-function RepresentativeVehicle({vehicles, member}: {vehicles: OwnerVehicle[]; member: CommunityMember}) {
+function RepresentativeVehicle({
+  vehicles,
+  member,
+  onManage,
+}: {
+  vehicles: OwnerVehicle[];
+  member: CommunityMember;
+  onManage: (vehicleId: number) => void;
+}) {
   if (!vehicles.length) {
     return (
       <p className={styles.empty}>
@@ -172,6 +190,9 @@ function RepresentativeVehicle({vehicles, member}: {vehicles: OwnerVehicle[]; me
         <a className={styles.detailLink} href={carUrl(vehicle.id)}>
           차량 상세 보기 →
         </a>
+        <button type="button" className={styles.repButton} onClick={() => onManage(vehicle.id)}>
+          수정
+        </button>
       </div>
     </div>
   );
@@ -182,11 +203,13 @@ function OwnedVehicleList({
   member,
   busyId,
   onChooseRepresentative,
+  onManage,
 }: {
   vehicles: OwnerVehicle[];
   member: CommunityMember;
   busyId: number | null;
   onChooseRepresentative: (vehicleId: number) => void;
+  onManage: (vehicleId: number) => void;
 }) {
   if (!vehicles.length) return <p className={styles.empty}>등록된 차량이 없습니다.</p>;
   const repId = member.representativeVehicle?.id ?? vehicles[0].id;
@@ -216,6 +239,9 @@ function OwnedVehicleList({
               onClick={() => onChooseRepresentative(vehicle.id)}
             >
               {selected ? '대표 차량' : busyId === vehicle.id ? '설정 중…' : '대표 차량 설정'}
+            </button>
+            <button type="button" className={styles.repButton} onClick={() => onManage(vehicle.id)}>
+              수정
             </button>
           </div>
         );
