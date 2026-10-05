@@ -2,30 +2,33 @@
 
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import {createOwnerVehicle, submitVehicleVerification} from '../../lib/community-api';
-import type {OwnerVehicle} from '../../lib/community-types';
 import styles from './my-garage.module.css';
 
 const currentYear = new Date().getFullYear();
 
 // Vehicle registration (formerly #registration-dialog in
 // assignment-frontend/home/index.html): step 1 creates the core vehicle row
-// (manufacturer/model/modelYear/licensePlate), step 2 optionally uploads the
-// registration document to request owner verification ("나중에 하기" skips
-// it — verification can be requested later, but that re-request flow is a
-// later STEP, not this one). Editing/deleting/records are out of scope here.
+// (manufacturer/model/modelYear/licensePlate), step 2 uploads the
+// registration document to request owner verification, or "나중에 하기"
+// skips it. Passing `vehicleId` (an existing, unverified vehicle) opens
+// straight at step 2 — the same document-upload flow legacy's
+// openDocumentStep() reused for the representative card's "오너 인증
+// 신청"/"인증 재신청" button. Editing/deleting/records stay out of scope.
 export default function VehicleRegistrationDialog({
+  vehicleId,
   onClose,
   onVehicleCreated,
   notify,
 }: {
+  vehicleId?: number;
   onClose: () => void;
   onVehicleCreated: () => void;
   notify: (message: string) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'info' | 'document'>('info');
-  const [vehicle, setVehicle] = useState<OwnerVehicle | null>(null);
+  const [step, setStep] = useState<'info' | 'document'>(vehicleId ? 'document' : 'info');
+  const [targetVehicleId, setTargetVehicleId] = useState<number | null>(vehicleId ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,7 +55,7 @@ export default function VehicleRegistrationDialog({
         nickname: '',
         description: '',
       });
-      setVehicle(created);
+      setTargetVehicleId(created.id);
       onVehicleCreated();
       setStep('document');
     } catch (e) {
@@ -64,13 +67,13 @@ export default function VehicleRegistrationDialog({
 
   async function submitDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !vehicle) return;
+    if (busy || !targetVehicleId) return;
     const file = fileRef.current?.files?.[0];
     if (!file) return;
     setBusy(true);
     setError('');
     try {
-      await submitVehicleVerification(vehicle.id, file);
+      await submitVehicleVerification(targetVehicleId, file);
       onVehicleCreated();
       onClose();
       notify('오너 인증을 신청했어요. 관리자 검토 후 결과를 알려드릴게요.');
@@ -83,7 +86,9 @@ export default function VehicleRegistrationDialog({
 
   function skipDocument() {
     onClose();
-    notify('차량이 등록되었어요. 준비되면 차고에서 오너 인증을 신청해주세요.');
+    // Only a just-registered vehicle needs this notice — reapplying later
+    // (vehicleId prop) skips straight back to the garage with no message.
+    if (!vehicleId) notify('차량이 등록되었어요. 준비되면 차고에서 오너 인증을 신청해주세요.');
   }
 
   return (

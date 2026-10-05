@@ -197,8 +197,13 @@ export default function VehicleManageDialog({
               />
             </label>
             {imageId && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className={styles.vehiclePhoto} src={imageUrl(imageId)} alt={state.vehicle.model} />
+              <div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className={styles.vehiclePhoto} src={imageUrl(imageId)} alt={state.vehicle.model} />{' '}
+                <button type="button" className={styles.dangerText} disabled={busy} onClick={() => setImageId(null)}>
+                  사진 제거
+                </button>
+              </div>
             )}
             {error && (
               <p className={styles.dialogError} role="alert">

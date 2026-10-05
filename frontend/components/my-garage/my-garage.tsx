@@ -37,6 +37,7 @@ export default function MyGarage() {
   const [repBusyId, setRepBusyId] = useState<number | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [manageVehicleId, setManageVehicleId] = useState<number | null>(null);
+  const [verifyVehicleId, setVerifyVehicleId] = useState<number | null>(null);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
@@ -139,12 +140,17 @@ export default function MyGarage() {
                   {state.member.bio && <p className={styles.empty}>{state.member.bio}</p>}
                 </div>
               </div>
-              <BadgeList badges={state.member.badges} empty="아직 획득한 인장이 없습니다. 차량 인증을 완료하면 오너 인장이 표시됩니다." compact />
+              <BadgeList badges={state.member.badges} empty="아직 획득한 인장이 없습니다. 차량 인증을 완료하면 오너 인장이 표시됩니다." />
             </section>
             <div className={styles.grid}>
             <section className={styles.panel} aria-labelledby="garage-title">
               <h2 id="garage-title">대표 차량</h2>
-              <RepresentativeVehicle vehicles={state.vehicles} member={state.member} onManage={setManageVehicleId} />
+              <RepresentativeVehicle
+                vehicles={state.vehicles}
+                member={state.member}
+                onManage={setManageVehicleId}
+                onRequestVerification={setVerifyVehicleId}
+              />
             </section>
             <aside className={styles.panel} aria-labelledby="owned-title">
               <div className={styles.panelHeadingRow}>
@@ -180,6 +186,14 @@ export default function MyGarage() {
           onChanged={() => setReloadKey((k) => k + 1)}
         />
       )}
+      {verifyVehicleId !== null && (
+        <VehicleRegistrationDialog
+          vehicleId={verifyVehicleId}
+          onClose={() => setVerifyVehicleId(null)}
+          onVehicleCreated={() => setReloadKey((k) => k + 1)}
+          notify={notify}
+        />
+      )}
       {profileEditOpen && state.status === 'ready' && (
         <ProfileEditDialog
           member={state.member}
@@ -207,10 +221,12 @@ function RepresentativeVehicle({
   vehicles,
   member,
   onManage,
+  onRequestVerification,
 }: {
   vehicles: OwnerVehicle[];
   member: CommunityMember;
   onManage: (vehicleId: number) => void;
+  onRequestVerification: (vehicleId: number) => void;
 }) {
   if (!vehicles.length) {
     return (
@@ -247,6 +263,11 @@ function RepresentativeVehicle({
         <button type="button" className={styles.repButton} onClick={() => onManage(vehicle.id)}>
           수정
         </button>
+        {!vehicle.verified && vehicle.verificationStatus !== 'PENDING' && (
+          <button type="button" className={styles.repButton} onClick={() => onRequestVerification(vehicle.id)}>
+            {vehicle.verificationStatus === 'REJECTED' ? '인증 재신청' : '오너 인증 신청'}
+          </button>
+        )}
       </div>
     </div>
   );
