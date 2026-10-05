@@ -5,10 +5,12 @@ import {usePathname} from 'next/navigation';
 import {fetchMember, fetchMyGarageVehicles, setRepresentativeVehicle} from '../../lib/community-api';
 import type {CommunityMember, OwnerVehicle} from '../../lib/community-types';
 import {carUrl, imageUrl} from '../../lib/format';
+import BadgeList from '../community/badge-list';
 import CommunityHeader from '../community/community-header';
 import {useNotice} from '../community/community-page';
 import SiteFooter from '../footer/site-footer';
 import {useCommunitySession} from '../community/use-community-session';
+import ProfileEditDialog from './profile-edit-dialog';
 import VehicleManageDialog from './vehicle-manage-dialog';
 import VehicleRegistrationDialog from './vehicle-registration-dialog';
 import styles from './my-garage.module.css';
@@ -34,6 +36,7 @@ export default function MyGarage() {
   const [repBusyId, setRepBusyId] = useState<number | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [manageVehicleId, setManageVehicleId] = useState<number | null>(null);
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -97,7 +100,35 @@ export default function MyGarage() {
           </p>
         )}
         {session && state.status === 'ready' && (
-          <div className={styles.grid}>
+          <>
+            <section className={styles.panel} aria-labelledby="profile-title">
+              <div className={styles.panelHeadingRow}>
+                <h2 id="profile-title">내 프로필</h2>
+                <button type="button" className={styles.registerButton} onClick={() => setProfileEditOpen(true)}>
+                  프로필 편집
+                </button>
+              </div>
+              {state.member.coverImageId && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className={styles.coverPhoto} src={imageUrl(state.member.coverImageId)} alt="프로필 커버" />
+              )}
+              <div className={styles.profileRow}>
+                {state.member.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className={styles.avatar} src={state.member.avatarUrl} alt={state.member.username} />
+                ) : (
+                  <div className={styles.avatar} aria-hidden="true">
+                    {[...state.member.username][0] || ''}
+                  </div>
+                )}
+                <div>
+                  <strong>{state.member.username}</strong>
+                  {state.member.bio && <p className={styles.empty}>{state.member.bio}</p>}
+                </div>
+              </div>
+              <BadgeList badges={state.member.badges} empty="아직 획득한 인장이 없습니다. 차량 인증을 완료하면 오너 인장이 표시됩니다." compact />
+            </section>
+            <div className={styles.grid}>
             <section className={styles.panel} aria-labelledby="garage-title">
               <h2 id="garage-title">대표 차량</h2>
               <RepresentativeVehicle vehicles={state.vehicles} member={state.member} onManage={setManageVehicleId} />
@@ -117,7 +148,8 @@ export default function MyGarage() {
                 onManage={setManageVehicleId}
               />
             </aside>
-          </div>
+            </div>
+          </>
         )}
       </main>
       {registrationOpen && (
@@ -132,6 +164,13 @@ export default function MyGarage() {
           vehicleId={manageVehicleId}
           onClose={() => setManageVehicleId(null)}
           onChanged={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+      {profileEditOpen && state.status === 'ready' && (
+        <ProfileEditDialog
+          member={state.member}
+          onClose={() => setProfileEditOpen(false)}
+          onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
       <SiteFooter />
