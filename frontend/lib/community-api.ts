@@ -8,6 +8,8 @@ import type {
   CommunityMember,
   CommunityPost,
   CommunityReport,
+  MyVehicle,
+  PostInput,
 } from './community-types';
 import type {PostCategory} from './home-types';
 
@@ -123,4 +125,36 @@ export async function reportPost(postId: number, reason: string): Promise<{id: n
 // GET /api/board/reports — the current user's own report history.
 export async function fetchMyReports(): Promise<CommunityReport[]> {
   return apiFetch<CommunityReport[]>('/api/board/reports');
+}
+
+// POST /api/board/posts — returns the new post (id, category, ...).
+export async function createPost(input: PostInput): Promise<{id: number; category: PostCategory}> {
+  return apiFetch('/api/board/posts', jsonInit('POST', input));
+}
+
+// PUT /api/board/posts/:id — author only (403 otherwise, admins included).
+export async function updatePost(id: number, input: PostInput): Promise<{id: number; category: PostCategory}> {
+  return apiFetch(`/api/board/posts/${id}`, jsonInit('PUT', input));
+}
+
+// GET /api/board/garage/mine — the signed-in member's own vehicles.
+export async function fetchMyVehicles(): Promise<MyVehicle[]> {
+  return apiFetch<MyVehicle[]>('/api/board/garage/mine');
+}
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+// POST /api/board/images with a data: URL body, like app.js's uploadFile().
+// The type/size check mirrors the server's limits so bad files fail fast.
+export async function uploadImage(file: File): Promise<number> {
+  if (!IMAGE_TYPES.includes(file.type) || file.size > MAX_IMAGE_BYTES)
+    throw new Error('JPG, PNG, WebP 사진을 장당 3MB 이하로 선택해주세요.');
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('사진을 읽지 못했어요.'));
+    reader.readAsDataURL(file);
+  });
+  return (await apiFetch<{id: number}>('/api/board/images', jsonInit('POST', {data}))).id;
 }

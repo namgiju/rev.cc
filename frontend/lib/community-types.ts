@@ -122,3 +122,26 @@ export type CommunityMember = {
   badges: CommunityBadge[];
   posts: CommunityPost[];
 };
+
+// GET /api/board/garage/mine — the editor only needs these fields to offer
+// "내 차량 연결" (the endpoint returns more; see community.js).
+export type MyVehicle = {
+  id: number;
+  manufacturer: string | null;
+  model: string;
+  year: number;
+};
+
+// Body of POST /api/board/posts and PUT /api/board/posts/:id, exactly what
+// assignment-frontend/js/post-editor.js sends. vehicleId is always present
+// (null = not linked): on PUT, omitting it would keep the old link, an explicit
+// null unlinks. `vehicle` is the legacy free-text label, kept unless the user
+// changes the vehicle link.
+export type PostInput = {
+  category: PostCategory;
+  title: string;
+  content: string;
+  vehicle: string;
+  vehicleId: number | null;
+  imageIds: number[];
+};

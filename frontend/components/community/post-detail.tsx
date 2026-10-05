@@ -306,11 +306,18 @@ export default function PostDetail({postId}: {postId: number}) {
     });
   }
 
-  // Editing belongs to STEP 2-4 (post editor).
+  // The button is only shown to the author; the editor re-checks ownership.
   function requestEdit() {
-    if (!requireLogin()) return;
-    notify('수정 기능은 준비 중이에요.');
+    if (!requireLogin() || detail.status !== 'ready') return;
+    window.location.assign(`${postUrl(detail.post)}/edit`);
   }
+
+  // Legacy edit links were /community/{category}/{id}#write-post.
+  useEffect(() => {
+    if (window.location.hash === '#write-post') {
+      window.location.replace(`${window.location.pathname}/edit`);
+    }
+  }, []);
 
   const pathname = usePathname();
   const loginNext = encodeURIComponent(detail.status === 'ready' ? postUrl(detail.post) : pathname);
