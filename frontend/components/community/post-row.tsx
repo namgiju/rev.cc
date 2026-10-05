@@ -1,14 +1,11 @@
 import type {CommunityPost} from '../../lib/community-types';
-import {CATEGORY_LABELS, imageUrl, postUrl} from '../../lib/format';
+import {CATEGORY_LABELS, imageUrl, memberUrl, postUrl} from '../../lib/format';
 import styles from './community.module.css';
 
 // One row in the community list table. Mirrors
 // assignment-frontend/js/community-list.js's row() — title (+ thumbnail when
-// the post has one), author, date, and the 조회/추천/댓글 stat columns. The
-// author/post detail destinations aren't built in Next.js yet, so this
-// reuses the same placeholder convention already shipped on the home page
-// (components/home/garage-spotlight.tsx): link to where that screen will
-// live once it exists, instead of dropping the link.
+// the post has one), author (→ their public garage), date, and the
+// 조회/추천/댓글 stat columns.
 //
 // Deliberately a <div>, not <article>: app/globals.css has an unscoped
 // `article{background:#14161b;border-radius:20px;...}` rule (dark card style
@@ -29,7 +26,7 @@ export default function PostRow({post}: {post: CommunityPost}) {
       {post.authorId == null ? (
         <span className={styles.feedAuthorWithdrawn}>탈퇴한 회원</span>
       ) : (
-        <a className={styles.feedAuthor} href={`/community#member-${post.authorId}`}>
+        <a className={styles.feedAuthor} href={memberUrl(post.authorId)}>
           {post.username}
         </a>
       )}

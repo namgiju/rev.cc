@@ -1,6 +1,8 @@
 'use client';
 
+import {useState} from 'react';
 import type {CommunitySession} from './use-community-session';
+import {ActivityPanel, NotificationsPanel} from './header-panels';
 import styles from './community.module.css';
 
 type Props = {
@@ -12,11 +14,18 @@ type Props = {
   loginNext: string;
 };
 
-// Top bar shared by the community list and post detail screens.
+// Top bar shared by every community screen. Logged-in members get the legacy
+// header's "내 활동" and "알림" panels (app.js #activity-button /
+// #notifications-button); both are hidden when logged out, like before.
 export default function CommunityHeader({auth, search, onSearchChange, onSearchSubmit, loginNext}: Props) {
-  const {session, unread, logoutBusy, handleLogout} = auth;
+  const {session, unread, setUnread, logoutBusy, handleLogout} = auth;
+  const [panel, setPanel] = useState<'activity' | 'notifications' | null>(null);
   return (
     <header className={styles.header}>
+      {session && panel === 'activity' && <ActivityPanel user={session} onClose={() => setPanel(null)} />}
+      {session && panel === 'notifications' && (
+        <NotificationsPanel onClose={() => setPanel(null)} onRead={() => setUnread(0)} />
+      )}
       <div className={styles.headerInner}>
         <a href="/" className={styles.logo} aria-label="REV.CC 홈">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -55,11 +64,19 @@ export default function CommunityHeader({auth, search, onSearchChange, onSearchS
           {session?.role === 'ADMIN' && <a href="/admin">관리</a>}
         </nav>
         <div className={styles.headerActions}>
-          <span className={styles.bell} aria-label={unread ? `읽지 않은 알림 ${unread}개` : '새 알림 없음'}>
-            🔔{unread > 0 && <span className={styles.bellCount}>{unread}</span>}
-          </span>
           {session ? (
             <>
+              <button type="button" className={styles.textLink} onClick={() => setPanel('activity')}>
+                내 활동
+              </button>
+              <button
+                type="button"
+                className={styles.bell}
+                aria-label={unread ? `알림, 읽지 않은 알림 ${unread}개` : '알림, 새 알림 없음'}
+                onClick={() => setPanel('notifications')}
+              >
+                🔔{unread > 0 && <span className={styles.bellCount}>{unread}</span>}
+              </button>
               <span className={styles.username}>{session.username} 님</span>
               <button type="button" className={styles.secondary} disabled={logoutBusy} onClick={handleLogout}>
                 로그아웃

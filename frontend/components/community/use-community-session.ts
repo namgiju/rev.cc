@@ -48,7 +48,8 @@ export function useCommunitySession() {
     }
   }
 
-  return {session, sessionError, unread, logoutBusy, handleLogout};
+  // The header zeroes the badge after the notification panel marks all read.
+  return {session, sessionError, unread, setUnread, logoutBusy, handleLogout};
 }
 
 export type CommunitySession = ReturnType<typeof useCommunitySession>;

@@ -1,5 +1,5 @@
 import type {CommunityPost} from '../../lib/community-types';
-import {imageUrl} from '../../lib/format';
+import {carUrl, imageUrl} from '../../lib/format';
 import type {AuthorState} from './post-detail';
 import BadgeList from './badge-list';
 import MemberLink from './member-link';
@@ -61,8 +61,8 @@ export default function AuthorCard({post, author}: {post: CommunityPost; author:
       <h3>보유 차량 {member.vehicles.length}</h3>
       {member.vehicles.length ? (
         member.vehicles.map((vehicle) => (
-          // Public vehicle view isn't in Next.js yet (STEP 2-5); legacy hash link.
-          <a key={vehicle.id} className={styles.contextRow} href={`/community#car-${vehicle.id}`}>
+          // Public vehicle page (/community/cars/{id}).
+          <a key={vehicle.id} className={styles.contextRow} href={carUrl(vehicle.id)}>
             {vehicle.imageId && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageUrl(vehicle.imageId)} alt={vehicle.model} loading="lazy" />

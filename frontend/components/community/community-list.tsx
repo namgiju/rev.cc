@@ -2,7 +2,8 @@
 
 import {useCallback, useEffect, useRef, useState, type FormEvent} from 'react';
 import {usePathname, useRouter, useSearchParams} from 'next/navigation';
-import {fetchPosts} from '../../lib/community-api';
+import {fetchPost, fetchPosts} from '../../lib/community-api';
+import {carUrl, memberUrl, postUrl} from '../../lib/format';
 import type {CommunityPost} from '../../lib/community-types';
 import PostRow from './post-row';
 import CommunityLeftNav from './community-left-nav';
@@ -22,11 +23,31 @@ export default function CommunityList() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Legacy "new post" links were /community?category=…#write-post.
+  // Legacy hash links on /community (app.js route()): #write-post opened the
+  // editor, #member-{id}/#car-{id} opened dialogs, #post-{id} was the old post
+  // address (looked up to find its category). They now have their own pages.
+  const [legacyNotice, setLegacyNotice] = useState('');
+  // Checked on load and on hashchange (a same-page hash change doesn't remount).
   useEffect(() => {
-    if (window.location.hash === '#write-post') {
-      window.location.replace(newPostHref(new URLSearchParams(window.location.search).get('category') || ''));
+    function route() {
+      const hash = window.location.hash;
+      if (hash === '#write-post') {
+        window.location.replace(newPostHref(new URLSearchParams(window.location.search).get('category') || ''));
+        return;
+      }
+      const match = /^#(post|car|member)-(\d+)$/.exec(hash);
+      if (!match) return;
+      const id = Number(match[2]);
+      if (match[1] === 'member') window.location.replace(memberUrl(id));
+      else if (match[1] === 'car') window.location.replace(carUrl(id));
+      else
+        fetchPost(id)
+          .then((post) => window.location.replace(postUrl(post)))
+          .catch((error) => setLegacyNotice(error instanceof Error ? error.message : '이야기를 찾을 수 없어요.'));
     }
+    route();
+    window.addEventListener('hashchange', route);
+    return () => window.removeEventListener('hashchange', route);
   }, []);
 
   const auth = useCommunitySession();
@@ -157,6 +178,11 @@ export default function CommunityList() {
       {sessionError && (
         <p className={styles.notice} role="status">
           로그인 상태를 확인하지 못했어요. 새로고침해주세요.
+        </p>
+      )}
+      {legacyNotice && (
+        <p className={styles.notice} role="status">
+          {legacyNotice}
         </p>
       )}
 

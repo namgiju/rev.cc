@@ -6,6 +6,10 @@
 import type {
   CommunityComment,
   CommunityMember,
+  CommunityNotification,
+  GarageCard,
+  GuestbookPage,
+  PublicVehicle,
   CommunityPost,
   CommunityReport,
   MyVehicle,
@@ -157,4 +161,39 @@ export async function uploadImage(file: File): Promise<number> {
     reader.readAsDataURL(file);
   });
   return (await apiFetch<{id: number}>('/api/board/images', jsonInit('POST', {data}))).id;
+}
+
+// GET /api/board/notifications
+export async function fetchNotifications(): Promise<CommunityNotification[]> {
+  return apiFetch<CommunityNotification[]>('/api/board/notifications');
+}
+
+// PUT /api/board/notifications/read — marks every notification read.
+export async function markNotificationsRead(): Promise<{ok: true}> {
+  return apiFetch('/api/board/notifications/read', jsonInit('PUT', {}));
+}
+
+// GET /api/board/garage?owner=:id
+export async function fetchMemberGarage(ownerId: number): Promise<GarageCard[]> {
+  return apiFetch<GarageCard[]>(`/api/board/garage?owner=${ownerId}`);
+}
+
+// GET /api/board/garage/:id
+export async function fetchPublicVehicle(id: number): Promise<PublicVehicle> {
+  return apiFetch<PublicVehicle>(`/api/board/garage/${id}`);
+}
+
+// GET /api/board/members/:id/guestbook[?before=cursor]
+export async function fetchGuestbook(ownerId: number, before?: number | null): Promise<GuestbookPage> {
+  return apiFetch<GuestbookPage>(`/api/board/members/${ownerId}/guestbook${before ? `?before=${before}` : ''}`);
+}
+
+// POST /api/board/members/:id/guestbook — login required, 1000 chars.
+export async function createGuestbookEntry(ownerId: number, content: string): Promise<{id: number}> {
+  return apiFetch(`/api/board/members/${ownerId}/guestbook`, jsonInit('POST', {content}));
+}
+
+// DELETE /api/board/members/:id/guestbook/:entryId — entry author or owner.
+export async function deleteGuestbookEntry(ownerId: number, entryId: number): Promise<{ok: true}> {
+  return apiFetch(`/api/board/members/${ownerId}/guestbook/${entryId}`, jsonInit('DELETE', {}));
 }

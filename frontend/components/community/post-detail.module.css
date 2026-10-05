@@ -559,3 +559,136 @@
   opacity: 0.6;
   cursor: wait;
 }
+
+/* --- List panel (community-panel.tsx: 내 활동 / 알림 / 내 신고 내역) --- */
+.panel {
+  width: min(520px, calc(100% - 32px));
+  max-height: min(640px, calc(100vh - 64px));
+  overflow: auto;
+}
+
+.panelBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.panelBar h2 {
+  margin: 0;
+}
+
+.panelClose {
+  border: 0;
+  background: none;
+  font-size: 16px;
+  color: var(--muted, #85888d);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.panelActions a,
+.panelActions button {
+  border: 1px solid #e2e7ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #262a2f;
+  padding: 9px 14px;
+  font-size: 13px;
+}
+
+.panelRow {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edeef0;
+  font-size: 13px;
+}
+
+.panelRow a {
+  font-weight: 600;
+  color: #262a2f;
+}
+
+.panelRow p {
+  margin: 0;
+}
+
+.panelRow small {
+  color: #85888d;
+}
+
+.unread a::before {
+  content: '● ';
+  color: #3478c7;
+}
+
+/* --- Member garage / public vehicle (single column) --- */
+.single {
+  max-width: 960px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.garageCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.garageCard {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.garageCard:hover {
+  border-color: #98b8e0;
+}
+
+.garageCard img,
+.garageCardIcon {
+  width: 100%;
+  height: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f6f8fa;
+}
+
+.garageCardIcon {
+  display: grid;
+  place-items: center;
+  font-size: 32px;
+}
+
+.recordTitle {
+  margin: 6px 0 0;
+  font-size: 15px;
+}
+
+.moreButton {
+  display: block;
+  margin: 16px auto 0;
+  border: 1px solid #e3e5e7;
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px 16px;
+  font-size: 13px;
+}
+
+@media (max-width: 650px) {
+  .single {
+    padding: 20px;
+  }
+}

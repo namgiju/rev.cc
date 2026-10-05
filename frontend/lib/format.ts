@@ -54,3 +54,8 @@ export function pickGarageSpotlight<T extends {imageId: number | null}>(vehicles
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', {dateStyle: 'medium', timeStyle: 'short'});
 }
+
+// Public member garage / vehicle pages (legacy: /community#member-{id},
+// /community#car-{id} dialogs; old links are redirected by the list page).
+export const memberUrl = (id: number) => `/community/members/${id}`;
+export const carUrl = (id: number) => `/community/cars/${id}`;

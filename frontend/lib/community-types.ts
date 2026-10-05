@@ -145,3 +145,54 @@ export type PostInput = {
   vehicleId: number | null;
   imageIds: number[];
 };
+
+// GET /api/board/notifications (latest 100, deleted posts excluded). kind is
+// currently always 'comment' (a comment/reply on your post or comment).
+export type CommunityNotification = {
+  id: number;
+  postId: number;
+  isRead: boolean;
+  createdAt: string;
+  title: string;
+  category: PostCategory;
+  username: string;
+  kind: string;
+};
+
+// GET /api/board/members/:id/guestbook — newest first, 20 per page; pass
+// nextCursor back as ?before= for the next page. 404 for withdrawn owners.
+export type GuestbookEntry = {
+  id: number;
+  ownerId: number;
+  authorId: PublicMemberId;
+  username: string;
+  authorWithdrawn: boolean;
+  content: string;
+  createdAt: string;
+};
+export type GuestbookPage = {items: GuestbookEntry[]; total: number; nextCursor: number | null};
+
+// GET /api/board/garage?owner=:id — public garage cards (max 100, newest first).
+export type GarageCard = {
+  id: number;
+  ownerId: number;
+  username: string;
+  model: string;
+  year: number;
+  trim: string | null;
+  bio: string | null;
+  imageId: number | null;
+  recordCount: number;
+};
+
+// GET /api/board/garage/:id — one public vehicle with its records.
+export type VehicleRecord = {
+  id: number;
+  kind: string;
+  title: string;
+  content: string | null;
+  mileage: number | null;
+  cost: number | null;
+  date: string;
+};
+export type PublicVehicle = Omit<GarageCard, 'recordCount'> & {records: VehicleRecord[]};

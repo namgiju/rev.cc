@@ -138,6 +138,9 @@
   position: relative;
   font-size: 15px;
   line-height: 1;
+  border: 0;
+  background: none;
+  padding: 0;
 }
 
 .bellCount {
