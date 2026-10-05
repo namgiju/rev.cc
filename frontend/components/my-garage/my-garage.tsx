@@ -8,11 +8,13 @@ import {carUrl, imageUrl} from '../../lib/format';
 import BadgeList from '../community/badge-list';
 import CommunityHeader from '../community/community-header';
 import {useNotice} from '../community/community-page';
+import Guestbook from '../community/guestbook';
 import SiteFooter from '../footer/site-footer';
 import {useCommunitySession} from '../community/use-community-session';
 import ProfileEditDialog from './profile-edit-dialog';
 import VehicleManageDialog from './vehicle-manage-dialog';
 import VehicleRegistrationDialog from './vehicle-registration-dialog';
+import WithdrawDialog from './withdraw-dialog';
 import styles from './my-garage.module.css';
 
 type GarageState =
@@ -21,11 +23,10 @@ type GarageState =
   | {status: 'ready'; vehicles: OwnerVehicle[]; member: CommunityMember};
 
 // /home, the personal garage (formerly assignment-frontend/home/index.html +
-// js/home.js). STEP 3-1 scope only: the page shell, the representative/owned
-// vehicle cards and setting the representative vehicle. Registration,
-// editing, records, profile settings, guestbook and withdrawal are later
-// STEPs — see REVCC_NEXT_TASKS.md. Vehicle detail is not re-built here: the
-// cards link to the public vehicle page from STEP 2-5 (/community/cars/:id).
+// js/home.js): page shell, representative/owned vehicle cards, registration,
+// editing/records, profile settings, guestbook and withdrawal (STEP 3-1~3-5
+// — see REVCC_NEXT_TASKS.md). Vehicle detail is not re-built here: the cards
+// link to the public vehicle page from STEP 2-5 (/community/cars/:id).
 export default function MyGarage() {
   const auth = useCommunitySession();
   const {session} = auth;
@@ -37,6 +38,7 @@ export default function MyGarage() {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [manageVehicleId, setManageVehicleId] = useState<number | null>(null);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -61,6 +63,12 @@ export default function MyGarage() {
       setRepBusyId(null);
     }
   }
+
+  const requireLogin = useCallback(() => {
+    if (session) return true;
+    notify('로그인 후 이용할 수 있어요. 상단의 로그인 / 가입을 눌러주세요.');
+    return false;
+  }, [session, notify]);
 
   return (
     <div className={styles.shell}>
@@ -104,9 +112,14 @@ export default function MyGarage() {
             <section className={styles.panel} aria-labelledby="profile-title">
               <div className={styles.panelHeadingRow}>
                 <h2 id="profile-title">내 프로필</h2>
-                <button type="button" className={styles.registerButton} onClick={() => setProfileEditOpen(true)}>
-                  프로필 편집
-                </button>
+                <div>
+                  <button type="button" className={styles.registerButton} onClick={() => setProfileEditOpen(true)}>
+                    프로필 편집
+                  </button>{' '}
+                  <button type="button" className={styles.dangerText} onClick={() => setWithdrawOpen(true)}>
+                    회원 탈퇴
+                  </button>
+                </div>
               </div>
               {state.member.coverImageId && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -149,6 +162,7 @@ export default function MyGarage() {
               />
             </aside>
             </div>
+            <Guestbook ownerId={state.member.id} viewer={session ?? null} requireLogin={requireLogin} notify={notify} />
           </>
         )}
       </main>
@@ -173,6 +187,7 @@ export default function MyGarage() {
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
+      {withdrawOpen && <WithdrawDialog onClose={() => setWithdrawOpen(false)} />}
       <SiteFooter />
     </div>
   );
