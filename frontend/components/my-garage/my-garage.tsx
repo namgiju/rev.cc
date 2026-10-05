@@ -1,0 +1,211 @@
+'use client';
+
+import {useCallback, useEffect, useState} from 'react';
+import {usePathname} from 'next/navigation';
+import {fetchMember, fetchMyGarageVehicles, setRepresentativeVehicle} from '../../lib/community-api';
+import type {CommunityMember, OwnerVehicle} from '../../lib/community-types';
+import {carUrl, imageUrl} from '../../lib/format';
+import CommunityHeader from '../community/community-header';
+import {useNotice} from '../community/community-page';
+import SiteFooter from '../footer/site-footer';
+import {useCommunitySession} from '../community/use-community-session';
+import styles from './my-garage.module.css';
+
+type GarageState =
+  | {status: 'loading'}
+  | {status: 'error'}
+  | {status: 'ready'; vehicles: OwnerVehicle[]; member: CommunityMember};
+
+// /home, the personal garage (formerly assignment-frontend/home/index.html +
+// js/home.js). STEP 3-1 scope only: the page shell, the representative/owned
+// vehicle cards and setting the representative vehicle. Registration,
+// editing, records, profile settings, guestbook and withdrawal are later
+// STEPs — see REVCC_NEXT_TASKS.md. Vehicle detail is not re-built here: the
+// cards link to the public vehicle page from STEP 2-5 (/community/cars/:id).
+export default function MyGarage() {
+  const auth = useCommunitySession();
+  const {session} = auth;
+  const pathname = usePathname();
+  const {notice, notify} = useNotice();
+  const [state, setState] = useState<GarageState>({status: 'loading'});
+  const [reloadKey, setReloadKey] = useState(0);
+  const [repBusyId, setRepBusyId] = useState<number | null>(null);
+
+  const load = useCallback(() => {
+    if (!session) return;
+    setState({status: 'loading'});
+    Promise.all([fetchMyGarageVehicles(), fetchMember(session.id)])
+      .then(([vehicles, member]) => setState({status: 'ready', vehicles, member}))
+      .catch(() => setState({status: 'error'}));
+  }, [session]);
+
+  useEffect(() => {
+    if (session) load();
+  }, [session, reloadKey, load]);
+
+  async function chooseRepresentative(vehicleId: number) {
+    setRepBusyId(vehicleId);
+    try {
+      await setRepresentativeVehicle(vehicleId);
+      setReloadKey((k) => k + 1);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '대표 차량을 설정하지 못했어요.');
+    } finally {
+      setRepBusyId(null);
+    }
+  }
+
+  return (
+    <div className={styles.shell}>
+      <CommunityHeader
+        auth={auth}
+        search=""
+        onSearchChange={() => {}}
+        onSearchSubmit={(value) => {
+          window.location.href = value ? `/community?q=${encodeURIComponent(value)}` : '/community';
+        }}
+        loginNext={encodeURIComponent(pathname)}
+      />
+      <main className={styles.main}>
+        <div className={styles.heading}>
+          <div>
+            <h1>내 차고</h1>
+            <p>나의 자동차 생활을 기록하는 공간, REV.CC</p>
+          </div>
+        </div>
+        <p className={styles.notice} role="status" aria-live="polite">
+          {notice}
+        </p>
+        {session === undefined && <p className={styles.empty}>로그인 상태를 확인하고 있어요.</p>}
+        {session === null && (
+          <div className={styles.loginRequired}>
+            <p>내 차고를 이용하려면 로그인이 필요합니다.</p>
+            <a href={`/login?next=${encodeURIComponent(pathname)}`}>로그인하기</a>
+          </div>
+        )}
+        {session && state.status === 'loading' && <p className={styles.empty}>차고 정보를 불러오고 있어요.</p>}
+        {session && state.status === 'error' && (
+          <p className={styles.empty}>
+            차고 정보를 불러오지 못했어요.{' '}
+            <button type="button" className={styles.retry} onClick={() => setReloadKey((k) => k + 1)}>
+              다시 시도
+            </button>
+          </p>
+        )}
+        {session && state.status === 'ready' && (
+          <div className={styles.grid}>
+            <section className={styles.panel} aria-labelledby="garage-title">
+              <h2 id="garage-title">대표 차량</h2>
+              <RepresentativeVehicle vehicles={state.vehicles} member={state.member} />
+            </section>
+            <aside className={styles.panel} aria-labelledby="owned-title">
+              <h2 id="owned-title">보유 차량</h2>
+              <OwnedVehicleList
+                vehicles={state.vehicles}
+                member={state.member}
+                busyId={repBusyId}
+                onChooseRepresentative={chooseRepresentative}
+              />
+            </aside>
+          </div>
+        )}
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+const VERIFICATION_CHIP: Record<string, [string, string]> = {
+  PENDING: ['인증 검토 중', styles.chipPending],
+  REJECTED: ['인증 반려', styles.chipBlocked],
+};
+
+function verificationChip(vehicle: OwnerVehicle): [string, string] {
+  if (vehicle.verified) return ['인증 완료', styles.chipOk];
+  return VERIFICATION_CHIP[vehicle.verificationStatus ?? ''] ?? ['인증 전', styles.chipPending];
+}
+
+function RepresentativeVehicle({vehicles, member}: {vehicles: OwnerVehicle[]; member: CommunityMember}) {
+  if (!vehicles.length) {
+    return (
+      <p className={styles.empty}>
+        아직 등록된 차량이 없습니다.
+        <br />
+        차량을 등록하면 이곳에 대표 차량이 표시됩니다.
+      </p>
+    );
+  }
+  const repId = member.representativeVehicle?.id ?? vehicles[0].id;
+  const vehicle = vehicles.find((v) => v.id === repId) ?? vehicles[0];
+  const imageId = member.vehicles.find((v) => v.id === vehicle.id)?.imageId ?? null;
+  const [label, chipClass] = verificationChip(vehicle);
+  return (
+    <div className={styles.repCard}>
+      {imageId ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className={styles.repPhoto} src={imageUrl(imageId)} alt={vehicle.model} />
+      ) : (
+        <div className={styles.repPhotoPlaceholder} aria-hidden="true">
+          🚗
+        </div>
+      )}
+      <div className={styles.repInfo}>
+        <p className={styles.eyebrow}>{vehicle.manufacturer}</p>
+        <h3>{vehicle.nickname || vehicle.model}</h3>
+        <p className={styles.empty}>{[vehicle.modelYear, vehicle.trim].filter(Boolean).join(' · ')}</p>
+        <span className={`${styles.chip} ${chipClass}`}>{label}</span>
+        {vehicle.description && <p>{vehicle.description}</p>}
+        <a className={styles.detailLink} href={carUrl(vehicle.id)}>
+          차량 상세 보기 →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function OwnedVehicleList({
+  vehicles,
+  member,
+  busyId,
+  onChooseRepresentative,
+}: {
+  vehicles: OwnerVehicle[];
+  member: CommunityMember;
+  busyId: number | null;
+  onChooseRepresentative: (vehicleId: number) => void;
+}) {
+  if (!vehicles.length) return <p className={styles.empty}>등록된 차량이 없습니다.</p>;
+  const repId = member.representativeVehicle?.id ?? vehicles[0].id;
+  return (
+    <div className={styles.vehicleList}>
+      {vehicles.map((vehicle) => {
+        const imageId = member.vehicles.find((v) => v.id === vehicle.id)?.imageId ?? null;
+        const selected = vehicle.id === repId;
+        return (
+          <div key={vehicle.id} className={styles.vehicleRow}>
+            <a href={carUrl(vehicle.id)}>
+              {imageId ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className={styles.vehiclePhoto} src={imageUrl(imageId)} alt={vehicle.model} />
+              ) : (
+                <div className={styles.vehiclePhotoPlaceholder} aria-hidden="true" />
+              )}
+            </a>
+            <a className={styles.vehicleRowInfo} href={carUrl(vehicle.id)}>
+              <strong>{vehicle.nickname || vehicle.model}</strong>
+              <span>{[vehicle.modelYear, vehicle.trim].filter(Boolean).join(' · ')}</span>
+            </a>
+            <button
+              type="button"
+              className={styles.repButton}
+              disabled={selected || busyId === vehicle.id}
+              onClick={() => onChooseRepresentative(vehicle.id)}
+            >
+              {selected ? '대표 차량' : busyId === vehicle.id ? '설정 중…' : '대표 차량 설정'}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
