@@ -12,7 +12,7 @@
   width: 100%;
   max-width: 1800px;
   margin: 28px auto 72px;
-  padding: 0 40px;
+  padding: 0 16px;
 }
 
 .backLink {
@@ -36,7 +36,7 @@
 .layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 320px;
-  gap: 24px;
+  gap: 48px;
   align-items: start;
 }
 

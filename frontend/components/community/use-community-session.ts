@@ -16,21 +16,42 @@ export function useCommunitySession() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    let ticket = 0;
+    // Like app.js's focus/pageshow handlers: re-check when the tab regains
+    // focus or comes back from the back/forward cache, so a login/logout in
+    // another tab reaches this page. The same user keeps the same object, so
+    // consumers keyed on `session` don't refetch on every focus.
+    async function check(initial: boolean) {
+      const current = ++ticket;
       try {
         const user = await fetchSession();
-        if (cancelled) return;
-        setSession(user);
-        if (user) setUnread(await fetchUnreadCount());
+        if (cancelled || current !== ticket) return;
+        setSession((prev) =>
+          prev && user && prev.id === user.id && prev.username === user.username && prev.role === user.role ? prev : user,
+        );
+        if (!user) return setUnread(0);
+        const count = await fetchUnreadCount().catch(() => null);
+        if (count !== null && !cancelled && current === ticket) setUnread(count);
       } catch {
-        if (!cancelled) {
+        // A failed re-check keeps the current state; only the first check
+        // falls back to logged out.
+        if (initial && !cancelled && current === ticket) {
           setSession(null);
           setSessionError(true);
         }
       }
-    })();
+    }
+    const onFocus = () => void check(false);
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) void check(false);
+    };
+    void check(true);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('pageshow', onPageShow);
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onPageShow);
     };
   }, []);
 

@@ -155,6 +155,9 @@ export default function VehicleManageDialog({
       className={`${styles.dialog} ${styles.dialogWide}`}
       aria-labelledby="vehicle-manage-title"
       onCancel={(e) => {
+        // React bubbles the nested confirm dialog's Esc (cancel) up to here;
+        // only handle our own, so Esc closes just the top dialog.
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         if (!busy) onClose();
       }}
