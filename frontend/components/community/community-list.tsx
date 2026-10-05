@@ -2,8 +2,6 @@
 
 import {useCallback, useEffect, useRef, useState, type FormEvent} from 'react';
 import {usePathname, useRouter, useSearchParams} from 'next/navigation';
-import type {SessionUser} from '../../lib/home-types';
-import {ApiError, fetchSession, fetchUnreadCount, logout} from '../../lib/home-api';
 import {fetchPosts} from '../../lib/community-api';
 import type {CommunityPost} from '../../lib/community-types';
 import {readRecentPosts, RECENT_POSTS_STORAGE_KEY, type RecentPost} from '../../lib/recent-posts';
@@ -11,6 +9,8 @@ import {postUrl} from '../../lib/format';
 import PopularList from '../home/popular-list';
 import MyGarageMini from './my-garage-mini';
 import PostRow from './post-row';
+import CommunityHeader from './community-header';
+import {useCommunitySession} from './use-community-session';
 import SiteFooter from '../footer/site-footer';
 import styles from './community.module.css';
 
@@ -46,46 +46,8 @@ export default function CommunityList() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // --- Session (same fetchSession/fetchUnreadCount/logout used by the home
-  // page's header — see components/home/home-shell.tsx). ---
-  const [session, setSession] = useState<SessionUser | null | undefined>(undefined);
-  const [sessionError, setSessionError] = useState(false);
-  const [unread, setUnread] = useState(0);
-  const [logoutBusy, setLogoutBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const user = await fetchSession();
-        if (cancelled) return;
-        setSession(user);
-        if (user) setUnread(await fetchUnreadCount());
-      } catch {
-        if (!cancelled) {
-          setSession(null);
-          setSessionError(true);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function handleLogout() {
-    setLogoutBusy(true);
-    try {
-      await logout();
-      setSession(null);
-      setUnread(0);
-    } catch (error) {
-      if (!(error instanceof ApiError)) setSessionError(true);
-      setSession(await fetchSession().catch(() => null));
-    } finally {
-      setLogoutBusy(false);
-    }
-  }
+  const auth = useCommunitySession();
+  const {session, sessionError} = auth;
 
   // --- Filters, seeded once from the URL so the list is shareable/
   // bookmarkable (assignment-frontend/js/community-list.js's sync()). ---
@@ -226,66 +188,17 @@ export default function CommunityList() {
 
   return (
     <div className={styles.shell}>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <a href="/" className={styles.logo} aria-label="REV.CC 홈">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/main/logo.png" alt="REV.CC" height={30} />
-          </a>
-          <form
-            className={styles.search}
-            role="search"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const value = searchInput.trim();
-              setCategory('');
-              setScope('');
-              setQuery(value);
-            }}
-          >
-            <label className={styles.srOnly} htmlFor="community-header-search">
-              차종, 게시글, 유저 검색
-            </label>
-            <span className={styles.searchIcon} aria-hidden="true">
-              🔍
-            </span>
-            <input
-              id="community-header-search"
-              type="search"
-              placeholder="차종, 게시글, 유저 검색"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              maxLength={100}
-            />
-          </form>
-          <nav className={styles.nav} aria-label="주 메뉴">
-            <a href="/">홈</a>
-            <a href="/community" aria-current="page">
-              커뮤니티
-            </a>
-            <a href="/home">내 차고</a>
-            <a href="/parts">부품장터</a>
-            {session?.role === 'ADMIN' && <a href="/admin">관리</a>}
-          </nav>
-          <div className={styles.headerActions}>
-            <span className={styles.bell} aria-label={unread ? `읽지 않은 알림 ${unread}개` : '새 알림 없음'}>
-              🔔{unread > 0 && <span className={styles.bellCount}>{unread}</span>}
-            </span>
-            {session ? (
-              <>
-                <span className={styles.username}>{session.username} 님</span>
-                <button type="button" className={styles.secondary} disabled={logoutBusy} onClick={handleLogout}>
-                  로그아웃
-                </button>
-              </>
-            ) : (
-              <a className={styles.secondary} href="/login?next=%2Fcommunity">
-                로그인 / 가입
-              </a>
-            )}
-          </div>
-        </div>
-      </header>
+      <CommunityHeader
+        auth={auth}
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        onSearchSubmit={(value) => {
+          setCategory('');
+          setScope('');
+          setQuery(value);
+        }}
+        loginNext="%2Fcommunity"
+      />
 
       {sessionError && (
         <p className={styles.notice} role="status">
