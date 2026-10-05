@@ -473,3 +473,89 @@
     padding: 20px;
   }
 }
+
+.actions button:disabled,
+.primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* --- Confirm / reason dialog (community-dialog.tsx) --- */
+.dialog {
+  width: min(440px, calc(100% - 32px));
+  border: 0;
+  border-radius: 14px;
+  padding: 24px;
+  color: #262a2f;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.dialog::backdrop {
+  background: rgba(15, 20, 28, 0.45);
+}
+
+.dialog h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.dialog p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #6b7076;
+}
+
+.dialog label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dialog textarea {
+  font: inherit;
+  font-size: 14px;
+  border: 1px solid #e2e7ee;
+  border-radius: 8px;
+  padding: 10px;
+  resize: vertical;
+}
+
+.dialog .dialogError {
+  margin: 10px 0 0;
+  color: #c4473a;
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.dialogCancel,
+.dialogDanger {
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dialogCancel {
+  border: 1px solid #e3e5e7;
+  background: #fff;
+  color: #262a2f;
+}
+
+.dialogDanger {
+  border: 0;
+  background: #c4473a;
+  color: #fff;
+}
+
+.dialogCancel:disabled,
+.dialogDanger:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

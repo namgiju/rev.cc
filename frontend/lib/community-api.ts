@@ -85,6 +85,12 @@ export async function setPostBookmark(id: number, active: boolean): Promise<{act
   return apiFetch(`/api/board/posts/${id}/bookmark`, jsonInit('PUT', {active}));
 }
 
+// DELETE /api/board/posts/:id — same body rules as deleteComment: the author
+// sends no reason, an admin removing someone else's post must send one.
+export async function deletePost(id: number, reason?: string): Promise<{ok: true}> {
+  return apiFetch(`/api/board/posts/${id}`, jsonInit('DELETE', reason === undefined ? {} : {reason}));
+}
+
 // GET /api/board/posts/:id/comments
 export async function fetchComments(postId: number): Promise<CommunityComment[]> {
   return apiFetch<CommunityComment[]>(`/api/board/posts/${postId}/comments`);

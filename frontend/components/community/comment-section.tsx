@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, type FormEvent} from 'react';
+import {useRef, useState, type FormEvent} from 'react';
 import type {CommunityComment} from '../../lib/community-types';
 import type {SessionUser} from '../../lib/home-types';
 import {formatDateTime} from '../../lib/format';
@@ -11,17 +11,20 @@ type Props = {
   comments: CommunityComment[];
   viewer: SessionUser | null;
   requireLogin: () => boolean;
-  // Placeholder for mutations wired in STEP 2-3 (receives the action label).
-  onAction: (label: string) => void;
+  // Resolves true once the comment is saved (the form then clears itself).
+  onSubmit: (content: string, parentId: number | null) => Promise<boolean>;
+  onDelete: (comment: CommunityComment) => void;
 };
 
 // Comment block from renderPostDetail(): count of non-deleted comments, the
 // write form (above the list), then top-level comments each followed by their
 // replies (one level of nesting, same as board-service). 답글 = any top-level,
 // non-deleted comment; 삭제 = comment author or ADMIN.
-export default function CommentSection({comments, viewer, requireLogin, onAction}: Props) {
+export default function CommentSection({comments, viewer, requireLogin, onSubmit, onDelete}: Props) {
   const [content, setContent] = useState('');
   const [replyTo, setReplyTo] = useState<CommunityComment | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   function startReply(comment: CommunityComment) {
     if (!requireLogin()) return;
@@ -29,9 +32,22 @@ export default function CommentSection({comments, viewer, requireLogin, onAction
     document.getElementById('comment-input')?.focus();
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  // The ref (not just state) blocks a second submit fired before React
+  // re-renders the disabled button — Enter + click, double click.
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onAction(replyTo ? '답글 등록' : '댓글 등록');
+    if (submittingRef.current || !requireLogin()) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      if (await onSubmit(content, replyTo?.id ?? null)) {
+        setContent('');
+        setReplyTo(null);
+      }
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }
 
   const topLevel = comments.filter((c) => !c.parentId);
@@ -53,7 +69,7 @@ export default function CommentSection({comments, viewer, requireLogin, onAction
             </button>
           )}
           {canDelete && (
-            <button type="button" className={styles.dangerText} onClick={() => onAction('댓글 삭제')}>
+            <button type="button" className={styles.dangerText} onClick={() => onDelete(c)}>
               삭제
             </button>
           )}
@@ -77,6 +93,7 @@ export default function CommentSection({comments, viewer, requireLogin, onAction
         )}
         <textarea
           id="comment-input"
+          readOnly={submitting}
           required
           maxLength={2000}
           rows={3}
@@ -85,8 +102,8 @@ export default function CommentSection({comments, viewer, requireLogin, onAction
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
-        <button type="submit" className={styles.primary}>
-          댓글 등록
+        <button type="submit" className={styles.primary} disabled={submitting}>
+          {submitting ? '등록 중…' : '댓글 등록'}
         </button>
       </form>
       <div>

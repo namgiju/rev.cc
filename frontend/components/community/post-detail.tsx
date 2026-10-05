@@ -2,7 +2,19 @@
 
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {usePathname} from 'next/navigation';
-import {ApiError, fetchComments, fetchMember, fetchPost, recordPostView} from '../../lib/community-api';
+import {
+  ApiError,
+  createComment,
+  deleteComment,
+  deletePost,
+  fetchComments,
+  fetchMember,
+  fetchPost,
+  recordPostView,
+  reportPost,
+  setPostBookmark,
+  setPostLike,
+} from '../../lib/community-api';
 import type {CommunityComment, CommunityMember, CommunityPost} from '../../lib/community-types';
 import {postUrl} from '../../lib/format';
 import {forgetRecentPost, rememberRecentPost} from '../../lib/recent-posts';
@@ -12,6 +24,7 @@ import AuthorCard from './author-card';
 import PostArticle from './post-article';
 import CommentSection from './comment-section';
 import PostContext from './post-context';
+import CommunityDialog, {type DialogSpec} from './community-dialog';
 import SiteFooter from '../footer/site-footer';
 import styles from './community.module.css';
 import detailStyles from './post-detail.module.css';
@@ -19,6 +32,12 @@ import detailStyles from './post-detail.module.css';
 // Posts already counted in this page load (assignment-frontend/js/app.js's
 // `viewed` Set). Module scope so React's dev double-effect doesn't count twice.
 const viewedPosts = new Set<number>();
+
+// Server messages are already user-facing Korean (board-service fail()).
+function errorText(error: unknown): string {
+  if (error instanceof ApiError && error.status === 401) return '로그인이 만료되었어요. 다시 로그인해주세요.';
+  return error instanceof Error ? error.message : '요청을 처리하지 못했어요.';
+}
 
 export type AuthorState =
   | {status: 'loading'}
@@ -124,15 +143,174 @@ export default function PostDetail({postId}: {postId: number}) {
     return false;
   }, [session, notify]);
 
-  // Mutations (like/bookmark/comment/report/delete: STEP 2-3, edit: STEP 2-4)
-  // are wired in later steps. The buttons and their visibility rules are final.
-  const notReady = useCallback(
-    (label: string) => {
-      if (!requireLogin()) return;
-      notify(`${label} 기능은 준비 중이에요.`);
-    },
-    [requireLogin, notify],
+  // --- Mutations. Each one goes to the existing board-service endpoint and
+  // then re-reads what it changed from the server, like the legacy page's
+  // `await showPostDetailPage(id)` after every action. ---
+  const patchDetail = useCallback(
+    (update: (d: Extract<DetailState, {status: 'ready'}>) => Partial<Extract<DetailState, {status: 'ready'}>>) =>
+      setDetail((d) => (d.status === 'ready' ? {...d, ...update(d)} : d)),
+    [],
   );
+
+  // Only the newest re-read may land (two toggles in a row can finish out of order).
+  const postTicket = useRef(0);
+  const refreshPost = useCallback(async () => {
+    const ticket = ++postTicket.current;
+    try {
+      const post = await fetchPost(postId);
+      if (ticket === postTicket.current) patchDetail(() => ({post}));
+    } catch {
+      // Keep the server-confirmed local state; a reload will reconcile counts.
+    }
+  }, [postId, patchDetail]);
+
+  const commentTicket = useRef(0);
+  const refreshComments = useCallback(async () => {
+    const ticket = ++commentTicket.current;
+    try {
+      const comments = await fetchComments(postId);
+      if (ticket === commentTicket.current) patchDetail(() => ({comments}));
+    } catch {
+      notify('댓글 목록을 새로 불러오지 못했어요. 새로고침해주세요.');
+    }
+  }, [postId, patchDetail, notify]);
+
+  // 추천/북마크: PUT {active} is idempotent on the server, so the request
+  // carries the target state, not "flip". One request per kind at a time;
+  // the UI changes only after the server answers.
+  const [pendingToggles, setPendingToggles] = useState<{like: boolean; bookmark: boolean}>({
+    like: false,
+    bookmark: false,
+  });
+  const togglesInFlight = useRef(new Set<'like' | 'bookmark'>());
+  async function toggle(kind: 'like' | 'bookmark') {
+    if (!requireLogin() || detail.status !== 'ready' || togglesInFlight.current.has(kind)) return;
+    const current = kind === 'like' ? detail.post.liked : detail.post.bookmarked;
+    togglesInFlight.current.add(kind);
+    setPendingToggles((p) => ({...p, [kind]: true}));
+    try {
+      const {active} = await (kind === 'like' ? setPostLike : setPostBookmark)(postId, !current);
+      patchDetail(({post}) => ({
+        post:
+          kind === 'like'
+            ? {...post, liked: active, likeCount: post.likeCount + (active === post.liked ? 0 : active ? 1 : -1)}
+            : {...post, bookmarked: active},
+      }));
+      void refreshPost();
+    } catch (error) {
+      notify(errorText(error));
+    } finally {
+      togglesInFlight.current.delete(kind);
+      setPendingToggles((p) => ({...p, [kind]: false}));
+    }
+  }
+
+  // Returns whether the comment was saved, so the form knows to clear itself.
+  async function submitComment(content: string, parentId: number | null): Promise<boolean> {
+    if (!requireLogin()) return false;
+    try {
+      await createComment(postId, content, parentId);
+    } catch (error) {
+      notify(errorText(error));
+      return false;
+    }
+    await refreshComments();
+    void refreshPost();
+    return true;
+  }
+
+  const [dialog, setDialog] = useState<DialogSpec | null>(null);
+
+  // app.js's requestContentDeletion(): your own content → plain confirm, no
+  // reason; anyone else's (only offered to admins) → required reason that
+  // board-service writes to moderation_logs.
+  function deletionDialog(
+    isOwn: boolean,
+    confirmMessage: string,
+    remove: (reason?: string) => Promise<unknown>,
+    after: () => Promise<void> | void,
+  ): DialogSpec {
+    if (isOwn)
+      return {
+        kind: 'confirm',
+        title: '삭제할까요?',
+        message: confirmMessage,
+        confirmLabel: '삭제',
+        onConfirm: async () => {
+          await remove();
+          await after();
+        },
+      };
+    return {
+      kind: 'reason',
+      title: '관리자 콘텐츠 삭제',
+      description: '삭제 사유와 삭제 당시 원문이 운영 로그에 기록됩니다.',
+      label: '삭제 사유 (필수)',
+      emptyError: '삭제 사유를 입력해주세요.',
+      submitLabel: '삭제',
+      danger: true,
+      onSubmit: async (reason) => {
+        await remove(reason);
+        await after();
+      },
+    };
+  }
+
+  function requestPostDelete() {
+    if (!requireLogin() || detail.status !== 'ready') return;
+    const {post} = detail;
+    setDialog(
+      deletionDialog(
+        session?.id === post.authorId,
+        '게시글과 댓글을 함께 삭제합니다.',
+        (reason) => deletePost(postId, reason),
+        () => {
+          // The post page has nothing left to show: back to its category list.
+          window.location.href = `/community?category=${encodeURIComponent(post.category)}`;
+        },
+      ),
+    );
+  }
+
+  function requestCommentDelete(comment: CommunityComment) {
+    if (!requireLogin()) return;
+    setDialog(
+      deletionDialog(
+        session?.id === comment.authorId,
+        '이 댓글을 삭제할까요?',
+        (reason) => deleteComment(comment.id, reason),
+        async () => {
+          await refreshComments();
+          void refreshPost();
+        },
+      ),
+    );
+  }
+
+  // app.js's openReport(). Resubmitting while the report is still pending
+  // updates its reason on the server; an already-handled one answers 409.
+  function requestReport() {
+    if (!requireLogin()) return;
+    setDialog({
+      kind: 'reason',
+      title: '게시글 신고',
+      description: '신고 내역은 내 활동에서 확인할 수 있습니다.',
+      label: '신고 사유',
+      placeholder: '스팸, 욕설, 허위 정보 등 신고 이유를 적어주세요.',
+      emptyError: '신고 사유를 입력해주세요.',
+      submitLabel: '신고 접수',
+      onSubmit: async (reason) => {
+        await reportPost(postId, reason);
+        notify('신고를 접수했어요.');
+      },
+    });
+  }
+
+  // Editing belongs to STEP 2-4 (post editor).
+  function requestEdit() {
+    if (!requireLogin()) return;
+    notify('수정 기능은 준비 중이에요.');
+  }
 
   const pathname = usePathname();
   const loginNext = encodeURIComponent(detail.status === 'ready' ? postUrl(detail.post) : pathname);
@@ -174,13 +352,18 @@ export default function PostDetail({postId}: {postId: number}) {
                 author={author}
                 viewer={session ?? null}
                 notify={notify}
-                onAction={notReady}
+                pending={pendingToggles}
+                onToggle={toggle}
+                onEdit={requestEdit}
+                onDelete={requestPostDelete}
+                onReport={requestReport}
               />
               <CommentSection
                 comments={detail.comments}
                 viewer={session ?? null}
                 requireLogin={requireLogin}
-                onAction={notReady}
+                onSubmit={submitComment}
+                onDelete={requestCommentDelete}
               />
             </article>
             <aside className={detailStyles.sidebar} aria-label="관련 콘텐츠">
@@ -215,6 +398,7 @@ export default function PostDetail({postId}: {postId: number}) {
       </main>
 
       <SiteFooter />
+      {dialog && <CommunityDialog spec={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
 }
