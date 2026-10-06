@@ -103,7 +103,7 @@
 ### 지금 할 것 (위에서부터 순서대로)
 
 ```
-[ ] NOW-1: UI/UX 개선 및 Next.js 전환 — 현재 최우선 제품 작업
+[x] NOW-1: UI/UX 개선 및 Next.js 전환 — 메인대문/커뮤니티/내차고/인증/장터/관리자 포팅 전부 완료(2026-10-06). 로고 교체(morethancarLogo.png) + 공용 헤더 레이아웃(로고 확대·좌측 고정, 검색 확대·중앙, nav·로그인 우측 고정) + `/` 페이지 누락된 SiteFooter 추가까지 이어서 완료.
 [ ] NOW-2: 실제 운영 배포 준비 (production secret/env, Compose 실행 조건, 오래된 인스턴스 정리)
 [ ] NOW-3: 실제 배포 (Cloudflare Named Tunnel + 현재 production compose)
 [ ] NOW-4: 최소 운영 안정성 (Kakao HttpClient timeout, 최소 health monitoring/알림)
@@ -123,7 +123,7 @@
     [x] 2. 커뮤니티 STEP 2-6 — 기존 assignment-frontend 커뮤니티와 기능 동등성 최종 검증 (2026-10-06, 아래 STEP 2-6 기록)
     [x] 3. 로그인/회원가입 /auth Next.js 포팅 — STEP 4-1 /login [x] · 4-2 /signup [x] · 4-3 /password-reset + 최종 동등성 검증 [x] (2026-10-06, 아래 "인증 영역 Next.js 포팅" 참고)
     [x] 4. 장터 /parts Next.js 포팅 — STEP 5-0~5-4 완료 (2026-10-06, 아래 "부품장터 Next.js 포팅" 참고)
-    [ ] 5. 관리자 /admin Next.js 포팅
+    [x] 5. 관리자 /admin Next.js 포팅 — STEP 6-0~6-5 구현 완료 (2026-10-06, 아래 "관리자 Next.js 포팅" 참고)
     ```
     - `/auth`를 `/parts`보다 먼저 하는 이유: 장터도 로그인 상태와 사용자 권한을 쓰므로, 공통 인증 화면을 먼저 Next로 옮기는 편이 자연스럽다.
     - 각 포팅(3~5)은 커뮤니티·내 차고와 같은 방식으로 진행한다: 착수 시 legacy 기능을 파일·API 단위로 조사 → 공통 타입/API 계층(`-0`) → 화면 단위 STEP → 마지막 STEP에서 legacy와 기능 동등성 검증.
@@ -229,6 +229,41 @@
       - **검증 결과(API 레벨 end-to-end + 라우트 상태코드 + 렌더 결과 확인, Chrome 클릭 불가로 Playwright/수동 클릭 대신 curl·jq·DB 직접 조회로 교차 확인)**: 회원 3명(판매자·구매자·DB에서 ADMIN 지정) + 판매자 차량 1대 등록 후, 매물 14개(카테고리·가격·지역·상태 다양화, 페이지네이션 확인용 13개 활성 + admin이 지운 것 등 포함) 생성. 확인 항목: 목록 검색/카테고리/상태/지역 필터 각각 정확한 부분집합 반환, 정렬 4종(최신/인기/낮은가격/높은가격) 순서 정확, scope=mine·favorites 정상 동작과 비로그인 401, 페이지네이션(13개·limit 12 → 1페이지 12개/2페이지 1개) 정확, 상세 조회 시 비로그인은 `contact` 키 자체가 응답에 없고 로그인(탈퇴 아닌 판매자)에게만 노출, 조회수 POST마다 1씩 증가, 찜 PUT 토글과 count 반영, 본인 PUT 수정·PATCH 상태변경 성공, 타인(구매자)의 PUT/PATCH/DELETE 전부 403, 관리자 DELETE+사유 성공(moderation_logs에 `LISTING_DELETE` 기록 확인) 및 사유 없는 관리자 삭제는 400, 본인 DELETE(사유 없이) 성공, 이미지 업로드(`/api/board/images`) → 매물 `imageIds`에 반영 → 이미지 재조회 200, 내 차량 프리필 데이터(`/api/board/members/:id`) 응답 형태가 에디터가 기대하는 그대로. 라우트: `/parts`·`/parts/{id}`(유효)·`/parts/{id}/edit`·`/parts/new` 전부 200, `/parts/0`·`/parts/abc`·`/parts/999999999999` 전부 404(`/parts/new`가 동적 `[id]` 라우트보다 우선 매칭되는 것도 확인). 홈 "장터 새 매물"이 새 `/parts/{id}` 링크를 실제로 쓰는 것과 구 해시 링크가 프로젝트 전체에 더 이상 없는 것(grep) 확인. `/`, `/community`, `/login`, `/signup`, `/password-reset`, `/home` 전부 정상 응답으로 회귀 없음 확인. Next dev 서버 로그에 에러 없음. `npx tsc --noEmit`, `next build` 통과(`/parts`, `/parts/{id}`(ƒ), `/parts/{id}/edit`(ƒ), `/parts/new`(○) 라우트 생성 확인). 스택은 검증 후 `docker compose -p revcc-s5x down -v`로 정리.
       - **수정한 문제**: 구현 중 발견해 즉시 고친 것 — `parts-api.ts`/`listing-detail.tsx`/`listing-editor.tsx`/`parts-list.tsx`가 `ApiError`를 `parts-api.ts`에서 재수출받으려다 `tsc` 오류(의도적으로 재수출을 안 만들었으므로) → 전부 `community-api.ts`에서 직접 import하도록 수정(기존 `vehicle-public.tsx` 관례와 통일). 그 외 기능적인 버그는 검증 중 발견되지 않았다.
       - **미검증(이번 세션 Chrome 미연결로 인한 공백, STEP 4-3과 동일한 제약)**: 실제 브라우저 클릭으로 필터 폼 상호작용·카드 레이아웃·다이얼로그 열고 닫기·버튼 비활성화·포커스 이동·반응형을 눈으로 확인하지 못했다. 구 `#listing-{id}` 해시 리다이렉트는 `community-list.tsx`의 이미 검증된 패턴을 그대로 옮긴 코드라 로직상 신뢰하나 클릭으로 직접 확인하지 않았다. 이미지 3장 초과 차단 메시지, dirty-leave 확인창(beforeunload/링크 가로채기), 사진 업로드 중 중복 제출 방지는 코드 리뷰로만 확인(post-editor.tsx와 100% 동일 패턴이라 위험도 낮음으로 판단). 탈퇴 판매자 매물(`sellerWithdrawn:true`, 연락처 비공개, closed 상태 비공개 목록) 시나리오는 실제 탈퇴 플로우를 거치지 않아 재현하지 않음(기존 백엔드 로직이라 별도 테스트 자산도 있음). 모바일/작은 화면 레이아웃은 전혀 확인하지 않음(CSS는 기본 완성도만 목표로 했다는 지시에 따름).
+  - **관리자 Next.js 포팅(STEP 6-0~6-5 구현 완료, 2026-10-06)**: `assignment-frontend/admin/index.html` + `js/admin.js`(506줄)와 관련 backend(Spring `AdminController`/`AdminMemberController`, board-service `admin.js`/`admin-access.js`)를 조사해 아래 계획대로 전부 구현했다.
+    - **legacy 구조**: 단일 페이지 `/admin`, 서버 라우트 없이 클라이언트 탭 전환(해시도 안 씀)으로 패널 7개를 보여준다 — 대시보드·회원 관리·게시글 관리·운영 로그·신고 관리·차량 인증 관리·인장 현황. 비로그인/비관리자는 "관리자만 볼 수 있어요" 안내(401/403 응답 시 동일 화면으로 전환).
+    - **패널별 내용**:
+      - 대시보드: 총 회원/차량/게시글 수, 신고 대기 수(새로고침 버튼)
+      - 회원 관리: 검색(아이디/닉네임/이메일 중 선택)+상태 필터(전체/정상/정지/비활성/탈퇴), 페이지네이션(20개씩) 목록(ID/아이디/닉네임/이메일/가입일/상태/권한) → 행 클릭 시 상세 다이얼로그(닉네임·이메일·계정상태·정지종료일(datetime-local)·권한 수정 폼, 비밀번호 재설정 메일 발송 버튼, 최근 관리 기록 50건 리스트). 탈퇴 회원은 폼 전체 읽기 전용.
+      - 게시글 관리: 검색+게시판 필터(free/maintenance/parts/drive), 목록(제목 링크·작성자·게시판·신고수·작성일)
+      - 운영 로그: 검색, `moderation_logs` 목록(처리일시/관리자, 게시판>제목(#id), 삭제유형(게시글/댓글/답글/부품매물) #id·작성자, 사유+원문 펼쳐보기)
+      - 신고 관리: 검색+상태 필터(대기/완료/반려), 목록(대상글 링크·신고자·사유·처리기록·검토버튼) → "검토" 다이얼로그(처리결과 select+메모 textarea, 제출 시 PATCH)
+      - 차량 인증 관리: 신청 목록(사용자·차량번호·제조사/모델·연식·신청일·등록증 링크·상태칩·승인/거절 버튼)
+      - 인장 현황: 인증 오너 뱃지 보유자 수(새로고침 버튼)
+    - **API (전부 기존, 새 API 불필요)**:
+      - Spring core `/api/admin/*`: `GET overview`(`{totalUsers,totalVehicles}`), `GET/POST vehicle-verifications`(+`/{id}/approve`,`/{id}/reject`), `GET /api/admin/members`(쿼리 `q,field,status,page`, 응답 `{items,total,page,pageSize}`), `GET/PATCH /api/admin/members/{id}`(PATCH body `{nickname,email,status,role,suspendedUntil}`, 서버가 마지막 관리자 보호·동시성 잠금·자기 자신 변경 금지까지 전부 처리 — 프론트는 서버 메시지만 그대로 노출하면 됨), `GET /api/admin/members/{id}/actions`(최근 50건), `POST /api/admin/members/{id}/password-reset`
+      - 등록증 이미지: `GET /api/garage/vehicle-verifications/{id}/document` — 그냥 `<a href target=_blank>` 링크(쿠키 인증, fetch 불필요)
+      - board-service `/api/board/admin/*`: `GET overview`(`{totalPosts,pendingReports}`), `GET posts`(쿼리 `q,category,page`), `GET reports`(쿼리 `q,status,page`), `PATCH reports/{id}`(body `{status,note}`), `GET logs`(쿼리 `q,page`), `GET badges`(`[{name,description,holders}]`)
+      - **주의**: board-service에 `GET /api/board/admin/members`도 있지만 **legacy 프론트가 전혀 호출하지 않는 죽은 라우트**다(회원 관리는 Spring `/api/admin/members`만 씀) — 포팅 때 이 board-service 쪽 엔드포인트는 쓰지 않는다.
+      - 장터 매물 관리자 삭제(STEP 5에서 이미 구현)는 별도 패널 없이 "운영 로그"의 `LISTING_DELETE` 항목으로 이미 같이 집계된다 — 추가 작업 불필요.
+    - **재사용 가능한 기존 Next 코드**: `community-header.tsx`는 이미 ADMIN 세션일 때 `/admin` 링크를 보여준다(수정 불필요). `useCommunitySession`으로 세션·role 확인 그대로 재사용. `CommunityDialog`(confirm/reason 두 종류)는 "신고 검토"(상태 select+메모, select 필드가 있어 모양이 다름)나 "회원 상세"(필드 다수+액션로그 리스트)에는 그대로 못 쓴다 — 전용 다이얼로그 컴포넌트가 각각 필요. 목록 패널 4개(회원/게시글/로그/신고)는 전부 "검색+필터+페이지네이션+테이블" 모양이 같아 **공용 목록 컴포넌트 1개**로 묶을 수 있다(legacy `loadList()`의 범용 패턴과 동일).
+    - **사용자 결정(2026-10-06)**: URL 구조는 **단일 페이지 `/admin` + 탭(쿼리스트링으로 상태 동기화)** 로 legacy와 동일하게 간다. `/parts`·`/community`처럼 서브 라우트로 쪼개지 않는다(관리자 전용 도구라 공유·북마크 가치가 낮다고 판단).
+    - **STEP 계획 및 완료 현황**:
+      ```
+      [x] STEP 6-0: 공통 타입/API — lib/admin-types.ts, lib/admin-api.ts, lib/admin-format.ts
+      [x] STEP 6-1: 대시보드 + 전체 셸(탭 네비 + ?panel= 동기화, 비관리자/비로그인 가드, 공용 목록 컴포넌트)
+      [x] STEP 6-2: 회원 관리 (목록 + 상세 다이얼로그 + 수정 + 비밀번호 재설정 + 액션 로그, 탈퇴 회원 읽기 전용 분기)
+      [x] STEP 6-3: 게시글 관리 + 운영 로그 + 신고 관리 (STEP 6-1의 공용 목록 컴포넌트 재사용, 신고 검토 전용 다이얼로그)
+      [x] STEP 6-4: 차량 인증 관리 + 인장 현황
+      [x] STEP 6-5: legacy 기능 동등성 검증 — 코드 레벨 전수 대조 + tsc/build + 익명 접근(비로그인 가드) 실제 확인까지 완료. ADMIN 세션이 필요한 조회·변경(회원 수정, 신고 검토, 차량 인증 승인/거절, 비밀번호 재설정, 인장/로그 조회 등)은 공유 Neon 개발 DB(실 회원 약 33명) 보호를 위해 **테스트 계정을 새로 만들지 않고 실행하지 않았다** — 사용자 결정(2026-10-06)에 따른 의도적 미검증. 아래 "구현/검증 결과" 참고.
+      ```
+    - **구현 파일**: `frontend/lib/admin-types.ts`(응답 타입), `frontend/lib/admin-api.ts`(API 래퍼, board-service의 죽은 `/api/board/admin/members`는 포함하지 않음), `frontend/lib/admin-format.ts`(날짜·카테고리·상태 라벨), `frontend/components/admin/`(`admin-app.tsx` 셸+가드+탭, `admin-list.tsx` 공용 목록(검색+필터+페이지네이션+테이블, `reload()`를 노출하는 `forwardRef` 핸들), `overview-panel.tsx`, `members-panel.tsx`+`member-dialog.tsx`, `posts-panel.tsx`, `logs-panel.tsx`, `reports-panel.tsx`+`report-dialog.tsx`, `vehicles-panel.tsx`, `tags-panel.tsx`, `admin.module.css`), `frontend/app/admin/page.tsx`.
+    - **구현/검증 결과**:
+      - URL은 계획대로 단일 페이지 `/admin` + `?panel=` 쿼리스트링 탭(기본값 `overview`, 나머지는 `members`/`posts`/`logs`/`reports`/`vehicles`/`tags`)으로 구현, legacy의 7개 패널과 1:1 대응.
+      - 권한 가드: `useCommunitySession`으로 세션 확인 → 비로그인은 로그인 안내, 로그인했지만 `role !== 'ADMIN'`이면 legacy와 같은 "관리자만 볼 수 있어요" 안내. 패널 초기 로드(대시보드/차량 인증/인장 현황)와 공용 목록 컴포넌트가 401/403을 받으면 즉시 같은 거부 화면으로 전환(legacy `api()`의 전역 처리와 동등). 단, 회원 상세·신고 검토 다이얼로그의 제출(PATCH 등) 중 401/403은 다이얼로그 안에 에러 메시지로만 표시되고 전체 화면 전환까지는 하지 않는다 — legacy는 모든 호출을 하나의 `api()` 헬퍼로 묶어 이 경우도 전역 전환했던 것과의 사소한 차이(보안 경계 자체에는 영향 없음, 서버가 여전히 거부).
+      - 새 backend API 없음 — `lib/admin-api.ts`의 모든 함수가 기존 15개 엔드포인트(Spring `/api/admin/*`, board-service `/api/board/admin/*`)만 호출하도록 코드 대조 완료. board-service의 `GET /api/board/admin/members`는 그대로 미사용.
+      - `npx tsc --noEmit` 통과, `npm run build`(Next 16.3.4, Turbopack) 통과 — `/admin`이 정적 라우트로 생성됨.
+      - 로컬 `docker compose up -d --build`(`localhost:8090`, Neon 연결) + `frontend/npm run dev`(`localhost:3000`)로 실행 확인: 비로그인 상태로 `/admin`, `/admin?panel=members` 접속 시 서버 에러 없이 로그인 안내 화면이 렌더링됨(curl로 200 + 해당 문구 확인). 같은 상태로 `/api/admin/overview`, `/api/admin/members`, `/api/admin/vehicle-verifications`, `/api/board/admin/{overview,posts,reports,logs,badges}`를 익명으로 호출해 전부 401이 돌아오는 것을 확인(엔드포인트 경로가 실제로 살아 있고 인증 가드가 걸려 있음을 재확인) — 이 과정에서 mutation은 전혀 수행하지 않음.
+      - **의도적으로 미검증**: ADMIN 세션이 있어야 도달하는 모든 화면/동작 — 대시보드 통계 실제 표시, 회원 검색/필터/페이지네이션/상세/수정/비밀번호 재설정/액션 로그, 게시글 관리 목록, 운영 로그 목록, 신고 검토/처리, 차량 인증 승인/거절, 등록증 이미지 링크, 인장 현황, 탭 전환 후의 각 패널 실제 렌더링. 이 환경에 ADMIN 자격증명이 없고(사용자 결정에 따라 새로 만들지 않음), DB에 직접 조회해 기존 ADMIN 계정을 찾는 것도 샌드박스가 자격증명 노출로 차단해 시도하지 않았다. 코드 대조(legacy `js/admin.js` 라인 단위 비교)만으로 로직 동등성을 확인했고, 실제 화면 동작은 ADMIN 계정을 가진 사람이 직접 `localhost:3000/admin`에서 확인해야 한다(이미 `docker compose`+`npm run dev`가 떠 있어 바로 가능).
 - **NOW-2 실제 운영 배포 준비**
   - 운영 `.env`: `WITHDRAWAL_HMAC_SECRET`(32자 이상, 없으면 core 기동 거부), `REDIS_PASSWORD`(영문·숫자), `CLOUDFLARE_TUNNEL_TOKEN`, `KAKAO_REDIRECT_URI`(https), DB 값 등 prod 오버레이가 `:?`로 요구하는 값. `.env.example`을 기준으로 채운다.
   - 운영 서버의 Docker Compose 버전이 2.24 이상인지 확인한다(prod 오버레이의 `!reset`/`!override`).

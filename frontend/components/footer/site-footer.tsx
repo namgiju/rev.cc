@@ -5,6 +5,7 @@
 // render as the last child of the page's root element.
 'use client';
 
+import Logo from '../common/logo';
 import styles from './site-footer.module.css';
 
 function scrollToTop() {
@@ -21,8 +22,7 @@ export default function SiteFooter() {
         <div className={styles.top}>
           <div className={styles.brand}>
             <a href="/" aria-label="REV.CC 홈">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/main/logo.png" alt="REV.CC" height={32} />
+              <Logo height={32} />
             </a>
             <p>차로 연결되는 일상</p>
           </div>

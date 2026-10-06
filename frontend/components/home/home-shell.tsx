@@ -4,6 +4,8 @@ import {useEffect, useRef, useState, type FormEvent} from 'react';
 import type {GarageEntry, Listing, Post, SessionUser} from '../../lib/home-types';
 import {ApiError, fetchSession, fetchTodayPosts, fetchUnreadCount, logout} from '../../lib/home-api';
 import {CATEGORY_LABELS} from '../../lib/format';
+import Logo from '../common/logo';
+import SiteFooter from '../footer/site-footer';
 import PostCard from './post-card';
 import PopularList from './popular-list';
 import GarageSpotlight from './garage-spotlight';
@@ -122,53 +124,56 @@ export default function HomeShell({
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <a href="/" className={styles.logo} aria-label="REV.CC 홈">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/main/logo.png" alt="REV.CC" height={30} />
+            <Logo height={56} />
           </a>
-          <form className={styles.search} role="search" onSubmit={submitSearch}>
-            <label className={styles.srOnly} htmlFor="home-search">
-              차종, 게시글, 유저 검색
-            </label>
-            <span className={styles.searchIcon} aria-hidden="true">
-              🔍
-            </span>
-            <input
-              id="home-search"
-              type="search"
-              placeholder="차종, 게시글, 유저 검색"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              maxLength={100}
-            />
-          </form>
-          <nav className={styles.nav} aria-label="주 메뉴">
-            <a href="/" aria-current="page">
-              홈
-            </a>
-            <a href="/community">커뮤니티</a>
-            <a href="/home">내 차고</a>
-            <a href="/parts">부품장터</a>
-            {session?.role === 'ADMIN' && <a href="/admin">관리</a>}
-          </nav>
-          <div className={styles.headerActions}>
-            <span className={styles.bell} aria-label={unread ? `읽지 않은 알림 ${unread}개` : '새 알림 없음'}>
-              🔔{unread > 0 && <span className={styles.bellCount}>{unread}</span>}
-            </span>
-            {session ? (
-              <>
-                <span className={styles.avatar} aria-hidden="true">
-                  {session.username.slice(0, 1).toUpperCase()}
-                </span>
-                <span className={styles.username}>{session.username} 님</span>
-                <button type="button" className={styles.secondary} disabled={busy} onClick={handleLogout}>
-                  로그아웃
-                </button>
-              </>
-            ) : (
-              <a className={styles.secondary} href="/login?next=%2F">
-                로그인 / 가입
+          <div className={styles.searchWrap}>
+            <form className={styles.search} role="search" onSubmit={submitSearch}>
+              <label className={styles.srOnly} htmlFor="home-search">
+                차종, 게시글, 유저 검색
+              </label>
+              <span className={styles.searchIcon} aria-hidden="true">
+                🔍
+              </span>
+              <input
+                id="home-search"
+                type="search"
+                placeholder="차종, 게시글, 유저 검색"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                maxLength={100}
+              />
+            </form>
+          </div>
+          <div className={styles.rightGroup}>
+            <nav className={styles.nav} aria-label="주 메뉴">
+              <a href="/" aria-current="page">
+                홈
               </a>
-            )}
+              <a href="/community">커뮤니티</a>
+              <a href="/home">내 차고</a>
+              <a href="/parts">부품장터</a>
+              {session?.role === 'ADMIN' && <a href="/admin">관리</a>}
+            </nav>
+            <div className={styles.headerActions}>
+              <span className={styles.bell} aria-label={unread ? `읽지 않은 알림 ${unread}개` : '새 알림 없음'}>
+                알림{unread > 0 && <span className={styles.bellCount}>{unread}</span>}
+              </span>
+              {session ? (
+                <>
+                  <span className={styles.avatar} aria-hidden="true">
+                    {session.username.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className={styles.username}>{session.username} 님</span>
+                  <button type="button" className={styles.secondary} disabled={busy} onClick={handleLogout}>
+                    로그아웃
+                  </button>
+                </>
+              ) : (
+                <a className={styles.secondary} href="/login?next=%2F">
+                  로그인 / 가입
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -279,6 +284,8 @@ export default function HomeShell({
           </Reveal>
         </section>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

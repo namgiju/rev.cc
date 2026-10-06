@@ -50,6 +50,12 @@
 
 /* --- Header (same structure as components/home/home.module.css's header) --- */
 .header {
+  /* display:block overrides a stray unscoped `header{display:flex;
+     justify-content:space-between}` in app/globals.css (leftover from the
+     old dark-theme prototype) — without it, .headerInner (this element's
+     only child) becomes an auto-margin flex item and gets centered as one
+     block instead of letting its own flex children spread edge to edge. */
+  display: block;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -76,10 +82,20 @@
   align-items: center;
 }
 
+.searchWrap {
+  /* Sole flex:1 child between the (fixed-width) logo and right-hand group —
+     it absorbs all leftover header width, and justify-content:center keeps
+     .search (capped at max-width below) centered within that space. */
+  flex: 1 1 0%;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
 .search {
   position: relative;
-  flex: 0 1 460px;
-  min-width: 0;
+  width: 100%;
+  max-width: 540px;
 }
 
 .search input {
@@ -106,6 +122,13 @@
   pointer-events: none;
 }
 
+.rightGroup {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 28px;
+}
+
 .nav {
   display: flex;
   flex: none;
@@ -113,7 +136,6 @@
   gap: 26px;
   font-size: 14px;
   font-weight: 650;
-  margin-left: auto;
 }
 
 .nav a:hover {
@@ -136,11 +158,17 @@
 
 .bell {
   position: relative;
-  font-size: 15px;
+  font-size: 13px;
+  font-weight: 650;
   line-height: 1;
   border: 0;
   background: none;
   padding: 0;
+  color: inherit;
+}
+
+.bell:hover {
+  color: var(--accent);
 }
 
 .bellCount {
@@ -191,6 +219,23 @@
 
 .textLink:hover {
   text-decoration: underline;
+}
+
+/* Header action button ("내 활동") — unlike .textLink above, this sits in a
+   row with plain-text siblings (알림/username/로그아웃), so it stays the
+   same neutral color/size as them at rest and only turns accent on
+   hover/focus, instead of always looking like an active link. */
+.activityButton {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: inherit;
+}
+
+.activityButton:hover {
+  color: var(--accent);
 }
 
 .notice {
@@ -608,7 +653,7 @@
     gap: 12px;
     padding: 0 20px;
   }
-  .search {
+  .searchWrap {
     display: none;
   }
   .nav {

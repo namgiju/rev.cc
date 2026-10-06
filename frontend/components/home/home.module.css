@@ -9,6 +9,11 @@
   background: var(--bg);
   color: var(--ink);
   min-height: 100vh;
+  /* Column flex (mirrors community.module.css's .shell) so SiteFooter sits
+     at the bottom of the viewport on short pages instead of right under
+     the fold. */
+  display: flex;
+  flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   line-height: 1.6;
 }
@@ -39,6 +44,12 @@
 
 /* --- Header --- */
 .header {
+  /* display:block overrides a stray unscoped `header{display:flex;
+     justify-content:space-between}` in app/globals.css (leftover from the
+     old dark-theme prototype) — without it, .headerInner (this element's
+     only child) becomes an auto-margin flex item and gets centered as one
+     block instead of letting its own flex children spread edge to edge. */
+  display: block;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -72,13 +83,20 @@
   display: block;
 }
 
-.search {
-  /* Grow:0 so it never competes with .nav's margin-left:auto for leftover
-     space — it only shrinks (flex-shrink:1) when the header runs out of
-     room, which is the one element meant to give way first. */
-  position: relative;
-  flex: 0 1 460px;
+.searchWrap {
+  /* Sole flex:1 child between the (fixed-width) logo and right-hand group —
+     it absorbs all leftover header width, and justify-content:center keeps
+     .search (capped at max-width below) centered within that space. */
+  flex: 1 1 0%;
   min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.search {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
 }
 
 .search input {
@@ -105,6 +123,13 @@
   pointer-events: none;
 }
 
+.rightGroup {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 28px;
+}
+
 .nav {
   display: flex;
   flex: none;
@@ -112,7 +137,6 @@
   gap: 26px;
   font-size: 14px;
   font-weight: 650;
-  margin-left: auto;
 }
 
 .nav a:hover {
@@ -148,7 +172,8 @@
 
 .bell {
   position: relative;
-  font-size: 15px;
+  font-size: 13px;
+  font-weight: 650;
   line-height: 1;
 }
 
@@ -202,6 +227,10 @@
 }
 
 .notice {
+  /* width:100% is required now that .shell is a flex column: a flex item's
+     horizontal auto margins otherwise shrink it to content size instead of
+     filling the row before centering (see .mainGrid/.lowerGrid below). */
+  width: 100%;
   max-width: 1600px;
   margin: 12px auto 0;
   padding: 0 40px;
@@ -336,7 +365,11 @@
 /* --- Main grid: left feed (~75%), right "실시간 인기" sidebar (~25%) --- */
 .mainGrid {
   /* Same box model as .headerInner (max-width + padding, not width+calc) so
-     the two stay edge-aligned above the 1600px cap too. */
+     the two stay edge-aligned above the 1600px cap too. width:100% is
+     required now that .shell is a flex column: a flex item's horizontal
+     auto margins otherwise shrink it to its grid's content size instead of
+     filling the row before centering. */
+  width: 100%;
   max-width: 1600px;
   margin: 40px auto 56px;
   padding: 0 40px;
@@ -550,6 +583,10 @@
    out of the first-screen sidebar, per the reference's priority: ranking
    first, garage/market as a secondary discovery row). --- */
 .lowerGrid {
+  /* width:100% is required now that .shell is a flex column: a flex item's
+     horizontal auto margins otherwise shrink it to its grid's content size
+     instead of filling the row before centering. */
+  width: 100%;
   max-width: 1600px;
   margin: 0 auto 72px;
   padding: 0 40px;
@@ -698,7 +735,7 @@
     padding: 0 20px;
   }
   .search {
-    flex-basis: 240px;
+    max-width: 360px;
   }
   .nav {
     gap: 16px;
@@ -712,7 +749,7 @@
   .headerInner {
     gap: 12px;
   }
-  .search {
+  .searchWrap {
     display: none;
   }
   .nav {
