@@ -22,3 +22,15 @@ export function login(username: string, password: string): Promise<AuthUser> {
 export function fetchAuthMe(): Promise<AuthUser> {
   return authFetch<AuthUser>('/api/auth/me');
 }
+
+export function checkUsername(username: string): Promise<{available: boolean}> {
+  return authFetch<{available: boolean}>('/api/auth/check-username?' + new URLSearchParams({username}));
+}
+
+export function signup(username: string, password: string, email: string): Promise<unknown> {
+  return authFetch('/api/auth/signup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username, password, ...(email ? {email} : {})}),
+  });
+}

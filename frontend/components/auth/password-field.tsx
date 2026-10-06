@@ -1,5 +1,6 @@
 'use client';
 
+import type {Ref} from 'react';
 import styles from './auth.module.css';
 
 // Password input with the legacy 보기/숨기기 toggle (auth.js [data-password]).
@@ -12,6 +13,9 @@ export default function PasswordField({
   onToggle,
   autoComplete,
   placeholder,
+  inputRef,
+  required = true,
+  disabled = false,
 }: {
   id: string;
   label: string;
@@ -21,6 +25,9 @@ export default function PasswordField({
   onToggle: () => void;
   autoComplete: string;
   placeholder: string;
+  inputRef?: Ref<HTMLInputElement>;
+  required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <>
@@ -28,10 +35,12 @@ export default function PasswordField({
       <div className={styles.passwordField}>
         <input
           id={id}
+          ref={inputRef}
           type={shown ? 'text' : 'password'}
           autoComplete={autoComplete}
           maxLength={255}
-          required
+          required={required}
+          disabled={disabled}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
