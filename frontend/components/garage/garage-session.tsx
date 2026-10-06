@@ -31,7 +31,7 @@ export function GarageSessionProvider({children}: {children: ReactNode}) {
     finally {setBusy(false);}
   }
   return <SessionContext.Provider value={{user, loading, error, refresh}}><div className={styles.shell}>
-    <header className={styles.header}><Link href="/" className={styles.brand}>REV.CC</Link><nav className={styles.navigation} aria-label="차고 메뉴"><Link href="/">커뮤니티</Link><Link href="/garage">My Garage</Link></nav><div className={styles.account}>{user ? <><span>{user.username} 님</span><button className={styles.secondary} disabled={busy} onClick={logout}>로그아웃</button></> : <Link className={styles.secondary} href="/garage">로그인</Link>}</div></header>
+    <header className={styles.header}><Link href="/" className={styles.brand}>morethancar</Link><nav className={styles.navigation} aria-label="차고 메뉴"><Link href="/">커뮤니티</Link><Link href="/garage">My Garage</Link></nav><div className={styles.account}>{user ? <><span>{user.username} 님</span><button className={styles.secondary} disabled={busy} onClick={logout}>로그아웃</button></> : <Link className={styles.secondary} href="/garage">로그인</Link>}</div></header>
     {error && <p role="alert" className={styles.error}>{error} <button onClick={refresh} className={styles.secondary}>다시 확인</button></p>}
     {children}
   </div></SessionContext.Provider>;

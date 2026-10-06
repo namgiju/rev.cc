@@ -1,7 +1,7 @@
 import {notFound} from 'next/navigation';
 import ListingDetail from '../../../components/parts/listing-detail';
 
-export const metadata = {title: '부품장터 | REV.CC'};
+export const metadata = {title: '부품장터'};
 
 // Canonical listing URL /parts/{id} (legacy: /parts#listing-{id}, redirected
 // by the list page). Same id bounds as board-service's positive() check.

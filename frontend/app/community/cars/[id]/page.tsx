@@ -1,7 +1,7 @@
 import {notFound} from 'next/navigation';
 import VehiclePublic from '../../../../components/community/vehicle-public';
 
-export const metadata = {title: '차량 | REV.CC'};
+export const metadata = {title: '차량'};
 
 // Formerly the legacy /community#car-{id} dialog. A static segment wins
 // over /community/[category]/[id], so this never collides with post URLs.

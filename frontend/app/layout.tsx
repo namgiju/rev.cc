@@ -1,3 +1,3 @@
 import './globals.css';
-export const metadata = { title: 'REV.CC', description: '자동차 오너 커뮤니티' };
+export const metadata = { title: {default: 'morethancar', template: '%s | morethancar'}, description: '차, 그 이상. 자동차 오너 커뮤니티 morethancar' };
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="ko"><body>{children}</body></html>}

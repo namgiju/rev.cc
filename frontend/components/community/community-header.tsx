@@ -28,7 +28,7 @@ export default function CommunityHeader({auth, search, onSearchChange, onSearchS
         <NotificationsPanel onClose={() => setPanel(null)} onRead={() => setUnread(0)} />
       )}
       <div className={styles.headerInner}>
-        <a href="/" className={styles.logo} aria-label="REV.CC 홈">
+        <a href="/" className={styles.logo} aria-label="morethancar 홈">
           <Logo height={56} />
         </a>
         <div className={styles.searchWrap}>

@@ -2,7 +2,7 @@ import {Suspense} from 'react';
 import {notFound} from 'next/navigation';
 import ListingEditor from '../../../../components/parts/listing-editor';
 
-export const metadata = {title: '판매글 수정 | REV.CC'};
+export const metadata = {title: '판매글 수정'};
 
 export default async function Page({params}: {params: Promise<{id: string}>}) {
   const {id} = await params;

@@ -3,7 +3,7 @@ import {notFound} from 'next/navigation';
 import PostEditor from '../../../../../components/community/post-editor';
 import {POST_CATEGORIES} from '../../../../../lib/home-types';
 
-export const metadata = {title: '게시글 수정 | REV.CC'};
+export const metadata = {title: '게시글 수정'};
 
 // Edit an existing post (legacy: /community/{category}/{id}#write-post).
 // Same route checks as the detail page; ownership is checked client-side

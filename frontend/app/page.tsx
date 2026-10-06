@@ -8,8 +8,8 @@ import {pickGarageSpotlight} from '../lib/format';
 import HomeShell from '../components/home/home-shell';
 
 export const metadata = {
-  title: 'REV.CC | 당신의 드라이빙이 콘텐츠가 되는 곳',
-  description: '커뮤니티, 내 차고, 부품장터가 하나로 연결되는 자동차 오너 공간, REV.CC.',
+  title: 'morethancar | 당신의 드라이빙이 콘텐츠가 되는 곳',
+  description: '커뮤니티, 내 차고, 부품장터가 하나로 연결되는 자동차 오너 공간, morethancar.',
 };
 
 // 모든 섹션이 매 요청마다 최신 데이터를 보여준다(세션 없이도 보이는 공개 데이터라

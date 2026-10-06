@@ -2,7 +2,7 @@ import {notFound} from 'next/navigation';
 import PostDetail from '../../../../components/community/post-detail';
 import {POST_CATEGORIES} from '../../../../lib/home-types';
 
-export const metadata = {title: '커뮤니티 | REV.CC'};
+export const metadata = {title: '커뮤니티'};
 
 // Canonical post URL /community/{category}/{id} — the same pattern
 // assignment-frontend/nginx.conf routes to the legacy detail page. A wrong

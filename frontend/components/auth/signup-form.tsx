@@ -172,7 +172,7 @@ export default function SignupForm() {
   }
 
   return (
-    <AuthShell title="Join REV.CC" description="차로 연결되는 일상을 시작하세요.">
+    <AuthShell title="Join morethancar" description="차로 연결되는 일상을 시작하세요.">
       {message && (
         <p ref={messageRef} className={styles.message} data-kind={message.kind} role="status" tabIndex={-1}>
           {message.text}

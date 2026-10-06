@@ -8,14 +8,14 @@ export default function AuthShell({title, description, children}: {title: string
   return (
     <main className={styles.page}>
       <section className={styles.panel} aria-labelledby="auth-title">
-        <a href="/" className={styles.logo} aria-label="REV.CC 홈">
+        <a href="/" className={styles.logo} aria-label="morethancar 홈">
           <Logo height={30} />
         </a>
         <p className={styles.eyebrow}>DRIVE · SHARE · CONNECT</p>
         <h1 id="auth-title">{title}</h1>
         <p className={styles.description}>{description}</p>
         {children}
-        <p className={styles.copyright}>© 2026 REV.CC · 차로 연결되는 일상</p>
+        <p className={styles.copyright}>© 2026 morethancar · 차, 그 이상.</p>
       </section>
     </main>
   );

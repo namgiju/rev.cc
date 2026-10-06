@@ -123,7 +123,7 @@ export default function HomeShell({
     <div className={styles.shell}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <a href="/" className={styles.logo} aria-label="REV.CC 홈">
+          <a href="/" className={styles.logo} aria-label="morethancar 홈">
             <Logo height={56} />
           </a>
           <div className={styles.searchWrap}>
@@ -189,7 +189,7 @@ export default function HomeShell({
           <h1 id="hero-title" className={styles.heroTitle}>
             <span style={{animationDelay: '80ms'}}>당신의 드라이빙이</span>
             <span style={{animationDelay: '180ms'}}>콘텐츠가 되는 곳</span>
-            <span style={{animationDelay: '280ms'}}>REV.CC</span>
+            <span style={{animationDelay: '280ms'}}>morethancar</span>
           </h1>
           <a className={styles.heroCta} href={heroHref}>
             지금, 내 차고 만들기 <span className={styles.arrow}>→</span>
@@ -202,7 +202,7 @@ export default function HomeShell({
         </div>
       </section>
 
-      <section className={styles.mainGrid} aria-label="REV.CC 메인 콘텐츠">
+      <section className={styles.mainGrid} aria-label="morethancar 메인 콘텐츠">
         <section className={styles.feedSection} aria-labelledby="today-posts-title">
           <div className={styles.sectionHeading}>
             <h2 id="today-posts-title">오늘의 인기글</h2>

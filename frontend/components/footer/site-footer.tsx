@@ -21,10 +21,10 @@ export default function SiteFooter() {
       <div className={styles.inner}>
         <div className={styles.top}>
           <div className={styles.brand}>
-            <a href="/" aria-label="REV.CC 홈">
+            <a href="/" aria-label="morethancar 홈">
               <Logo height={32} />
             </a>
-            <p>차로 연결되는 일상</p>
+            <p>차, 그 이상.</p>
           </div>
           <nav className={styles.services} aria-label="Footer 서비스">
             <h2>서비스</h2>
@@ -33,7 +33,7 @@ export default function SiteFooter() {
             <a href="/parts">부품 찾기</a>
           </nav>
           <div className={styles.info}>
-            <h2>REV.CC</h2>
+            <h2>morethancar</h2>
             <dl>
               <div>
                 <dt>대표</dt>
@@ -63,7 +63,7 @@ export default function SiteFooter() {
         <div className={styles.bottom}>
           <div>
             <p className={styles.copyright}>
-              <span>© 2026 REV.CC</span>
+              <span>© 2026 morethancar</span>
               <span>Built for car people.</span>
             </p>
             <p className={styles.disclaimer}>

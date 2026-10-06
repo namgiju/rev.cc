@@ -238,7 +238,7 @@ export default function ListingDetail({listingId}: {listingId: number}) {
                   <dd>{detail.item.region}</dd>
                 </div>
               </dl>
-              <p className={styles.muted}>적용 여부와 부품 상태는 판매자에게 확인해주세요. REV.CC가 호환성을 보증하지 않습니다.</p>
+              <p className={styles.muted}>적용 여부와 부품 상태는 판매자에게 확인해주세요. morethancar가 호환성을 보증하지 않습니다.</p>
 
               <div className={styles.detailActions}>
                 <button

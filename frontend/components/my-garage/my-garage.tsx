@@ -86,7 +86,7 @@ export default function MyGarage() {
         <div className={styles.heading}>
           <div>
             <h1>내 차고</h1>
-            <p>나의 자동차 생활을 기록하는 공간, REV.CC</p>
+            <p>나의 자동차 생활을 기록하는 공간, morethancar</p>
           </div>
         </div>
         <p className={styles.notice} role="status" aria-live="polite">

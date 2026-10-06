@@ -1,7 +1,7 @@
 import {notFound} from 'next/navigation';
 import MemberProfile from '../../../../components/community/member-profile';
 
-export const metadata = {title: '오너 차고 | REV.CC'};
+export const metadata = {title: '오너 차고'};
 
 // Formerly the legacy /community#member-{id} dialog. A static segment wins
 // over /community/[category]/[id], so this never collides with post URLs.

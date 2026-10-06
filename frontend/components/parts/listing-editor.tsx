@@ -418,7 +418,7 @@ export default function ListingEditor({listingId}: {listingId?: number}) {
                   onChange={(e) => set('contact', e.target.value)}
                 />
                 <p className={styles.muted}>
-                  연락 방법은 로그인한 회원에게 공개됩니다. 소개와 적용 차종은 판매자가 직접 제공하며 REV.CC가 호환성을
+                  연락 방법은 로그인한 회원에게 공개됩니다. 소개와 적용 차종은 판매자가 직접 제공하며 morethancar가 호환성을
                   판정하지 않습니다.
                 </p>
 

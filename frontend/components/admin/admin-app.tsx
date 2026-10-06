@@ -88,7 +88,7 @@ export default function AdminApp() {
           <>
             <div className={styles.heading}>
               <p className={styles.eyebrow}>ADMIN</p>
-              <h1>REV.CC 관리자</h1>
+              <h1>morethancar 관리자</h1>
             </div>
             <nav className={styles.tabs} aria-label="관리자 메뉴">
               {PANELS.map((p) => (

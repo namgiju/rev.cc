@@ -286,7 +286,7 @@ export default function PartsList() {
         <section className={styles.main} aria-labelledby="parts-title">
           <div className={styles.heading}>
             <div>
-              <p className={styles.eyebrow}>REV.CC PARTS MARKET</p>
+              <p className={styles.eyebrow}>MORETHANCAR PARTS MARKET</p>
               <h1 id="parts-title">좋은 부품, 새로운 드라이브.</h1>
               <p className={styles.muted}>오너와 오너를 연결하는 자동차 부품 직거래 장터</p>
             </div>
