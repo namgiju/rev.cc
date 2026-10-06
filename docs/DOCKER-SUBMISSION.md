@@ -76,7 +76,7 @@ prod 오버레이가 적용하는 것:
   `REDIS_PASSWORD`는 영문·숫자로 만든다(예: `openssl rand -hex 32`).
 - core가 `SPRING_PROFILES_ACTIVE=prod`로 실행되어 세션 쿠키가 항상 `Secure`로 나간다.
   따라서 앞단(Cloudflare 등)에서 HTTPS로 종단해야 로그인이 동작한다.
-- 외부 진입은 Cloudflare Named Tunnel 하나뿐이다: 사용자 → rev.cc(Cloudflare DNS·HTTPS) → Named Tunnel →
+- 외부 진입은 Cloudflare Named Tunnel 하나뿐이다: 사용자 → morethancar.kr(Cloudflare DNS·HTTPS) → Named Tunnel →
   `cloudflared` 컨테이너 → proxy → frontend/core/board. proxy의 호스트 포트(`REVCC_PORT`)는 게시하지 않는다
   (Docker가 게시한 포트는 ufw 등 호스트 방화벽을 우회해 열리므로 Cloudflare를 거치지 않는 경로가 된다).
   `cloudflared`는 proxy와 둘만 있는 `tunnel` 네트워크의 고정 주소 172.16.238.2를 쓰고, nginx는 이 주소에서 온
@@ -91,8 +91,8 @@ prod 오버레이가 적용하는 것:
 1. Cloudflare Zero Trust → Networks → Tunnels → Create a tunnel → **Cloudflared** 선택, 이름 지정.
 2. 설치 명령에 나오는 토큰(`--token` 뒤의 긴 값)을 운영 `.env`의 `CLOUDFLARE_TUNNEL_TOKEN`에 넣는다(비밀번호처럼 취급).
    설치 명령 자체는 실행하지 않는다 — compose의 `cloudflared` 서비스가 같은 일을 한다.
-3. Public Hostname: `rev.cc`(경로 비움) → Service `HTTP`, URL `proxy:80`. DNS CNAME은 Cloudflare가 만든다.
-   기존에 rev.cc를 서버 IP로 가리키던 A/AAAA 레코드가 있으면 지운다.
+3. Public Hostname: `morethancar.kr`(경로 비움) → Service `HTTP`, URL `proxy:80`. DNS CNAME은 Cloudflare가 만든다.
+   기존에 morethancar.kr을 서버 IP로 가리키던 A/AAAA 레코드가 있으면 지운다.
 4. SSL/TLS → Edge Certificates에서 **Always Use HTTPS**를 켠다(nginx도 `X-Forwarded-Proto: http`면 301로 보낸다).
    Cloudflare의 HSTS 설정은 켜지 않는다(nginx가 보낸다. 둘 다 켜면 값이 겹친다).
 5. Rules → Transform Rules의 **Remove visitor IP headers**를 켜지 않는다(켜면 `CF-Connecting-IP`가 사라져
@@ -103,7 +103,7 @@ prod 오버레이가 적용하는 것:
 ```sh
 docker compose -f docker-compose.yml -f docker-compose.prod.yml ps          # cloudflared가 healthy
 docker compose -f docker-compose.yml -f docker-compose.prod.yml port proxy 80 # 게시된 포트가 없어야 한다(오류)
-curl -sI https://rev.cc/ | grep -i strict-transport-security                  # max-age=300
+curl -sI https://morethancar.kr/ | grep -i strict-transport-security                  # max-age=300
 docker compose -f docker-compose.yml -f docker-compose.prod.yml logs proxy | tail   # 첫 칸이 실제 사용자 IP(172.16.238.2가 아님)
 ```
 

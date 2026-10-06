@@ -109,6 +109,7 @@
 [ ] NOW-4: 최소 운영 안정성 (Kakao HttpClient timeout, 최소 health monitoring/알림)
 [ ] LATER-1: 카카오 회원 탈퇴 최소 구현 (배포 이후 제품 완성도 작업, 구 STEP 10-impl-D 축소)
 [ ] LATER-2: 비밀번호 재설정 응답 통일 (작은 보안 정리, 구 STEP 11 축소)
+[ ] LATER-5: 운영 성능 메모 — SSR 내부 API 호출이 nginx rate limit을 frontend IP 하나로 공유, `/_next/static` no-store (2026-10-06, 실제 429·속도 문제가 보이면 착수)
 [ ] LATER-4: 차량 기록/타임라인 — 자동 연결·사진 기록·기록 보존부터, timeline read API·UI·회고 모션은 마지막 (2026-10-06 계획, 아래 "차량 기록/타임라인" 참고)
 ```
 
@@ -269,12 +270,16 @@
     - CSP: 기존 nginx CSP(`script-src 'self'`)는 App Router 인라인 스크립트를 막는다. Next `frontend/proxy.ts`가 요청마다 nonce CSP를 보내고(루트 layout `await connection()`으로 전 페이지 동적 렌더링), nginx는 upstream이 CSP를 보내지 않은 응답(API·정적 파일·레거시)에만 기존 strict CSP를 붙인다(`$revcc_csp` map). style은 인라인 `style={...}` 때문에 `'unsafe-inline'`.
     - 같이 고친 것: Dockerfile 최종 stage에 런타임 `REVCC_API_ORIGIN`이 없어 운영 SSR이 `localhost:8090`을 호출하던 문제. prod healthcheck는 `/login`(메인 `/`은 SSR이 proxy를 불러 proxy↔frontend 순환 대기).
     - 검증: 로컬 스택에 같은 frontend 설정을 임시 overlay로 올려 nginx 경유로 확인 — 경로별 CSP 헤더 1개(Next 경로 nonce / API·정적 strict), Playwright로 7개 페이지 hydration·CSP 위반 0건·로그인 토글 동작, `scripts/nginx-forwarded-check.sh` 전부 PASS, `docker compose config`(가짜 env) 병합 확인, tsc. 검증 후 로컬 8090은 레거시로 되돌림.
-    - 알려진 제약: SSR fetch가 proxy를 거치므로 nginx `revcc_api` 제한(IP당 20r/s, burst 200)을 frontend 컨테이너 IP 하나가 공유한다(메인 1회 = 4요청). 트래픽이 늘어 429가 보이면 SSR을 board로 직접 보내는 방안을 검토한다. `/_next/static`도 nginx `Cache-Control: no-store`를 받는다(성능만 영향).
-  - 운영 `.env`: `WITHDRAWAL_HMAC_SECRET`(32자 이상, 없으면 core 기동 거부), `REDIS_PASSWORD`(영문·숫자), `CLOUDFLARE_TUNNEL_TOKEN`, `KAKAO_REDIRECT_URI`(https), DB 값 등 prod 오버레이가 `:?`로 요구하는 값. `.env.example`을 기준으로 채운다.
-  - 운영 서버의 Docker Compose 버전이 2.24 이상인지 확인한다(prod 오버레이의 `!reset`/`!override`).
-  - Mac 등 같은 Neon에 붙는 오래된 로컬 인스턴스를 멈춘다. 옛 board는 본인 글을 실제로 지우고 모든 사진을 공개한다(STEP 10-impl-B 혼합 배포 주의).
-  - Neon에는 새 core가 처음 기동할 때 V3~V5가 한 번에 적용된다. 기동 직전 읽기 전용으로 `SELECT DISTINCT account_status FROM users`만 다시 확인한다(2026-10-01 기준 전부 NULL).
-  - 필요 없는 Neon `board_test_posts_archive`는 배포 때 함께 정리할 수 있다(선택).
+    - 알려진 제약 2건(SSR rate limit 공유, `/_next/static` no-store)은 LATER-5로 옮겼다.
+  - **[x] NOW-2-2 morethancar.kr 기준 URL 정리 (2026-10-06)**: prod 오버레이가 `PASSWORD_RESET_URL`도 `:?`로 요구한다(없으면 재설정 메일에 `http://localhost:8090/password-reset` 링크가 나가던 문제). prod 오버레이·`.env.example`·`docs/DOCKER-SUBMISSION.md`의 도메인 예시를 `morethancar.kr`로 바꿨다. `docker compose config`(가짜 env)로 누락 시 실패·설정 시 병합 확인.
+  - **[ ] NOW-2-3 배포 직전 사람이 할 일** (코드 작업 없음, 순서대로):
+    1. 운영 `.env` 작성(`.env.example` 기준). 필수(`:?`): `DB_HOST`/`DB_NAME`/`DB_USER`/`DB_PASSWORD`, `REDIS_PASSWORD`(영문·숫자, `openssl rand -hex 32`), `WITHDRAWAL_HMAC_SECRET`(32자 이상, 없으면 core 기동 거부), `CLOUDFLARE_TUNNEL_TOKEN`, `KAKAO_REDIRECT_URI=https://morethancar.kr/api/auth/kakao/callback`, `PASSWORD_RESET_URL=https://morethancar.kr/password-reset`. 기동은 되지만 기능에 필요: `PASSWORD_RESET_SECRET`(32자 이상, 없으면 재설정 503), `SMTP_*`(없으면 재설정 메일 미발송 — LATER-3상 오류도 안 보임), `KAKAO_CLIENT_ID`/`KAKAO_CLIENT_SECRET`. `SESSION_COOKIE_SECURE`는 prod 프로파일이 true로 고정하므로 넣지 않아도 된다.
+    2. 카카오 개발자 콘솔 Redirect URI에 `https://morethancar.kr/api/auth/kakao/callback` 등록, 사이트 도메인에 `https://morethancar.kr` 추가.
+    3. Cloudflare: `morethancar.kr` 존 추가 → Named Tunnel Public Hostname `morethancar.kr` → `http://proxy:80`(`docs/DOCKER-SUBMISSION.md` 절차).
+    4. 운영 서버에서 `docker compose version` ≥ 2.24 확인(prod 오버레이의 `!reset`/`!override`).
+    5. 같은 Neon에 붙은 다른 인스턴스 전부 정지: Mac 로컬 스택, Windows 로컬 스택(`docker compose stop` — 컨테이너는 지우지 않음). 옛 board는 본인 글을 실제로 지우고 모든 사진을 공개한다(STEP 10-impl-B 혼합 배포 주의).
+    6. Neon 읽기 전용 확인(2026-10-06 자동 권한 검사로 에이전트 실행이 막혀 사람이 실행): Flyway 최신 버전이 5이고 실패 없음, `account_status` 분포. 메모상 2026-10-04 기준 V5 적용 완료라 새 마이그레이션은 없다.
+    7. 선택: 필요 없는 Neon `board_test_posts_archive` 정리.
 - **NOW-3 실제 배포**
   - Cloudflare Named Tunnel + `docker-compose.yml` + `docker-compose.prod.yml` 기준으로 배포한다.
   - 배포 후 확인은 두 가지만 한다. ① proxy 로그의 첫 칸이 실제 사용자 IP인지, cloudflared가 172.16.238.2를 쓰는지. ② 로그인·게시글·이미지 등 핵심 proxy 동작. 배포를 또 하나의 대형 테스트 프로젝트로 만들지 않는다.
