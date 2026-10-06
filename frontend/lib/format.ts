@@ -59,3 +59,7 @@ export function formatDateTime(iso: string): string {
 // /community#car-{id} dialogs; old links are redirected by the list page).
 export const memberUrl = (id: number) => `/community/members/${id}`;
 export const carUrl = (id: number) => `/community/cars/${id}`;
+
+// Parts marketplace listing (legacy: /parts#listing-{id} dialog; old hash
+// links are redirected by the list page — see components/parts/parts-list.tsx).
+export const listingUrl = (id: number) => `/parts/${id}`;
