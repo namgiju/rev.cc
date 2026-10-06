@@ -54,9 +54,25 @@ services:
     networks:
       tunnel:
         ipv4_address: 172.16.238.2
+  # 운영 화면은 Next.js(frontend/)다. 레거시 assignment-frontend는 과제용 docker-compose.yml에만 남는다.
+  # 서비스 이름과 포트(frontend:80)를 그대로 써서 nginx 설정은 바꾸지 않는다(node 사용자도 컨테이너
+  # 안에서는 Docker 기본 sysctl로 80을 열 수 있다). SSR fetch는 edge 네트워크의 proxy를 거쳐 API로 간다.
   frontend:
+    build: ./frontend
+    image: revcc-frontend:next
     restart: unless-stopped
     networks: [edge]
+    environment:
+      PORT: "80"
+      REVCC_API_ORIGIN: http://proxy
+    # 기본 healthcheck(GET /)는 메인 SSR이 proxy를 호출하는데, proxy는 frontend가 healthy해야 뜬다.
+    # API를 부르지 않는 /login으로 검사해 순환 대기를 피한다.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/login"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
   postgres: !reset null
   redis:
     restart: unless-stopped
