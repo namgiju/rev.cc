@@ -11,11 +11,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 /** 카카오 로그인: 인가 코드를 액세스 토큰으로 교환하고 사용자 정보를 조회한다. */
 @Service
 public class KakaoOAuthService {
-    private final HttpClient http = HttpClient.newHttpClient();
+    // 카카오가 응답하지 않을 때 로그인 요청 스레드가 무기한 묶이지 않도록 연결·요청 시간을 제한한다(NOW-4).
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
+    private final HttpClient http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
     private final ObjectMapper mapper;
     private final String clientId;
     private final String clientSecret;
@@ -49,6 +53,7 @@ public class KakaoOAuthService {
             + "&code=" + encode(code);
         if (!clientSecret.isBlank()) tokenBody += "&client_secret=" + encode(clientSecret);
         HttpRequest tokenRequest = HttpRequest.newBuilder(URI.create("https://kauth.kakao.com/oauth/token"))
+            .timeout(REQUEST_TIMEOUT)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .POST(HttpRequest.BodyPublishers.ofString(tokenBody)).build();
         HttpResponse<String> tokenResponse = http.send(tokenRequest, HttpResponse.BodyHandlers.ofString());
@@ -57,6 +62,7 @@ public class KakaoOAuthService {
         String accessToken = mapper.readTree(tokenResponse.body()).get("access_token").asText();
 
         HttpRequest profileRequest = HttpRequest.newBuilder(URI.create("https://kapi.kakao.com/v2/user/me"))
+            .timeout(REQUEST_TIMEOUT)
             .header("Authorization", "Bearer " + accessToken).GET().build();
         HttpResponse<String> profileResponse = http.send(profileRequest, HttpResponse.BodyHandlers.ofString());
         if (profileResponse.statusCode() != 200)

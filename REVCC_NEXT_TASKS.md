@@ -284,7 +284,7 @@
   - Cloudflare Named Tunnel + `docker-compose.yml` + `docker-compose.prod.yml` 기준으로 배포한다.
   - 배포 후 확인은 두 가지만 한다. ① proxy 로그의 첫 칸이 실제 사용자 IP인지, cloudflared가 172.16.238.2를 쓰는지. ② 로그인·게시글·이미지 등 핵심 proxy 동작. 배포를 또 하나의 대형 테스트 프로젝트로 만들지 않는다.
 - **NOW-4 최소 운영 안정성**
-  - `KakaoOAuthService`의 `HttpClient`에 연결·요청 timeout을 넣는다. 작고 독립적인 작업이며 카카오 탈퇴와 분리한다.
+  - **[x] NOW-4-1 Kakao HttpClient timeout (2026-10-07)**: `KakaoOAuthService`의 `HttpClient`에 연결 timeout 3초, 토큰·프로필 요청마다 요청 timeout 5초를 넣었다(최악 약 16초 후 실패). timeout 예외는 `AuthController` 카카오 콜백의 기존 `catch (Exception)` 실패 경로로 그대로 처리된다. 검증: Maven 컨테이너에서 컴파일 + `KakaoOAuthServiceTest` 통과(카카오 URL이 하드코딩이라 실제 timeout 발생은 재현하지 않음 — JDK 표준 동작). NOW-2/NOW-3보다 먼저 했지만 독립 작업이라 순서 영향 없음.
   - 서비스 다운을 알 수 있는 최소 health monitoring·알림(예: 외부 uptime 체크 하나)을 둔다. 장애 대응에 실제로 필요한 최소 수준만 한다.
 - **LATER-1 카카오 회원 탈퇴** (NOW 작업과 배포 이후)
   - 지금은 카카오 계정의 탈퇴 요청을 400 `KAKAO_REAUTH_REQUIRED`로 안전하게 거부하는 상태를 유지한다.
