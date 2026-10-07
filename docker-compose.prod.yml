@@ -13,13 +13,13 @@
 # frontend와 proxy는 data에 없어 redis에 닿지 않고, redis는 edge/app에 없다.
 #
 # 외부 진입은 Cloudflare Named Tunnel 하나뿐이다:
-#   사용자 → rev.cc(Cloudflare DNS·HTTPS 종단) → Named Tunnel → cloudflared → proxy → frontend/core/board
+#   사용자 → morethancar.kr(Cloudflare DNS·HTTPS 종단) → Named Tunnel → cloudflared → proxy → frontend/core/board
 # cloudflared가 Cloudflare로 나가는 연결을 먼저 맺으므로 호스트에 열어 둘 포트가 없다. 그래서 proxy의
 # 호스트 포트 게시(docker-compose.yml의 REVCC_PORT)를 병합 결과에서 없앤다 — Docker가 게시한 포트는
 # 호스트 방화벽(ufw 등)을 우회해 인터넷에 열리므로, 남겨 두면 Cloudflare를 거치지 않는 경로가 생긴다.
 # nginx는 172.16.238.2에서 온 연결만 Cloudflare 경유로 보고 CF-Connecting-IP로 실제 사용자 IP를 복원한다
 # (nginx/default.conf의 set_real_ip_from과 같은 값이어야 한다. scripts/nginx-forwarded-check.sh가 대조).
-# Cloudflare Dashboard의 tunnel Public Hostname은 rev.cc → http://proxy:80 으로 설정한다.
+# Cloudflare Dashboard의 tunnel Public Hostname은 morethancar.kr → http://proxy:80 으로 설정한다.
 #
 # 운영 서비스는 프로세스가 죽거나 호스트가 재부팅되면 자동으로 다시 시작한다(restart: unless-stopped).
 # docker compose stop/down으로 멈춘 것은 다시 올리지 않는다. 과제용 docker-compose.yml에는 두지 않는다.
@@ -54,9 +54,25 @@ services:
     networks:
       tunnel:
         ipv4_address: 172.16.238.2
+  # 운영 화면은 Next.js(frontend/)다. 레거시 assignment-frontend는 과제용 docker-compose.yml에만 남는다.
+  # 서비스 이름과 포트(frontend:80)를 그대로 써서 nginx 설정은 바꾸지 않는다(node 사용자도 컨테이너
+  # 안에서는 Docker 기본 sysctl로 80을 열 수 있다). SSR fetch는 edge 네트워크의 proxy를 거쳐 API로 간다.
   frontend:
+    build: ./frontend
+    image: revcc-frontend:next
     restart: unless-stopped
     networks: [edge]
+    environment:
+      PORT: "80"
+      REVCC_API_ORIGIN: http://proxy
+    # 기본 healthcheck(GET /)는 메인 SSR이 proxy를 호출하는데, proxy는 frontend가 healthy해야 뜬다.
+    # API를 부르지 않는 /login으로 검사해 순환 대기를 피한다.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/login"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
   postgres: !reset null
   redis:
     restart: unless-stopped
@@ -80,8 +96,10 @@ services:
       # 회원 탈퇴 재가입 제한 HMAC 키(32자 이상). 바꾸면 기존 제한이 풀리므로 docs/member-withdrawal.md 절차를 따른다.
       WITHDRAWAL_HMAC_SECRET: ${WITHDRAWAL_HMAC_SECRET:?WITHDRAWAL_HMAC_SECRET(32자 이상 난수)을 설정해야 배포할 수 있습니다.}
       # docker-compose.yml의 로컬 기본값(localhost:8090 콜백)이 운영에 조용히 섞여 들어가지 않도록
-      # 명시적인 실제 콜백 URL(https://rev.cc/api/auth/kakao/callback 등)을 강제한다.
+      # 명시적인 실제 콜백 URL(https://morethancar.kr/api/auth/kakao/callback 등)을 강제한다.
       KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:?KAKAO_REDIRECT_URI 환경변수(운영 도메인의 https 콜백 URL)를 설정해야 배포할 수 있습니다.}
+      # 비밀번호 재설정 메일의 링크. 로컬 기본값(localhost:8090)이 운영 메일에 나가지 않도록 강제한다.
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:?PASSWORD_RESET_URL(https://morethancar.kr/password-reset)을 설정해야 배포할 수 있습니다.}
     # 로컬 postgres를 제거했으므로 그 의존성도 뺀다(Neon은 compose 밖의 서비스다).
     depends_on: !override
       redis:

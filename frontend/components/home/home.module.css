@@ -1,0 +1,809 @@
+/* Design tokens mirror assignment-frontend/css/style.css so this page reads
+   as the same product while the Next.js migration is still partial. */
+.shell {
+  --accent: #3478c7;
+  --line: #edeef0;
+  --ink: #262a2f;
+  --muted: #85888d;
+  --bg: #ffffff;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  /* Column flex (mirrors community.module.css's .shell) so SiteFooter sits
+     at the bottom of the viewport on short pages instead of right under
+     the fold. */
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  line-height: 1.6;
+}
+
+/* Zero-specificity reset (:where()) so any component class (.heroCta,
+   .textLink, .garageSpotlightLink, ...) can set its own anchor color
+   without fighting this rule's specificity. */
+:where(.shell) :where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+
+.shell button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Header --- */
+.header {
+  /* display:block overrides a stray unscoped `header{display:flex;
+     justify-content:space-between}` in app/globals.css (leftover from the
+     old dark-theme prototype) — without it, .headerInner (this element's
+     only child) becomes an auto-margin flex item and gets centered as one
+     block instead of letting its own flex children spread edge to edge. */
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 72px;
+  background: #fffffff5;
+  backdrop-filter: blur(15px);
+  border-bottom: 1px solid var(--line);
+  transition: height 0.2s ease, box-shadow 0.2s ease;
+}
+
+.headerInner {
+  /* Wider desktop container (reference uses a wide, dense header, not a
+     narrow centered one) — kept in lockstep with .mainGrid/.heroCopy/.notice
+     below so edges still align. */
+  max-width: 1600px;
+  height: 100%;
+  margin: auto;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.logo {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.logo img {
+  display: block;
+}
+
+.searchWrap {
+  /* Sole flex:1 child between the (fixed-width) logo and right-hand group —
+     it absorbs all leftover header width, and justify-content:center keeps
+     .search (capped at max-width below) centered within that space. */
+  flex: 1 1 0%;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.search {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+}
+
+.search input {
+  width: 100%;
+  border: 1px solid #e5e7e9;
+  border-radius: 10px;
+  padding: 12px 16px 12px 40px;
+  font-size: 14px;
+  background: #f7f8f9;
+  color: var(--ink);
+}
+
+.search input::placeholder {
+  color: #a0a5aa;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: #9aa0a6;
+  pointer-events: none;
+}
+
+.rightGroup {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 28px;
+}
+
+.nav {
+  display: flex;
+  flex: none;
+  white-space: nowrap;
+  gap: 26px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.nav a:hover {
+  color: var(--accent);
+}
+
+.nav a[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 750;
+  position: relative;
+}
+
+.nav a[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+.headerActions {
+  display: flex;
+  flex: none;
+  white-space: nowrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.bell {
+  position: relative;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.bellCount {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 5px;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #edf4ff;
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.username {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secondary {
+  border: 1px solid #e3e5e7;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 650;
+  background: #fff;
+}
+
+.secondary:hover {
+  background: #f5f6f6;
+}
+
+.secondary:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.notice {
+  /* width:100% is required now that .shell is a flex column: a flex item's
+     horizontal auto margins otherwise shrink it to content size instead of
+     filling the row before centering (see .mainGrid/.lowerGrid below). */
+  width: 100%;
+  max-width: 1600px;
+  margin: 12px auto 0;
+  padding: 0 40px;
+  font-size: 13px;
+  color: #a43e3e;
+}
+
+/* --- Hero --- */
+.hero {
+  position: relative;
+  /* Shorter than before so it reads as a banner, not a full screen — it
+     must not push "오늘의 인기글" below the fold. */
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.heroVisual {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.heroVisual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Crop toward the right side of the source photo, where the car is, so
+     the car reads as the dominant subject instead of the landscape. */
+  object-position: 72% 55%;
+  display: block;
+  animation: heroVisualIn 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  /* Fades out earlier (58% vs the previous 72%) so more of the car on the
+     right stays unobstructed by the dark readability gradient. */
+  background: linear-gradient(100deg, #10131a 0%, #10131ad9 24%, #10131a66 40%, transparent 56%);
+}
+
+.heroCopy {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+  /* Left edge matches .headerInner/.mainGrid's shared content edge
+     (max-width:1600px + 40px padding) instead of an independent vw-based
+     offset, so the hero text lines up with the header/feed below it at
+     every width, including above the 1600px container cap. */
+  padding-left: max(40px, calc((100vw - 1600px) / 2 + 40px));
+  padding-right: min(6vw, 64px);
+  color: #fff;
+}
+
+.heroTitle {
+  margin: 0 0 18px;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 800;
+  letter-spacing: -1.2px;
+  line-height: 1.2;
+}
+
+.heroTitle span {
+  display: block;
+  opacity: 0;
+  animation: heroLineIn 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.heroCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 13px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0;
+  animation: ctaIn 0.5s ease both;
+  animation-delay: 460ms;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.heroCta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px #00000030;
+}
+
+.heroCta .arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.heroCta:hover .arrow {
+  transform: translateX(4px);
+}
+
+@keyframes heroLineIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroVisualIn {
+  from {
+    transform: scale(1.03);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes ctaIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Main grid: left feed (~75%), right "실시간 인기" sidebar (~25%) --- */
+.mainGrid {
+  /* Same box model as .headerInner (max-width + padding, not width+calc) so
+     the two stay edge-aligned above the 1600px cap too. width:100% is
+     required now that .shell is a flex column: a flex item's horizontal
+     auto margins otherwise shrink it to its grid's content size instead of
+     filling the row before centering. */
+  width: 100%;
+  max-width: 1600px;
+  margin: 40px auto 56px;
+  padding: 0 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 32px;
+  align-items: start;
+}
+
+.feedSection {
+  min-width: 0;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sectionHeading h2 {
+  font-size: 21px;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.textLink {
+  font-size: 12px;
+  color: #747a81;
+  white-space: nowrap;
+}
+
+.textLink:hover {
+  color: var(--accent);
+}
+
+.feedFilters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.filterGroup {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filterGroup button {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: #7b8085;
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 12px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.filterGroup button:hover {
+  border-color: #c7d4e6;
+}
+
+.filterActive {
+  background: #292e32 !important;
+  color: #fff !important;
+  border-color: #292e32 !important;
+}
+
+.postGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  min-height: 80px;
+}
+
+.postCard {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.postCard:hover {
+  border-color: #c7d4e6;
+  transform: translateY(-3px);
+}
+
+.postMedia {
+  /* Wider, more landscape image ratio — closer to the reference's
+     image-forward cards than a squarer 4:3 frame. */
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(135deg, #eef1f5, #f8f9fb);
+  overflow: hidden;
+}
+
+.postMedia img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.postCard:hover .postMedia img {
+  transform: scale(1.03);
+}
+
+.postNoPhoto {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.postBody {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.postCategory {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.postTitle {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.postStats {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: #868b90;
+  margin-top: 2px;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: #8a8e92;
+  padding: 20px 0;
+}
+
+/* --- Sidebar: "실시간 인기" (reference's right-column ranking) --- */
+.sidebar {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  background: #fff;
+}
+
+.popularList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.popularRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.popularRow:last-child {
+  border-bottom: 0;
+}
+
+.popularRank {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #c6cad0;
+}
+
+.popularRank[data-top='true'] {
+  color: var(--accent);
+}
+
+.popularTitle {
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popularTitle:hover {
+  color: var(--accent);
+}
+
+/* --- Lower section: "오늘의 차고" / "장터 새 매물" (moved below the fold,
+   out of the first-screen sidebar, per the reference's priority: ranking
+   first, garage/market as a secondary discovery row). --- */
+.lowerGrid {
+  /* width:100% is required now that .shell is a flex column: a flex item's
+     horizontal auto margins otherwise shrink it to its grid's content size
+     instead of filling the row before centering. */
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto 72px;
+  padding: 0 40px;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 32px;
+}
+
+.sidebarSection {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  background: #fff;
+}
+
+.garageSpotlightMedia {
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef1f5, #f8f9fb);
+  margin-bottom: 12px;
+}
+
+.garageSpotlightMedia img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.garageSpotlight:hover .garageSpotlightMedia img {
+  transform: scale(1.03);
+}
+
+.garageSpotlightModel {
+  display: block;
+  font-size: 16px;
+}
+
+.garageSpotlightDetail {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+
+.garageSpotlightOwner {
+  font-size: 11px;
+  color: #9b9fa3;
+  margin: 6px 0 0;
+}
+
+.garageSpotlightLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--accent);
+}
+
+.garageSpotlightLink span {
+  transition: transform 0.2s ease;
+}
+
+.garageSpotlightLink:hover span {
+  transform: translateX(3px);
+}
+
+.marketList {
+  display: grid;
+  gap: 12px;
+}
+
+.marketRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.marketRow:hover {
+  background: #f7f9fc;
+}
+
+.marketThumb {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef1f5, #f8f9fb);
+}
+
+.marketThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.marketRow:hover .marketThumb img {
+  transform: scale(1.03);
+}
+
+.marketBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.marketBody strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketPrice {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.marketTime {
+  font-size: 11px;
+  color: #9b9fa3;
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  .mainGrid {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    padding: 0 20px;
+    gap: 24px;
+  }
+  .lowerGrid {
+    padding: 0 20px;
+  }
+  .headerInner {
+    gap: 18px;
+    padding: 0 20px;
+  }
+  .search {
+    max-width: 360px;
+  }
+  .nav {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: 60px;
+  }
+  .headerInner {
+    gap: 12px;
+  }
+  .searchWrap {
+    display: none;
+  }
+  .nav {
+    gap: 12px;
+    font-size: 12px;
+  }
+  .heroCopy {
+    padding-left: 24px;
+    padding-right: 24px;
+    max-width: 100%;
+  }
+  .mainGrid {
+    grid-template-columns: 1fr;
+    padding: 0 20px;
+    margin: 32px auto 48px;
+    gap: 36px;
+  }
+  .postGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .lowerGrid {
+    grid-template-columns: 1fr;
+    padding: 0 20px;
+    margin: 0 auto 48px;
+    gap: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav a:not([aria-current='page']) {
+    display: none;
+  }
+  .postGrid {
+    grid-template-columns: 1fr;
+  }
+  .username {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroTitle span,
+  .heroVisual img,
+  .heroCta {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .postCard,
+  .marketRow,
+  .postMedia img,
+  .garageSpotlightMedia img,
+  .marketThumb img {
+    transition: none;
+  }
+}
